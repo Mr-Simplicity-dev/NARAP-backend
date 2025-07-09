@@ -8,7 +8,7 @@
     "dev": "NODE_ENV=development nodemon dev.js",
     "vercel-build": "npm install --production",
     "test": "jest --watchAll",
-    "server": "node api/server.js"
+    "server": "node server.js"
   },
   "dependencies": {
     "archiver": "^6.0.0",
