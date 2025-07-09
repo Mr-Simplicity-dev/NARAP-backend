@@ -1196,22 +1196,40 @@ app.use((error, req, res, next) => {
 });
 
 // Local development server
-if (!process.env.VERCEL && !process.env.RENDER) {
-  mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI, { /* your mongoose options */ })
-    .then(() => {
-      const PORT = process.env.PORT || 3000;
-      app.listen(PORT, () => {
-        console.log(`Server running on http://localhost:${PORT}`);
-      });
-    })
-    .catch(err => {
-      console.error('MongoDB connection failed:', err.message);
-      process.exit(1);
+// ... existing code above ...
+
+// ==================== START SERVER LOGIC ====================
+
+// Unified server startup for Render/local environments
+const startServer = async () => {
+  try {
+    const conn = await connectDB();
+    if (!conn) throw new Error('❌ Database connection failed');
+    
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
     });
+  } catch (err) {
+    console.error('🔥 Failed to start server:', err.message);
+    process.exit(1);
+  }
+};
+
+// Start server for Render/local environments
+if (process.env.RENDER || !process.env.VERCEL) {
+  startServer();
 }
 
-// For Render or Vercel serverless deployment:
-module.exports = app;
+// Serverless export for Vercel
+if (process.env.VERCEL) {
+  const handler = serverless(app);
+  module.exports = handler;
+} else {
+  module.exports = app;
+}
+
+
 
 
 
