@@ -4,6 +4,7 @@ const serverless = require('serverless-http');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
@@ -39,13 +40,15 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // --- STATIC FILES SECTION FOR RENDER ---
-app.use(express.static(path.join(__dirname, 'public')));
+const publicPath = path.join(__dirname, process.env.NODE_ENV === 'production' ? '../public' : 'public');
+app.use(express.static(publicPath));
 
+// Admin route
 app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+  res.sendFile(path.join(publicPath, 'admin.html'));
 });
 
-// ✅ FIXED Database Connection - Aggressive timeouts for serverless
+
 // ✅ FIXED Database Connection - Updated for Mongoose 6+
 const connectDB = async () => {
   try {
@@ -190,16 +193,9 @@ app.use((req, res, next) => {
 
 // HTML Routes
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
+  res.sendFile(path.join(publicPath, 'index.html'));
 });
 
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'css', 'admin.css'));
-});
-
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'js', 'admin.js'));
-});
 
 // ==================== AUTHENTICATION ENDPOINTS - FIXED ====================
 
