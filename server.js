@@ -40,10 +40,15 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // --- STATIC FILES SECTION FOR RENDER ---
-const publicPath = path.join(__dirname, process.env.NODE_ENV === 'production' ? '../public' : 'public');
+const publicPath = path.join(__dirname, 'public');
 app.use(express.static(publicPath));
 
-// Admin route
+// Serve admin.html for root route
+app.get('/', (req, res) => {
+  res.sendFile(path.join(publicPath, 'admin.html'));
+});
+
+// Serve admin.html for /admin route
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(publicPath, 'admin.html'));
 });
@@ -1176,9 +1181,8 @@ app.get('/api/debug', async (req, res) => {
 
 // Catch-all route for SPA
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
-});
-
+  res.sendFile(path.join(publicPath, 'admin.html'));
+});s
 // Error Handling
 app.use('/api/*', (req, res) => {
   res.status(404).json({ message: `API endpoint ${req.method} ${req.originalUrl} not found` });
@@ -1201,7 +1205,6 @@ app.use((error, req, res, next) => {
 
 
 // ==================== START SERVER LOGIC ====================
-
 // Unified server startup for Render/local environments
 const startServer = async () => {
   try {
