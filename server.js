@@ -1182,7 +1182,7 @@ app.get('/api/debug', async (req, res) => {
 // Catch-all route for SPA
 app.get('*', (req, res) => {
   res.sendFile(path.join(publicPath, 'admin.html'));
-});s
+});
 // Error Handling
 app.use('/api/*', (req, res) => {
   res.status(404).json({ message: `API endpoint ${req.method} ${req.originalUrl} not found` });
