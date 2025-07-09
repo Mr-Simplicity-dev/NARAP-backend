@@ -46,6 +46,7 @@ app.get('/admin', (req, res) => {
 });
 
 // ✅ FIXED Database Connection - Aggressive timeouts for serverless
+// ✅ FIXED Database Connection - Updated for Mongoose 6+
 const connectDB = async () => {
   try {
     // Check if already connected
@@ -67,22 +68,25 @@ const connectDB = async () => {
     
     console.log('🔄 Connecting to MongoDB...');
     
-    // ✅ Aggressive timeouts for serverless
+    // Updated connection options (remove unsupported bufferMaxEntries)
     await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 3000,  // Reduced from 5000
-      connectTimeoutMS: 3000,          // Added
-      socketTimeoutMS: 3000,           // Reduced from 45000
-      maxPoolSize: 1,                  // Minimal pool for serverless
-      bufferCommands: false,           // Disable buffering
-      bufferMaxEntries: 0              // Disable buffering
+      serverSelectionTimeoutMS: 3000,
+      connectTimeoutMS: 3000,
+      socketTimeoutMS: 3000,
+      maxPoolSize: 1,
+      bufferCommands: false  // Keep this, but remove bufferMaxEntries
     });
+    
+    // Optional: Add event listeners for debugging
+    mongoose.connection.on('connecting', () => console.log('Connecting to MongoDB...'));
+    mongoose.connection.on('connected', () => console.log('MongoDB connected!'));
+    mongoose.connection.on('error', (err) => console.error('MongoDB error:', err));
     
     console.log('✅ MongoDB connected successfully');
     return mongoose.connection;
     
   } catch (err) {
     console.error('❌ MongoDB connection failed:', err.message);
-    // Don't throw, return null to handle gracefully
     return null;
   }
 };
