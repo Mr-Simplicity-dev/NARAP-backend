@@ -1,4 +1,4 @@
-const express = require('express');J
+const express = require('express');
 const mongoose = require('mongoose');
 const serverless = require('serverless-http');
 const path = require('path');
