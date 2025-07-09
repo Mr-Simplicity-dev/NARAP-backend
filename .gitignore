@@ -1,0 +1,16 @@
+# Essential for Node.js projects
+node_modules/
+.env
+*.log
+.DS_Store
+
+# Build outputs
+build/
+dist/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+Thumbs.db
