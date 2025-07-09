@@ -1,6 +1,6 @@
 // Make sure this matches your server port
 const backendUrl = window.location.origin.includes('localhost')
-    ? 'http://localhost:3000'
+    ? 'http://localhost:10000'
     : window.location.origin;
 
 
@@ -386,8 +386,6 @@ async function login(event) {
 }
 
 
-
-
 // Logout function
 function logout() {
     if (confirm('Are you sure you want to logout?')) {
@@ -448,55 +446,93 @@ function switchTab(tabName) {
 
 // Load dashboard data
 async function loadDashboard() {
+    const DASHBOARD_TIMEOUT = 10000; // 10 seconds timeout
+    let timeoutController;
+    
     try {
         console.log('Loading dashboard...');
         showMessage('Loading dashboard...', 'info');
         
+        // Create timeout controller for fetch requests
+        timeoutController = new AbortController();
+        const timeoutId = setTimeout(() => timeoutController.abort(), DASHBOARD_TIMEOUT);
+        
         // Load data with timeout protection
         const [members, certificates] = await Promise.all([
-            getMembers(),
-            getCertificates()
+            getMembers(timeoutController.signal).catch(e => {
+                console.error('Members fetch error:', e);
+                throw new Error('getMembers: ' + e.message);
+            }),
+            getCertificates(timeoutController.signal).catch(e => {
+                console.error('Certificates fetch error:', e);
+                throw new Error('getCertificates: ' + e.message);
+            })
         ]);
-        
-        // Update statistics
-        const totalMembersEl = document.getElementById('totalMembers');
-        const totalCertificatesEl = document.getElementById('totalCertificates');
-        const newThisMonthEl = document.getElementById('newThisMonth');
-        const systemUptimeEl = document.getElementById('systemUptime');
-        
-        if (totalMembersEl) totalMembersEl.textContent = members.length;
-        if (totalCertificatesEl) totalCertificatesEl.textContent = certificates.length;
-        
-        // Calculate new members this month
-        const thisMonth = new Date().getMonth();
-        const thisYear = new Date().getFullYear();
-        const newThisMonth = members.filter(member => {
-            if (!member.createdAt && !member.dateAdded) return false;
-            const memberDate = new Date(member.createdAt || member.dateAdded);
-            return memberDate.getMonth() === thisMonth && memberDate.getFullYear() === thisYear;
-        }).length;
-        
-        if (newThisMonthEl) newThisMonthEl.textContent = newThisMonth;
-        
-        // Calculate system uptime (placeholder)
-        if (systemUptimeEl) {
-            systemUptimeEl.textContent = Math.floor(Date.now() / (1000 * 60 * 60 * 24)) + 'd';
+
+        clearTimeout(timeoutId); // Clear timeout if successful
+
+        // Validate data structure
+        if (!Array.isArray(members) || !Array.isArray(certificates)) {
+            throw new Error('Invalid data format received');
         }
-        
+
+        // Update statistics
+        const updateStats = () => {
+            try {
+                const totalMembersEl = document.getElementById('totalMembers');
+                const totalCertificatesEl = document.getElementById('totalCertificates');
+                const newThisMonthEl = document.getElementById('newThisMonth');
+                const systemUptimeEl = document.getElementById('systemUptime');
+                
+                if (totalMembersEl) totalMembersEl.textContent = members.length.toLocaleString();
+                if (totalCertificatesEl) totalCertificatesEl.textContent = certificates.length.toLocaleString();
+                
+                // Calculate new members this month
+                const thisMonth = new Date().getMonth();
+                const thisYear = new Date().getFullYear();
+                const newThisMonth = members.filter(member => {
+                    const memberDate = member.createdAt || member.dateAdded;
+                    if (!memberDate) return false;
+                    const date = new Date(memberDate);
+                    return date.getMonth() === thisMonth && date.getFullYear() === thisYear;
+                }).length;
+                
+                if (newThisMonthEl) newThisMonthEl.textContent = newThisMonth.toLocaleString();
+                
+                // Calculate system uptime (placeholder)
+                if (systemUptimeEl) {
+                    const uptimeDays = Math.floor(performance.now() / (1000 * 60 * 60 * 24));
+                    systemUptimeEl.textContent = `${uptimeDays}d`;
+                }
+            } catch (statsError) {
+                console.error('Stats update failed:', statsError);
+            }
+        };
+
+        updateStats();
+
         // Load recent activity
         try {
-            loadRecentActivity(members, certificates);
+            if (typeof loadRecentActivity === 'function') {
+                loadRecentActivity(members, certificates);
+            }
         } catch (activityError) {
-            console.error('Failed to load recent activity:', activityError);
-            // Don't fail the entire dashboard for this
+            console.error('Recent activity load failed:', activityError);
         }
-        
-        // Display members and certificates in their respective tables
-        displayMembers(members);
-        if (typeof displayCertificates === 'function') {
-            displayCertificates(certificates);
+
+        // Display data
+        try {
+            if (typeof displayMembers === 'function') {
+                displayMembers(members);
+            }
+            if (typeof displayCertificates === 'function') {
+                displayCertificates(certificates);
+            }
+        } catch (displayError) {
+            console.error('Data display failed:', displayError);
+            throw new Error('Could not render dashboard components');
         }
-        
+
         console.log('✅ Dashboard loaded successfully');
         showMessage('Dashboard loaded successfully!', 'success');
         
@@ -504,6 +540,7 @@ async function loadDashboard() {
         console.error('❌ Dashboard load error:', error);
         
         let errorMessage = 'Failed to load dashboard data';
+        let isPartialLoad = false;
         
         if (error.name === 'AbortError') {
             errorMessage = 'Dashboard load timed out. Please try again.';
@@ -511,31 +548,122 @@ async function loadDashboard() {
             errorMessage = 'Failed to load members data';
         } else if (error.message.includes('getCertificates')) {
             errorMessage = 'Failed to load certificates data';
-        } else if (error.message) {
-            errorMessage += ': ' + error.message;
+        } else if (error.message.includes('Invalid data format')) {
+            errorMessage = 'Server returned invalid data format';
+        } else {
+            errorMessage += ': ' + (error.message || 'Unknown error');
         }
-        
-        showMessage(errorMessage, 'error');
-        
-        // Try to load partial data if possible
+
+        // Attempt partial load
         try {
-            console.log('Attempting to load partial dashboard data...');
-            
-            // Try to load members only
-            const members = await getMembers();
-            if (members.length > 0) {
+            console.log('Attempting partial load...');
+            const fallbackMembers = await getMembers();
+            if (Array.isArray(fallbackMembers)) {
+                if (typeof displayMembers === 'function') {
+                    displayMembers(fallbackMembers);
+                }
                 const totalMembersEl = document.getElementById('totalMembers');
-                if (totalMembersEl) totalMembersEl.textContent = members.length;
-                displayMembers(members);
-                showMessage('Partial dashboard loaded (members only)', 'warning');
+                if (totalMembersEl) totalMembersEl.textContent = fallbackMembers.length.toLocaleString();
+                isPartialLoad = true;
             }
-        } catch (partialError) {
-            console.error('Failed to load partial dashboard:', partialError);
-            showMessage('Complete dashboard load failed', 'error');
+        } catch (fallbackError) {
+            console.error('Fallback load failed:', fallbackError);
         }
+
+        showMessage(
+            isPartialLoad 
+                ? `${errorMessage} (showing partial data)` 
+                : errorMessage,
+            isPartialLoad ? 'warning' : 'error'
+        );
+        
+        // Track the error
+        if (typeof trackError === 'function') {
+            trackError('dashboard_load_failure', {
+                error: error.message,
+                partialLoad: isPartialLoad
+            });
+        }
+    } finally {
+        // Clean up any pending timeouts
+        if (timeoutController) {
+            clearTimeout(timeoutController.timeoutId);
+        }
+        
+        // Update loading state
+        document.querySelectorAll('.loading-indicator').forEach(el => {
+            el.style.display = 'none';
+        });
     }
 }
 
+// Helper functions needed for the dashboard to work:
+
+async function getMembers(signal) {
+    try {
+        const response = await fetch(`${backendUrl}/api/getUsers`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            credentials: 'include',
+            signal
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (!Array.isArray(data)) {
+            throw new Error('Invalid members data format');
+        }
+
+        return data.map(member => ({
+            ...member,
+            createdAt: member.createdAt || member.dateAdded
+        }));
+        
+    } catch (error) {
+        console.error('getMembers failed:', error);
+        throw error;
+    }
+}
+
+async function getCertificates(signal) {
+    try {
+        const response = await fetch(`${backendUrl}/api/certificates`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            credentials: 'include',
+            signal
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (!Array.isArray(data)) {
+            throw new Error('Invalid certificates data format');
+        }
+
+        return data.map(cert => ({
+            ...cert,
+            createdAt: cert.createdAt || cert.issueDate
+        }));
+        
+    } catch (error) {
+        console.error('getCertificates failed:', error);
+        throw error;
+    }
+}
 
 // Recent activity function
 function loadRecentActivity(members = [], certificates = []) {
@@ -1001,65 +1129,59 @@ async function loadMembers() {
     }
 }
 
-// Get certificates function
 async function getCertificates() {
+    const CERTIFICATES_ENDPOINT = `${backendUrl}/api/certificates`;
+    const FALLBACK_LOCAL = false; // Set to true if you need local fallback
+    
     try {
-        console.log('Fetching certificates from:', `${backendUrl}/api/certificates`);
+        console.log('Fetching certificates from:', CERTIFICATES_ENDPOINT);
         
-        let backendCertificates = [];
-        let localCertificates = getLocalCertificates();
+        // 1. Attempt backend fetch
+        const response = await fetch(CERTIFICATES_ENDPOINT, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            credentials: 'include'
+        });
+
+        // 2. Handle response
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        let certificates = await response.json();
         
-        // Try to fetch from backend
-        try {
-            const res = await fetch(`${backendUrl}/api/certificates`, {
-                method: 'GET',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (res.ok) {
-                backendCertificates = await res.json();
-                backendCertificates = backendCertificates.map(cert => ({ ...cert, isFromBackend: true }));
-            }
-        } catch (error) {
-            console.warn('Backend request failed, using local data only', error);
+        // 3. Process certificates
+        certificates = certificates.map(cert => ({
+            ...cert,
+            isFromBackend: true,
+            // Normalize dates for sorting
+            sortDate: new Date(cert.createdAt || cert.issueDate || Date.now())
+        }));
+
+        // 4. Sort by date (newest first)
+        certificates.sort((a, b) => b.sortDate - a.sortDate);
+        
+        currentCertificates = certificates;
+        return certificates;
+
+    } catch (error) {
+        console.error('Certificate fetch failed:', error);
+        
+        if (FALLBACK_LOCAL) {
+            console.warn('Falling back to local certificates');
+            const localCertificates = getLocalCertificates().map(cert => ({
+                ...cert,
+                isFromBackend: false,
+                sortDate: new Date(cert.createdAt || cert.issueDate || Date.now())
+            }));
+            currentCertificates = localCertificates;
+            return localCertificates;
         }
         
-        // Merge backend and local certificates
-        const mergedCertificates = [...backendCertificates];
-        
-        // Add local certificates that don't exist in backend
-        localCertificates.forEach(localCert => {
-            const existsInBackend = backendCertificates.find(backendCert => 
-                backendCert._id === localCert._id || 
-                backendCert.number === localCert.number
-            );
-            
-            if (!existsInBackend) {
-                mergedCertificates.push({ ...localCert, isFromBackend: false });
-            }
-        });
-        
-        // Sort by creation date (newest first)
-        mergedCertificates.sort((a, b) => {
-            const dateA = new Date(a.createdAt || a.issueDate || 0);
-            const dateB = new Date(b.createdAt || b.issueDate || 0);
-            return dateB - dateA;
-        });
-        
-        currentCertificates = mergedCertificates;
-        return currentCertificates;
-        
-    } catch (error) {
-        console.error('Get certificates error:', error);
-        showMessage('Failed to load certificates: ' + error.message, 'error');
-        
-        // Fallback to local data only
-        const localCertificates = getLocalCertificates();
-        currentCertificates = localCertificates.map(cert => ({ ...cert, isFromBackend: false }));
-        return currentCertificates;
+        throw error; // Re-throw for loadDashboard() to handle
     }
 }
 
