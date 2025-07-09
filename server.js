@@ -39,19 +39,163 @@ app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ======== FIXED STATIC FILES CONFIGURATION ========
-const publicPath = path.join(__dirname, 'public');
+// --- STATIC FILES SECTION FOR RENDER ---
+const publicPath = path.join(__dirname, process.env.NODE_ENV === 'production' ? '../public' : 'public');
 app.use(express.static(publicPath));
 
-// Serve admin.html for root route
+// Admin route
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(publicPath, 'admin.html'));
+});
+
+
+// ✅ FIXED Database Connection - Updated for Mongoose 6+
+const connectDB = async () => {
+  try {
+    // Check if already connected
+    if (mongoose.connection.readyState === 1) {
+      console.log('✅ MongoDB already connected');
+      return mongoose.connection;
+    }
+    
+    // Don't wait for pending connections, create new one
+    if (mongoose.connection.readyState === 2) {
+      console.log('⚠️ Closing pending connection...');
+      await mongoose.connection.close();
+    }
+    
+    const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
+    if (!uri) {
+      throw new Error('MONGO_URI environment variable is not defined');
+    }
+    
+    console.log('🔄 Connecting to MongoDB...');
+    
+    // Updated connection options (remove unsupported bufferMaxEntries)
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 3000,
+      connectTimeoutMS: 3000,
+      socketTimeoutMS: 3000,
+      maxPoolSize: 1,
+      bufferCommands: false  // Keep this, but remove bufferMaxEntries
+    });
+    
+    // Optional: Add event listeners for debugging
+    mongoose.connection.on('connecting', () => console.log('Connecting to MongoDB...'));
+    mongoose.connection.on('connected', () => console.log('MongoDB connected!'));
+    mongoose.connection.on('error', (err) => console.error('MongoDB error:', err));
+    
+    console.log('✅ MongoDB connected successfully');
+    return mongoose.connection;
+    
+  } catch (err) {
+    console.error('❌ MongoDB connection failed:', err.message);
+    return null;
+  }
+};
+
+// Database Models (keep your existing schemas)
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  code: { type: String, required: true, unique: true },
+  position: {
+    type: String,
+    required: true,
+    enum: [
+      'PRESIDENT', 'DEPUTY PRESIDENT', 'WELFARE', 'PUBLIC RELATION OFFICER',
+      'STATE WELFARE COORDINATOR', 'MEMBER', 'TASK FORCE', 'PROVOST MARSHAL 1',
+      'PROVOST MARSHAL 2', 'VICE PRESIDENT (South West)', 'VICE PRESIDENT (South East)',
+      'VICE PRESIDENT (South South)', 'VICE PRESIDENT (North West)', 'VICE PRESIDENT (North Central)',
+      'VICE PRESIDENT (North East)', 'PUBLIC RELATION OFFICE', 'FINANCIAL SECRETARY',
+      'SECRETARY', 'ASSISTANT SECRETARY', 'TREASURER', 'COORDINATOR', 'ASSISTANT FINANCIAL SECRETARY'
+    ],
+    default: 'MEMBER'
+  },
+  state: { type: String, required: true },
+  zone: { type: String, required: true },
+  passportPhoto: { type: String },
+  signature: { type: String },
+  isActive: { type: Boolean, default: true },
+  lastLogin: { type: Date },
+  cardGenerated: { type: Boolean, default: false },
+  dateAdded: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+userSchema.index({ state: 1 });
+userSchema.index({ position: 1 });
+
+const certificateSchema = new mongoose.Schema({
+  number: { type: String, required: [true, 'Certificate number is required'], unique: true, uppercase: true, trim: true },
+  recipient: { type: String, required: [true, 'Recipient name is required'], trim: true },
+  email: { type: String, required: [true, 'Email is required'], lowercase: true, trim: true,
+    validate: { validator: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), message: 'Please enter a valid email address' }
+  },
+  title: { type: String, required: [true, 'Certificate title is required'], trim: true },
+  type: { type: String, required: true, enum: { values: ['membership', 'training', 'achievement', 'recognition', 'service'], message: 'Invalid certificate type' }, default: 'membership' },
+  description: { type: String, trim: true },
+  issueDate: { type: Date, required: [true, 'Issue date is required'], default: Date.now },
+  validUntil: { type: Date, validate: { validator: function(v) { return !v || v > this.issueDate; }, message: 'Valid until date must be after issue date'}},
+  status: { type: String, enum: { values: ['active', 'revoked', 'expired'], message: 'Invalid certificate status' }, default: 'active' },
+  revokedAt: { type: Date },
+  revokedBy: { type: String },
+  revokedReason: { type: String },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  issuedBy: { type: String, default: 'NARAP Admin System' },
+  serialNumber: { type: String, unique: true }
+}, { timestamps: true });
+
+certificateSchema.pre('save', function(next) {
+  if (!this.serialNumber) {
+    this.serialNumber = `NARAP-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  }
+  next();
+});
+
+certificateSchema.index({ email: 1 });
+certificateSchema.index({ status: 1 });
+certificateSchema.index({ recipient: 1 });
+
+const User = mongoose.model('User', userSchema);
+const Certificate = mongoose.model('Certificate', certificateSchema);
+
+// ✅ Add this helper function instead:
+const withDB = (handler) => {
+  return async (req, res) => {
+    try {
+      const connection = await connectDB();
+      if (!connection) {
+        return res.status(503).json({
+          success: false,
+          message: 'Database connection failed'
+        });
+      }
+      return await handler(req, res);
+    } catch (error) {
+      console.error('Database error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Database error',
+        error: error.message
+      });
+    }
+  };
+};
+
+// Request logging
+app.use((req, res, next) => {
+  console.log(`📨 ${req.method} ${req.path} - ${new Date().toISOString()}`);
+  next();
+});
+
+// ==================== ROUTES ====================
+
+// HTML Routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(publicPath, 'admin.html'));
 });
 
-// Serve admin.html for /admin route
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(publicPath, 'admin.html'));
-});
 
 // ==================== AUTHENTICATION ENDPOINTS - FIXED ====================
 
@@ -1030,11 +1174,10 @@ app.get('/api/debug', async (req, res) => {
   }
 });
 
-// Catch-all route for SPA - UPDATED TO USE CONSISTENT PATH
+// Catch-all route for SPA
 app.get('*', (req, res) => {
-  res.sendFile(path.join(publicPath, 'admin.html'));
+  res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
 });
-
 
 // Error Handling
 app.use('/api/*', (req, res) => {
@@ -1087,3 +1230,8 @@ if (process.env.VERCEL) {
 } else {
   module.exports = app;
 }
+
+
+
+
+
