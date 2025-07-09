@@ -197,9 +197,9 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'css', 'admin.css'));
 });
 
-//app.get('/admin', (req, res) => {
-  //res.sendFile(path.join(__dirname, '..', 'public', 'js', 'admin.js'));
-//});
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'js', 'admin.js'));
+});
 
 // ==================== AUTHENTICATION ENDPOINTS - FIXED ====================
 
