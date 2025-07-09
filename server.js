@@ -1176,7 +1176,7 @@ app.get('/api/debug', async (req, res) => {
 
 // Catch-all route for SPA
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
 });
 
 // Error Handling
