@@ -32,12 +32,22 @@ const corsOptions = {
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
 };
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.options('*', cors());
 
 // Body parsers
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
 
 // --- STATIC FILES SECTION FOR RENDER ---
 const publicPath = path.join(__dirname, 'public');
@@ -166,24 +176,38 @@ const User = mongoose.model('User', userSchema);
 const Certificate = mongoose.model('Certificate', certificateSchema);
 
 // ✅ Add this helper function instead:
+// Replace the entire withDB function with:
 const withDB = (handler) => {
   return async (req, res) => {
     try {
       const connection = await connectDB();
       if (!connection) {
+        console.error('Database connection failed');
         return res.status(503).json({
           success: false,
           message: 'Database connection failed'
         });
       }
-      return await handler(req, res);
+      
+      // Add timeout handling
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      );
+      
+      return await Promise.race([
+        handler(req, res),
+        timeoutPromise
+      ]);
+      
     } catch (error) {
       console.error('Database error:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'Database error',
-        error: error.message
-      });
+      if (!res.headersSent) {
+        return res.status(500).json({
+          success: false,
+          message: 'Database error',
+          error: error.message
+        });
+      }
     }
   };
 };
@@ -265,6 +289,36 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Add after your /api/health route
+app.get('/api/db-health', async (req, res) => {
+  try {
+    const conn = await connectDB();
+    if (!conn) {
+      return res.status(503).json({ 
+        status: 'down', 
+        message: 'Database connection failed' 
+      });
+    }
+    
+    // Test a simple query
+    const userCount = await User.countDocuments();
+    
+    res.json({
+      status: 'healthy',
+      userCount,
+      readyState: mongoose.connection.readyState,
+      dbName: mongoose.connection.name
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message
+    });
+  }
+});
+
+
+
 // Authentication Middleware
 const authenticate = async (req, res, next) => {
   try {
@@ -290,9 +344,14 @@ const authenticate = async (req, res, next) => {
 
 
 // ✅ Use wrapper for database-dependent routes
+// Replace the entire /api/getUsers route with:
 app.get('/api/getUsers', withDB(async (req, res) => {
   try {
-    const users = await User.find().select('-password').sort({ dateAdded: -1 });
+    console.log('Fetching users...'); // Debug log
+    
+    const users = await User.find().select('-password').sort({ dateAdded: -1 }).lean();
+    
+    console.log(`Found ${users.length} users`); // Debug log
     
     const formattedUsers = users.map(user => ({
       _id: user._id,
@@ -311,10 +370,18 @@ app.get('/api/getUsers', withDB(async (req, res) => {
       updatedAt: user.updatedAt
     }));
     
+    // Explicitly set content type
+    res.setHeader('Content-Type', 'application/json');
     res.json(formattedUsers);
+    
   } catch (error) {
     console.error('Get users error:', error);
-    res.status(500).json({ message: 'Server error while fetching users' });
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        message: 'Server error while fetching users',
+        error: error.message 
+      });
+    }
   }
 }));
 
