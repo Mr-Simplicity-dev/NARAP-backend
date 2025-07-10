@@ -1030,7 +1030,7 @@ async function loadUsers() {
         // Handle token expiration
         if (res.status === 401) {
             console.log('🔐 Token expired, redirecting to login');
-            localStorage.removeItem('authToken');
+            localStorage.removeItem('token');
             document.getElementById('loginSection').style.display = 'block';
             document.getElementById('adminSection').style.display = 'none';
             showMessage('Session expired. Please login again.', 'warning');
