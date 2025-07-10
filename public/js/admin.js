@@ -5279,7 +5279,6 @@ function getMessageStyle(type) {
 
 
 // Initialize performance monitor
-const performanceMonitor = new PerformanceMonitor();
 
 // Enhanced API call wrapper with performance monitoring
 async function apiCall(endpoint, options = {}) {
@@ -5695,7 +5694,6 @@ if (typeof module !== 'undefined' && module.exports) {
 console.log('NARAP Admin Panel JavaScript fully loaded');
 console.log('Total functions available:', Object.keys(window.narapAdmin).length);
 console.log('Ready for production use!');
-
 
 
 
