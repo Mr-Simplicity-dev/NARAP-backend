@@ -345,7 +345,7 @@ async function login(event) {
             
             // Store token if provided
             if (data.token) {
-                localStorage.setItem('authToken', data.token);
+                localStorage.setItem('token', data.token);
                 console.log('🔑 Token stored');
             }
             
