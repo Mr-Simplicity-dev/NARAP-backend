@@ -320,6 +320,22 @@ async function login(event) {
     }
     
     console.log('🔐 Login attempt:', { username, password: '***' });
+    
+    // Global modal triggers (for sidebar buttons)
+    document.addEventListener('click', (e) => {
+        // Add Member button
+        if (e.target.closest('#addMemberBtn')) {
+            e.preventDefault();
+            if (window.memberModal) window.memberModal.show();
+        }
+
+        // Add Certificate button
+        if (e.target.closest('#addCertBtn')) {
+            e.preventDefault();
+            if (window.certModal) window.certModal.show();
+        }
+    });
+    
     console.log('Backend URL:', backendUrl);
     
     try {
@@ -3391,7 +3407,22 @@ function generateIdCardPreview() {
                 console.log('No file selected, using default');
                 resolve(defaultImage);
             }
-        });
+        
+    // Global modal triggers (for sidebar buttons)
+    document.addEventListener('click', (e) => {
+        // Add Member button
+        if (e.target.closest('#addMemberBtn')) {
+            e.preventDefault();
+            if (window.memberModal) window.memberModal.show();
+        }
+
+        // Add Certificate button
+        if (e.target.closest('#addCertBtn')) {
+            e.preventDefault();
+            if (window.certModal) window.certModal.show();
+        }
+    });
+});
     }
     
     // Process both images
@@ -3521,6 +3552,38 @@ function setupPreviewListeners() {
 
 // Call this when the page loads
 document.addEventListener('DOMContentLoaded', function() {
+    // === ADD THIS BLOCK === //
+    // Initialize all modals
+    window.initModals = function() {
+        const modals = {
+            memberModal: '#memberModal',
+            editMemberModal: '#editMemberModal',
+            addCertificateModal: '#addCertificateModal',
+            viewCertificateModal: '#viewCertificateModal'
+        };
+        Object.keys(modals).forEach(key => {
+            const el = document.querySelector(modals[key]);
+            if (el) window[key] = new bootstrap.Modal(el);
+        
+    // Global modal triggers (for sidebar buttons)
+    document.addEventListener('click', (e) => {
+        // Add Member button
+        if (e.target.closest('#addMemberBtn')) {
+            e.preventDefault();
+            if (window.memberModal) window.memberModal.show();
+        }
+
+        // Add Certificate button
+        if (e.target.closest('#addCertBtn')) {
+            e.preventDefault();
+            if (window.certModal) window.certModal.show();
+        }
+    });
+});
+    };
+    initModals(); // Initialize on first load
+    // === END ADD === //
+    
     setupPreviewListeners();
 });
 
@@ -4048,7 +4111,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 const tabName = this.getAttribute('data-tab');
                 switchTab(tabName);
-            });
+            
+    // Global modal triggers (for sidebar buttons)
+    document.addEventListener('click', (e) => {
+        // Add Member button
+        if (e.target.closest('#addMemberBtn')) {
+            e.preventDefault();
+            if (window.memberModal) window.memberModal.show();
+        }
+
+        // Add Certificate button
+        if (e.target.closest('#addCertBtn')) {
+            e.preventDefault();
+            if (window.certModal) window.certModal.show();
+        }
+    });
+});
         });
         
         // Set up modal close on outside click
@@ -5684,6 +5762,21 @@ window.narapAdmin = {
 document.addEventListener('DOMContentLoaded', function() {
     // Small delay to ensure all elements are rendered
     setTimeout(finalizeInitialization, 100);
+
+    // Global modal triggers (for sidebar buttons)
+    document.addEventListener('click', (e) => {
+        // Add Member button
+        if (e.target.closest('#addMemberBtn')) {
+            e.preventDefault();
+            if (window.memberModal) window.memberModal.show();
+        }
+
+        // Add Certificate button
+        if (e.target.closest('#addCertBtn')) {
+            e.preventDefault();
+            if (window.certModal) window.certModal.show();
+        }
+    });
 });
 
 // Export for module systems if needed
