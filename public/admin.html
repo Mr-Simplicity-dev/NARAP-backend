@@ -66,23 +66,23 @@
             </div>
             
             <nav class="nav-list">
-                <a href="#" class="nav-item active" id="btn-dashboard" data-tab="dashboard">
+                <a href="#" class="nav-item active" id="btn-dashboard" onclick="switchTab('dashboard')">
                     <i class="fas fa-tachometer-alt"></i>
                     Dashboard
                 </a>
-                <a href="#" class="nav-item" id="btn-members" data-tab="members">
+                <a href="#" class="nav-item" id="btn-members" onclick="switchTab('members')">
                     <i class="fas fa-users"></i>
                     Members
                 </a>
-                <a href="#" class="nav-item" id="btn-certificates" data-tab="certificates">
+                <a href="#" class="nav-item" id="btn-certificates" onclick="switchTab('certificates')">
                     <i class="fas fa-certificate"></i>
                     Certificates
                 </a>
-                <a href="#" class="nav-item" id="btn-analytics" data-tab="analytics">
+                <a href="#" class="nav-item" id="btn-analytics" onclick="switchTab('analytics')">
                     <i class="fas fa-chart-bar"></i>
                     Analytics
                 </a>
-                <a href="#" class="nav-item" id="btn-system" data-tab="system">
+                <a href="#" class="nav-item" id="btn-system" onclick="switchTab('system')">
                     <i class="fas fa-server"></i>
                     System
                 </a>
@@ -112,7 +112,7 @@
             <!-- Content Area -->
             <div class="content">
                 <!-- Dashboard Tab -->
-                <div id="panel-dashboard" class="panel active">
+                <div id="panel-dashboard" class="panel">
                     <!-- Quick Links -->
                     <div class="quick-links">
                         <div class="quick-link-card" onclick="switchTab('members')">
@@ -825,8 +825,5 @@
             </div>
         </div>
     </div>
-    </body>
+</body>
 </html>
-
-
-
