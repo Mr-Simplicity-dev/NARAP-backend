@@ -65,49 +65,49 @@ app.get('/admin', (req, res) => {
 
 
 // ✅ FIXED Database Connection - Updated for Mongoose 6+
-//const connectDB = async () => {
-  //try {
+const connectDB = async () => {
+  try {
     // Check if already connected
-    //if (mongoose.connection.readyState === 1) {
-      //console.log('✅ MongoDB already connected');
-     // return mongoose.connection;
-   // }
+    if (mongoose.connection.readyState === 1) {
+      console.log('✅ MongoDB already connected');
+      return mongoose.connection;
+    }
     
     // Don't wait for pending connections, create new one
-    //if (mongoose.connection.readyState === 2) {
-     // console.log('⚠️ Closing pending connection...');
-     // await mongoose.connection.close();
-    //}
+    if (mongoose.connection.readyState === 2) {
+      console.log('⚠️ Closing pending connection...');
+      await mongoose.connection.close();
+    }
     
-    //const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
-    //if (!uri) {
-     // throw new Error('MONGO_URI environment variable is not defined');
-    //}
+    const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
+    if (!uri) {
+      throw new Error('MONGO_URI environment variable is not defined');
+    }
     
-    //console.log('🔄 Connecting to MongoDB...');
+    console.log('🔄 Connecting to MongoDB...');
     
     // Updated connection options (remove unsupported bufferMaxEntries)
-    //await mongoose.connect(uri, {
-     // serverSelectionTimeoutMS: 3000,
-     // connectTimeoutMS: 3000,
-     // socketTimeoutMS: 3000,
-      //maxPoolSize: 1,
-     // bufferCommands: false  // Keep this, but remove bufferMaxEntries
-   // });
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 3000,
+      connectTimeoutMS: 3000,
+      socketTimeoutMS: 3000,
+      maxPoolSize: 1,
+      bufferCommands: false  // Keep this, but remove bufferMaxEntries
+    });
     
     // Optional: Add event listeners for debugging
-   // mongoose.connection.on('connecting', () => console.log('Connecting to MongoDB...'));
-   // mongoose.connection.on('connected', () => console.log('MongoDB connected!'));
-   // mongoose.connection.on('error', (err) => console.error('MongoDB error:', err));
+    mongoose.connection.on('connecting', () => console.log('Connecting to MongoDB...'));
+    mongoose.connection.on('connected', () => console.log('MongoDB connected!'));
+    mongoose.connection.on('error', (err) => console.error('MongoDB error:', err));
     
-    //console.log('✅ MongoDB connected successfully');
-   // return mongoose.connection;
+    console.log('✅ MongoDB connected successfully');
+    return mongoose.connection;
     
-  //} catch (err) {
-    //console.error('❌ MongoDB connection failed:', err.message);
-   // return null;
- // }
-//};
+  } catch (err) {
+    console.error('❌ MongoDB connection failed:', err.message);
+    return null;
+  }
+};
 
 // Database Models (keep your existing schemas)
 const userSchema = new mongoose.Schema({
