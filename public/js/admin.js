@@ -430,52 +430,50 @@ function logout() {
 }
 
 // Tab switching functionality
+
 function switchTab(tabName) {
-    // Hide all tab contents
-    const tabContents = document.querySelectorAll('.tab-content');
-    tabContents.forEach(tab => tab.classList.remove('active'));
-    
+    // Hide all content sections
+    document.querySelectorAll('.content-section').forEach(panel => {
+        panel.style.display = 'none';
+    });
+
     // Remove active class from all nav items
-    const navItems = document.querySelectorAll('.nav-item');
-    navItems.forEach(item => item.classList.remove('active'));
-    
-    // Show selected tab
-    const selectedTab = document.getElementById(tabName + 'Tab');
-    if (selectedTab) {
-        selectedTab.classList.add('active');
-    }
-    
-    // Add active class to selected nav item
-    const selectedNav = document.querySelector(`[data-tab="${tabName}"]`);
-    if (selectedNav) {
-        selectedNav.classList.add('active');
-    }
-    
-    // Update header title
-    const headerTitle = document.getElementById('headerTitle');
-    if (headerTitle) {
-        headerTitle.textContent = tabName.charAt(0).toUpperCase() + tabName.slice(1);
-    }
-    
-    // Load tab-specific data
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+    });
+
+    // Show the selected content section
+    const activePanel = document.getElementById(`${tabName}-content`);
+    if (activePanel) activePanel.style.display = 'block';
+
+    // Add active class to the clicked nav item
+    const activeTab = document.getElementById(`${tabName}-tab`);
+    if (activeTab) activeTab.classList.add('active');
+
+    // Update the header title
+    const header = document.getElementById('headerTitle');
+    if (header) header.textContent = tabName.charAt(0).toUpperCase() + tabName.slice(1);
+
+    // Load tab-specific content
     switch(tabName) {
         case 'dashboard':
-            loadDashboard();
+            loadDashboard?.();
             break;
         case 'members':
-            loadMembers();
+            loadMembers?.();
             break;
         case 'certificates':
-            loadCertificates();
+            loadCertificates?.();
             break;
         case 'analytics':
-            loadAnalytics();
+            loadAnalytics?.();
             break;
         case 'system':
-            loadSystemInfo();
+            loadSystemInfo?.();
             break;
     }
 }
+
 
 // Load dashboard data
 async function loadDashboard() {
