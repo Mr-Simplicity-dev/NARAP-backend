@@ -431,7 +431,13 @@ function logout() {
 
 // Tab switching functionality
 
+
 function switchTab(tabName) {
+    if (!tabName || typeof tabName !== 'string') {
+        console.warn('switchTab called without valid tabName:', tabName);
+        return;
+    }
+
     // Hide all content sections
     document.querySelectorAll('.content-section').forEach(panel => {
         panel.style.display = 'none';
@@ -473,6 +479,7 @@ function switchTab(tabName) {
             break;
     }
 }
+
 
 
 // Load dashboard data
@@ -5808,6 +5815,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
 });
+
 
 // Export for module systems if needed
 if (typeof module !== 'undefined' && module.exports) {
