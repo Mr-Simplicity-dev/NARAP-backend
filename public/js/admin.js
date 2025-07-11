@@ -51,6 +51,23 @@ class NotificationManager {
             // Remove existing container if any
             const existing = document.getElementById('notification-container');
             if (existing) {
+
+    // === Modal Initialization ===
+    window.initModals = function() {
+        const modals = {
+            memberModal: '#memberModal',
+            editMemberModal: '#editMemberModal',
+            addCertificateModal: '#addCertificateModal',
+            viewCertificateModal: '#viewCertificateModal'
+        };
+
+        Object.keys(modals).forEach(key => {
+            const el = document.querySelector(modals[key]);
+            if (el) window[key] = new bootstrap.Modal(el);
+        });
+    };
+    initModals();
+
                 existing.remove();
             }
             
@@ -5777,6 +5794,21 @@ document.addEventListener('DOMContentLoaded', function() {
             if (window.certModal) window.certModal.show();
         }
     });
+
+
+    // === Global Modal Triggers ===
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('#addMemberBtn')) {
+            e.preventDefault();
+            if (window.memberModal) window.memberModal.show();
+        }
+
+        if (e.target.closest('#addCertBtn')) {
+            e.preventDefault();
+            if (window.certModal) window.certModal.show();
+        }
+    });
+
 });
 
 // Export for module systems if needed
