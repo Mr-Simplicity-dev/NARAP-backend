@@ -947,20 +947,7 @@ body {
         border-color: var(--border-color);
     }
 }
-
-/* ===== RESPONSIVE DESIGN ===== */
-@media (max-width: 768px) {
-    /* Sidebar */
-    
-    
-    
-    
-    
-    
-    .main-content {
-        margin-left: 0;
-    }
-    
+ 
     /* Header */
     .header {
         padding: 15px 20px;
@@ -1042,29 +1029,15 @@ body {
     input, select, textarea {
         font-size: 16px !important; /* Prevents zoom on iOS */
     }
-}
 
-@media (max-width: 480px) {
-    .id-card-preview {
-        padding: 8px !important;
+ /* Hamburger button */
+    .main-content {
+        margin-left: 0;
     }
-    
-    .id-details p {
-        font-size: 12px !important;
-        margin: 2px 0 !important;
-    }
-    
-    
-    
-    .modal-content {
-        padding: 20px 15px;
-    }
-}
-/* Overlay Styles */
 
-/* === Sidebar & Overlay Enhancements === */
-/* Ensure sidebar has proper stacking context */
-.sidebar {
+
+ /* ===== SIDEBAR & HAMBURGER MENU FIXES ===== */
+ .sidebar {
     width: 280px;
     height: 100vh;
     position: fixed;
@@ -1073,56 +1046,79 @@ body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     z-index: 1000;
-    transform: translateX(-100%);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    will-change: transform;
+    transition: transform 0.3s ease;
+    overflow-y: auto;
 }
 
-/* Active state */
-.sidebar.mobile-open {
-    transform: translateX(0);
+.hamburger-btn {
+    display: none;
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1100;
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--text-color);
+    cursor: pointer;
+    padding: 10px;
+    transition: all 0.3s ease;
 }
 
-/* Overlay styling */
+.hamburger-btn:hover {
+    color: var(--primary-color);
+}
+
 .sidebar-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0,0,0,0.5);
+    background-color: rgba(0, 0, 0, 0.5);
     z-index: 999;
     opacity: 0;
     visibility: hidden;
     transition: all 0.3s ease;
-    pointer-events: none;
 }
 
 .sidebar-overlay.active {
     opacity: 1;
     visibility: visible;
-    pointer-events: all;
 }
 
-/* Hamburger button */
-.hamburger-btn {
-    display: none;
-    background: none;
-    border: none;
-    color: var(--text-color);
-    font-size: 24px;
-    cursor: pointer;
-    padding: 10px;
-    z-index: 1001;
-    position: relative;
-}
-
+/* Mobile styles */
 @media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
+    }
+    
+    .sidebar.active {
+        transform: translateX(0);
+    }
+    
     .hamburger-btn {
         display: block;
     }
-
+    
     .main-content {
         margin-left: 0;
     }
+}
+
+/* Desktop styles */
+@media (min-width: 769px) {
+    .sidebar {
+        transform: translateX(0);
+    }
+    
+    .main-content {
+        margin-left: 280px;
+        transition: margin-left 0.3s ease;
+    }
+}
+
+/* Prevent scrolling when sidebar is open on mobile */
+body.sidebar-open {
+    overflow: hidden;
 }
