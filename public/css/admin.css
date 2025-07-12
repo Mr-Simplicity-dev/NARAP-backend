@@ -1457,4 +1457,44 @@ body.sidebar-open {
                 grid-template-columns: 1fr;
             }
         }
-    
+    /* Add this to the end of your admin.css file */
+
+/* Ensure panels are visible when active */
+.panel {
+    display: none;
+}
+
+.panel.active {
+    display: block !important;
+}
+
+/* Ensure navigation items are visible */
+.nav-item {
+    display: block;
+    padding: 15px 25px;
+    color: white;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+    cursor: pointer;
+}
+
+.nav-item.active {
+    background: rgba(255, 255, 255, 0.2);
+    border-left-color: white;
+}
+
+/* Make sure sidebar is visible */
+.sidebar {
+    display: block;
+}
+
+.admin-container.active {
+    display: flex;
+}
+
+/* Ensure main content is visible */
+.main-content {
+    display: flex;
+    flex-direction: column;
+}
