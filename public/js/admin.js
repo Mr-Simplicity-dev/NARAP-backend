@@ -1,6 +1,6 @@
 // Make sure this matches your server port
 const backendUrl = window.location.origin.includes('localhost')
-    ? 'http://localhost:10000'
+    ? 'http://localhost:3000'
     : window.location.origin;
 
 
@@ -51,23 +51,6 @@ class NotificationManager {
             // Remove existing container if any
             const existing = document.getElementById('notification-container');
             if (existing) {
-
-    // === Modal Initialization ===
-    window.initModals = function() {
-        const modals = {
-            memberModal: '#memberModal',
-            editMemberModal: '#editMemberModal',
-            addCertificateModal: '#addCertificateModal',
-            viewCertificateModal: '#viewCertificateModal'
-        };
-
-        Object.keys(modals).forEach(key => {
-            const el = document.querySelector(modals[key]);
-            if (el) window[key] = new bootstrap.Modal(el);
-        });
-    };
-    initModals();
-
                 existing.remove();
             }
             
@@ -311,7 +294,7 @@ function getMessageStyle(type) {
 
 // Update your getAuthHeaders function
 function getAuthHeaders() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('authToken');
     return {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -337,22 +320,6 @@ async function login(event) {
     }
     
     console.log('🔐 Login attempt:', { username, password: '***' });
-    
-    // Global modal triggers (for sidebar buttons)
-    document.addEventListener('click', (e) => {
-        // Add Member button
-        if (e.target.closest('#addMemberBtn')) {
-            e.preventDefault();
-            if (window.memberModal) window.memberModal.show();
-        }
-
-        // Add Certificate button
-        if (e.target.closest('#addCertBtn')) {
-            e.preventDefault();
-            if (window.certModal) window.certModal.show();
-        }
-    });
-    
     console.log('Backend URL:', backendUrl);
     
     try {
@@ -378,7 +345,7 @@ async function login(event) {
             
             // Store token if provided
             if (data.token) {
-                localStorage.setItem('token', data.token);
+                localStorage.setItem('authToken', data.token);
                 console.log('🔑 Token stored');
             }
             
@@ -419,6 +386,8 @@ async function login(event) {
 }
 
 
+
+
 // Logout function
 function logout() {
     if (confirm('Are you sure you want to logout?')) {
@@ -429,393 +398,105 @@ function logout() {
     }
 }
 
-// ===== SIDEBAR TOGGLE FUNCTIONALITY =====
- {
-    
-    const overlay = document.querySelector('.sidebar-overlay');
-    
-    
-    
-    // Toggle overlay if it exists
-    if (overlay) {
-        overlay.classList.toggle('active');
-    }
-    
-    // Prevent scrolling when sidebar is open
-    if (sidebar.classList.contains('mobile-open')) {
-        document.body.style.overflow = 'hidden';
-    } else {
-        document.body.style.overflow = '';
-    }
-}
-
-// ===== CREATE OVERLAY ELEMENT =====
-function createSidebarOverlay() {
-    const overlay = document.createElement('div');
-    overlay.className = 'sidebar-overlay';
-    overlay.onclick = toggleSidebar;
-    document.body.appendChild(overlay);
-    
-    // Add some basic styling to the overlay
-    const style = document.createElement('style');
-    style.textContent = `
-        .sidebar-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 999;
-            display: none;
-        }
-        .sidebar-overlay.active {
-            display: block;
-            animation: fadeIn 0.3s ease-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-// ===== CLOSE SIDEBAR WHEN CLICKING OUTSIDE =====
-document.addEventListener('click', function(event) {
-    
-    const hamburger = document.querySelector('.hamburger-btn');
-    
-    if (sidebar.classList.contains('mobile-open') && 
-        !sidebar.contains(event.target) && 
-        event.target !== hamburger) {
-        toggleSidebar();
-    }
-});
-
-// ===== CLOSE SIDEBAR WHEN RESIZING TO DESKTOP =====
-window.addEventListener('resize', function() {
-    
-    const overlay = document.querySelector('.sidebar-overlay');
-    
-    if (window.innerWidth >= 769 && sidebar.classList.contains('mobile-open')) {
-        sidebar.classList.remove('mobile-open');
-        if (overlay) overlay.classList.remove('active');
-        document.body.style.overflow = '';
-    }
-});
-
-// ===== INITIALIZE ON PAGE LOAD =====
-document.addEventListener('DOMContentLoaded', function() {
-    try {
-        console.log('NARAP Admin Panel initializing...');
-        
-        // Load theme
-        if (typeof loadTheme === 'function') loadTheme();
-        
-        // Auto-fill admin credentials on page load
-        if (typeof fillAdminCredentials === 'function') fillAdminCredentials();
-        
-        // Initialize dashboard as default tab
-        switchTab('dashboard');
-        
-        // Initialize all modals
-        window.initModals = function() {
-            const modals = {
-                memberModal: '#memberModal',
-                editMemberModal: '#editMemberModal',
-                addCertificateModal: '#addCertificateModal',
-                viewCertificateModal: '#viewCertificateModal'
-            };
-            Object.keys(modals).forEach(key => {
-                const el = document.querySelector(modals[key]);
-                if (el) window[key] = new bootstrap.Modal(el);
-            });
-        };
-        initModals(); // Initialize on first load
-        
-        // Setup preview listeners
-        if (typeof setupPreviewListeners === 'function') setupPreviewListeners();
-        
-        // Sidebar functionality
-        const sidebar = document.querySelector('.sidebar');
-        const hamburgerBtn = document.getElementById('hamburgerButton');
-        const overlay = document.querySelector('.sidebar-overlay');
-        
-        // Toggle sidebar function
-        function toggleSidebar() {
-            if (sidebar) sidebar.classList.toggle('mobile-open');
-            if (overlay) overlay.classList.toggle('active');
-            document.body.style.overflow = sidebar && sidebar.classList.contains('mobile-open') ? 'hidden' : '';
-        }
-        
-        // Hamburger button click
-        if (hamburgerBtn) {
-            hamburgerBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                toggleSidebar();
-            });
-        }
-        
-        // Overlay click
-        if (overlay) {
-            overlay.addEventListener('click', toggleSidebar);
-        }
-        
-        // Close sidebar when clicking nav items on mobile
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', function() {
-                if (window.innerWidth <= 768) {
-                    toggleSidebar();
-                }
-            });
-        });
-        
-        // Close sidebar when resizing to desktop
-        window.addEventListener('resize', function() {
-            if (window.innerWidth >= 769) {
-                if (sidebar) sidebar.classList.remove('mobile-open');
-                if (overlay) overlay.classList.remove('active');
-                document.body.style.overflow = '';
-            }
-        });
-        
-        // Set up modal close on outside click
-        const modals = document.querySelectorAll('.modal');
-        modals.forEach(modal => {
-            modal.addEventListener('click', function(e) {
-                if (e.target === modal) {
-                    modal.style.display = 'none';
-                }
-            });
-        });
-        
-        // Global modal triggers (consolidated - removed duplicates)
-        document.addEventListener('click', (e) => {
-            // Add Member button
-            if (e.target.closest('#addMemberBtn')) {
-                e.preventDefault();
-                if (window.memberModal) window.memberModal.show();
-            }
-            // Add Certificate button
-            if (e.target.closest('#addCertBtn')) {
-                e.preventDefault();
-                if (window.certModal) window.certModal.show();
-            }
-        });
-        
-        // Set up connection status monitoring
-        if (typeof updateConnectionStatus === 'function') {
-            updateConnectionStatus();
-            window.addEventListener('online', updateConnectionStatus);
-            window.addEventListener('offline', updateConnectionStatus);
-        }
-        
-        // Add Enter key support for login
-        const passwordField = document.getElementById('password');
-        if (passwordField) {
-            passwordField.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    if (typeof login === 'function') login();
-                }
-            });
-        }
-        
-        const usernameField = document.getElementById('username');
-        if (usernameField) {
-            usernameField.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    if (typeof login === 'function') login();
-                }
-            });
-        }
-        
-        // Populate state filter dropdown
-        if (typeof populateStateFilter === 'function') populateStateFilter();
-        
-        // Set up periodic health checks
-        if (typeof checkSystemHealth === 'function') {
-            setInterval(checkSystemHealth, 60000); // Check every minute
-        }
-        
-        // Small delay to ensure all elements are rendered
-        setTimeout(function() {
-            if (typeof finalizeInitialization === 'function') finalizeInitialization();
-        }, 100);
-        
-        console.log('NARAP Admin Panel initialized successfully');
-        
-    } catch (error) {
-        console.error('Error during initialization:', error);
-        console.error('Initialization error details:', error.message, error.stack);
-        if (typeof notifyAdmin === 'function') {
-            notifyAdmin('Error occurred during initialization: ' + error.message);
-        }
-    }
-});
-
-
 // Tab switching functionality
-
-
 function switchTab(tabName) {
-    if (!tabName || typeof tabName !== 'string') {
-        console.warn('switchTab called without valid tabName:', tabName);
-        return;
-    }
-    
-    console.log('Switching to tab:', tabName);
-    
-    // Hide all panels by adding 'hidden' class and setting display none
-    document.querySelectorAll('.panel').forEach(panel => {
-        panel.classList.add('hidden');
-        panel.style.display = 'none';
-    });
+    // Hide all tab contents
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(tab => tab.classList.remove('active'));
     
     // Remove active class from all nav items
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.remove('active');
-    });
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => item.classList.remove('active'));
     
-    // Show the selected panel by removing 'hidden' class and setting display block
-    const activePanel = document.getElementById(`panel-${tabName}`);
-    if (activePanel) {
-        activePanel.classList.remove('hidden');
-        activePanel.style.display = 'block';
-        console.log('Showing panel:', activePanel.id);
-    } else {
-        console.error(`Panel not found: panel-${tabName}`);
-        console.log('Available panels:', Array.from(document.querySelectorAll('.panel')).map(p => p.id));
-        return;
+    // Show selected tab
+    const selectedTab = document.getElementById(tabName + 'Tab');
+    if (selectedTab) {
+        selectedTab.classList.add('active');
     }
     
-    // Add active class to the nav item
-    const activeTab = document.getElementById(`btn-${tabName}`);
-    if (activeTab) {
-        activeTab.classList.add('active');
-        console.log('Activated tab:', activeTab.id);
-    } else {
-        console.error(`Tab button not found: btn-${tabName}`);
+    // Add active class to selected nav item
+    const selectedNav = document.querySelector(`[data-tab="${tabName}"]`);
+    if (selectedNav) {
+        selectedNav.classList.add('active');
     }
     
     // Update header title
-    const header = document.getElementById('headerTitle');
-    if (header) header.textContent = tabName.charAt(0).toUpperCase() + tabName.slice(1);
+    const headerTitle = document.getElementById('headerTitle');
+    if (headerTitle) {
+        headerTitle.textContent = tabName.charAt(0).toUpperCase() + tabName.slice(1);
+    }
     
-    // Load tab-specific content
+    // Load tab-specific data
     switch(tabName) {
         case 'dashboard':
-            if (typeof loadDashboard === 'function') loadDashboard();
+            loadDashboard();
             break;
         case 'members':
-            if (typeof loadMembers === 'function') loadMembers();
+            loadMembers();
             break;
         case 'certificates':
-            if (typeof loadCertificates === 'function') loadCertificates();
+            loadCertificates();
             break;
         case 'analytics':
-            if (typeof loadAnalytics === 'function') loadAnalytics();
+            loadAnalytics();
             break;
         case 'system':
-            if (typeof loadSystemInfo === 'function') loadSystemInfo();
+            loadSystemInfo();
             break;
-        default:
-            console.warn(`No handler for tab: ${tabName}`);
     }
 }
 
-
-
-
 // Load dashboard data
 async function loadDashboard() {
-    const DASHBOARD_TIMEOUT = 10000; // 10 seconds timeout
-    let timeoutController;
-    
     try {
         console.log('Loading dashboard...');
         showMessage('Loading dashboard...', 'info');
         
-        // Create timeout controller for fetch requests
-        timeoutController = new AbortController();
-        const timeoutId = setTimeout(() => timeoutController.abort(), DASHBOARD_TIMEOUT);
-        
         // Load data with timeout protection
         const [members, certificates] = await Promise.all([
-            getMembers(timeoutController.signal).catch(e => {
-                console.error('Members fetch error:', e);
-                throw new Error('getMembers: ' + e.message);
-            }),
-            getCertificates(timeoutController.signal).catch(e => {
-                console.error('Certificates fetch error:', e);
-                throw new Error('getCertificates: ' + e.message);
-            })
+            getMembers(),
+            getCertificates()
         ]);
-
-        clearTimeout(timeoutId); // Clear timeout if successful
-
-        // Validate data structure
-        if (!Array.isArray(members) || !Array.isArray(certificates)) {
-            throw new Error('Invalid data format received');
-        }
-
+        
         // Update statistics
-        const updateStats = () => {
-            try {
-                const totalMembersEl = document.getElementById('totalMembers');
-                const totalCertificatesEl = document.getElementById('totalCertificates');
-                const newThisMonthEl = document.getElementById('newThisMonth');
-                const systemUptimeEl = document.getElementById('systemUptime');
-                
-                if (totalMembersEl) totalMembersEl.textContent = members.length.toLocaleString();
-                if (totalCertificatesEl) totalCertificatesEl.textContent = certificates.length.toLocaleString();
-                
-                // Calculate new members this month
-                const thisMonth = new Date().getMonth();
-                const thisYear = new Date().getFullYear();
-                const newThisMonth = members.filter(member => {
-                    const memberDate = member.createdAt || member.dateAdded;
-                    if (!memberDate) return false;
-                    const date = new Date(memberDate);
-                    return date.getMonth() === thisMonth && date.getFullYear() === thisYear;
-                }).length;
-                
-                if (newThisMonthEl) newThisMonthEl.textContent = newThisMonth.toLocaleString();
-                
-                // Calculate system uptime (placeholder)
-                if (systemUptimeEl) {
-                    const uptimeDays = Math.floor(performance.now() / (1000 * 60 * 60 * 24));
-                    systemUptimeEl.textContent = `${uptimeDays}d`;
-                }
-            } catch (statsError) {
-                console.error('Stats update failed:', statsError);
-            }
-        };
-
-        updateStats();
-
+        const totalMembersEl = document.getElementById('totalMembers');
+        const totalCertificatesEl = document.getElementById('totalCertificates');
+        const newThisMonthEl = document.getElementById('newThisMonth');
+        const systemUptimeEl = document.getElementById('systemUptime');
+        
+        if (totalMembersEl) totalMembersEl.textContent = members.length;
+        if (totalCertificatesEl) totalCertificatesEl.textContent = certificates.length;
+        
+        // Calculate new members this month
+        const thisMonth = new Date().getMonth();
+        const thisYear = new Date().getFullYear();
+        const newThisMonth = members.filter(member => {
+            if (!member.createdAt && !member.dateAdded) return false;
+            const memberDate = new Date(member.createdAt || member.dateAdded);
+            return memberDate.getMonth() === thisMonth && memberDate.getFullYear() === thisYear;
+        }).length;
+        
+        if (newThisMonthEl) newThisMonthEl.textContent = newThisMonth;
+        
+        // Calculate system uptime (placeholder)
+        if (systemUptimeEl) {
+            systemUptimeEl.textContent = Math.floor(Date.now() / (1000 * 60 * 60 * 24)) + 'd';
+        }
+        
         // Load recent activity
         try {
-            if (typeof loadRecentActivity === 'function') {
-                loadRecentActivity(members, certificates);
-            }
+            loadRecentActivity(members, certificates);
         } catch (activityError) {
-            console.error('Recent activity load failed:', activityError);
+            console.error('Failed to load recent activity:', activityError);
+            // Don't fail the entire dashboard for this
         }
-
-        // Display data
-        try {
-            if (typeof displayMembers === 'function') {
-                displayMembers(members);
-            }
-            if (typeof displayCertificates === 'function') {
-                displayCertificates(certificates);
-            }
-        } catch (displayError) {
-            console.error('Data display failed:', displayError);
-            throw new Error('Could not render dashboard components');
+        
+        // Display members and certificates in their respective tables
+        displayMembers(members);
+        if (typeof displayCertificates === 'function') {
+            displayCertificates(certificates);
         }
-
+        
         console.log('✅ Dashboard loaded successfully');
         showMessage('Dashboard loaded successfully!', 'success');
         
@@ -823,7 +504,6 @@ async function loadDashboard() {
         console.error('❌ Dashboard load error:', error);
         
         let errorMessage = 'Failed to load dashboard data';
-        let isPartialLoad = false;
         
         if (error.name === 'AbortError') {
             errorMessage = 'Dashboard load timed out. Please try again.';
@@ -831,122 +511,31 @@ async function loadDashboard() {
             errorMessage = 'Failed to load members data';
         } else if (error.message.includes('getCertificates')) {
             errorMessage = 'Failed to load certificates data';
-        } else if (error.message.includes('Invalid data format')) {
-            errorMessage = 'Server returned invalid data format';
-        } else {
-            errorMessage += ': ' + (error.message || 'Unknown error');
+        } else if (error.message) {
+            errorMessage += ': ' + error.message;
         }
-
-        // Attempt partial load
+        
+        showMessage(errorMessage, 'error');
+        
+        // Try to load partial data if possible
         try {
-            console.log('Attempting partial load...');
-            const fallbackMembers = await getMembers();
-            if (Array.isArray(fallbackMembers)) {
-                if (typeof displayMembers === 'function') {
-                    displayMembers(fallbackMembers);
-                }
+            console.log('Attempting to load partial dashboard data...');
+            
+            // Try to load members only
+            const members = await getMembers();
+            if (members.length > 0) {
                 const totalMembersEl = document.getElementById('totalMembers');
-                if (totalMembersEl) totalMembersEl.textContent = fallbackMembers.length.toLocaleString();
-                isPartialLoad = true;
+                if (totalMembersEl) totalMembersEl.textContent = members.length;
+                displayMembers(members);
+                showMessage('Partial dashboard loaded (members only)', 'warning');
             }
-        } catch (fallbackError) {
-            console.error('Fallback load failed:', fallbackError);
+        } catch (partialError) {
+            console.error('Failed to load partial dashboard:', partialError);
+            showMessage('Complete dashboard load failed', 'error');
         }
-
-        showMessage(
-            isPartialLoad 
-                ? `${errorMessage} (showing partial data)` 
-                : errorMessage,
-            isPartialLoad ? 'warning' : 'error'
-        );
-        
-        // Track the error
-        if (typeof trackError === 'function') {
-            trackError('dashboard_load_failure', {
-                error: error.message,
-                partialLoad: isPartialLoad
-            });
-        }
-    } finally {
-        // Clean up any pending timeouts
-        if (timeoutController) {
-            clearTimeout(timeoutController.timeoutId);
-        }
-        
-        // Update loading state
-        document.querySelectorAll('.loading-indicator').forEach(el => {
-            el.style.display = 'none';
-        });
     }
 }
 
-// Helper functions needed for the dashboard to work:
-
-async function getMembers(signal) {
-    try {
-        const response = await fetch(`${backendUrl}/api/getUsers`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            credentials: 'include',
-            signal
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        if (!Array.isArray(data)) {
-            throw new Error('Invalid members data format');
-        }
-
-        return data.map(member => ({
-            ...member,
-            createdAt: member.createdAt || member.dateAdded
-        }));
-        
-    } catch (error) {
-        console.error('getMembers failed:', error);
-        throw error;
-    }
-}
-
-async function getCertificates(signal) {
-    try {
-        const response = await fetch(`${backendUrl}/api/certificates`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            credentials: 'include',
-            signal
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        if (!Array.isArray(data)) {
-            throw new Error('Invalid certificates data format');
-        }
-
-        return data.map(cert => ({
-            ...cert,
-            createdAt: cert.createdAt || cert.issueDate
-        }));
-        
-    } catch (error) {
-        console.error('getCertificates failed:', error);
-        throw error;
-    }
-}
 
 // Recent activity function
 function loadRecentActivity(members = [], certificates = []) {
@@ -1304,29 +893,16 @@ async function loadUsers() {
     try {
         console.log('Fetching members from:', `${backendUrl}/api/getUsers`);
         
-        // Create abort controller for proper timeout handling
-        const abortController = new AbortController();
-        const timeoutId = setTimeout(() => abortController.abort(), 15000);
-        
-        console.log('Auth headers:', getAuthHeaders());
-        
         const res = await fetch(`${backendUrl}/api/getUsers`, {
             method: 'GET',
             credentials: 'include',
-            headers: getAuthHeaders(),
-            signal: abortController.signal
-        });
-        
-        clearTimeout(timeoutId); // Clear timeout if request completes
-        
-        // Debug: Log response details
-        console.log('Response status:', res.status);
-        console.log('Response headers:', [...res.headers.entries()]);
+            headers: getAuthHeaders()
+        }, 15000); // 15 second timeout for data loading
         
         // Handle token expiration
         if (res.status === 401) {
             console.log('🔐 Token expired, redirecting to login');
-            localStorage.removeItem('token');
+            localStorage.removeItem('authToken');
             document.getElementById('loginSection').style.display = 'block';
             document.getElementById('adminSection').style.display = 'none';
             showMessage('Session expired. Please login again.', 'warning');
@@ -1334,25 +910,11 @@ async function loadUsers() {
         }
         
         if (!res.ok) {
-            const errorText = await res.text();
-            console.error('Error response body:', errorText);
-            throw new Error(`HTTP ${res.status}: ${res.statusText || 'Unknown error'}`);
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
         
-        const responseData = await res.json();
-        console.log('Raw API response:', responseData);
-        
-        // Handle different response formats
-        let members = [];
-        if (Array.isArray(responseData)) {
-            members = responseData;
-        } else if (responseData.data && Array.isArray(responseData.data)) {
-            members = responseData.data;
-        } else if (responseData.users && Array.isArray(responseData.users)) {
-            members = responseData.users;
-        }
-        
-        currentMembers = members;
+        const members = await res.json();
+        currentMembers = Array.isArray(members) ? members : [];
         console.log('✅ Members loaded successfully:', currentMembers.length, 'members');
         return currentMembers;
         
@@ -1385,41 +947,19 @@ async function loadMembers() {
         console.log('Loading members...');
         tableBody.innerHTML = '<tr><td colspan="7" class="loading">Loading members...</td></tr>';
         
-        // Debug: Check if we have a valid token
-        const token = localStorage.getItem('token');
-        if (!token) {
-            throw new Error('No authentication token found');
-        }
-        console.log('Using token:', token);
-        
-        // Debug: Check the loadUsers function
-        console.log('Calling loadUsers()...');
         const members = await loadUsers();
-        console.log('Received members data:', members); // Inspect this in console
         
         // Clear the table
         tableBody.innerHTML = '';
         
         if (!members || members.length === 0) {
-            const noMembersRow = document.createElement('tr');
-            noMembersRow.innerHTML = `
-                <td colspan="7" style="text-align: center; color: #666; padding: 20px;">
-                    No members found. 
-                    <button onclick="location.reload()" class="btn btn-link">Try again</button>
-                </td>
-            `;
-            tableBody.appendChild(noMembersRow);
+            tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666; padding: 20px;">No members found</td></tr>';
             showMessage('No members found', 'info');
             return;
         }
         
         // Create table rows
         members.forEach((member, index) => {
-            if (!member._id) {
-                console.warn('Member missing ID:', member);
-                return; // Skip invalid members
-            }
-            
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>
@@ -1427,7 +967,7 @@ async function loadMembers() {
                         <img src="${member.passport || 'images/default-avatar.png'}" 
                              alt="Photo" 
                              style="width: 100%; height: 100%; object-fit: cover;"
-                             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNFNUU3RUIiLz4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4PSI4IiB5PSI4Ij4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDEyQzE0LjIwOTEgMTIgMTYgMTAuMjA5MSAxNiA4QzE2IDUuNzkwODYgMTQuMjA5MSA0IDEyIDRDOS43OTA4NiA0IDggNS43OTA4NiA4IDhDOCAxMC4yMDkxIDkuNzkwODYgMTIgMTIgMTJaIiBmaWxsPSIjOUM5Qzk3Ii8+CjxwYXRoIGQ9Ik0xMiAxNEM5LjMzIDEzLjk5IDcuMDEgMTUuNzMgNiAxOC4yNEM1Ljk5IDE4LjQ0IDYuMTEgMTguNjMgNi4yOSAxOC43MkM2LjY3IDE4Ljk2IDcuMDggMTkuMTYgNy41IDE5LjMxQzguOTIgMTkuODYgMTAuNDQgMjAgMTIgMjBDMTMuNTYgMjAgMTUuMDggMTkuODYgMTYuNSAxOS4zMUMxNi45MiAxOS4xNiAxNy4zMyAxOC45NiAxNy43MSAxOC43MkMxNy44OSAxOC42MyAxOC4wMSAxOC40NCAxOCAxOC4yNEMxNi45OSAxNS43MyAxNC42NyAxMy45OSAxMiAxNFoiIGZpbGw9IiM5QzlDOTciLz4KPC9zdmc+Cjwvc3ZnPgo8L3N2Zz4K';">
+                                                          onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNFNUU3RUIiLz4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4PSI4IiB5PSI4Ij4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDEyQzE0LjIwOTEgMTIgMTYgMTAuMjA5MSAxNiA4QzE2IDUuNzkwODYgMTQuMjA5MSA0IDEyIDRDOS43OTA4NiA0IDggNS43OTA4NiA4IDhDOCAxMC4yMDkxIDkuNzkwODYgMTIgMTIgMTJaIiBmaWxsPSIjOUM5Qzk3Ii8+CjxwYXRoIGQ9Ik0xMiAxNEM5LjMzIDEzLjk5IDcuMDEgMTUuNzMgNiAxOC4yNEM1Ljk5IDE4LjQ0IDYuMTEgMTguNjMgNi4yOSAxOC43MkM2LjY3IDE4Ljk2IDcuMDggMTkuMTYgNy41IDE5LjMxQzguOTIgMTkuODYgMTAuNDQgMjAgMTIgMjBDMTMuNTYgMjAgMTUuMDggMTkuODYgMTYuNSAxOS4zMUMxNi45MiAxOS4xNiAxNy4zMyAxOC45NiAxNy43MSAxOC43MkMxNy44OSAxOC42MyAxOC4wMSAxOC40NCAxOCAxOC4yNEMxNi45OSAxNS43MyAxNC42NyAxMy45OSAxMiAxNFoiIGZpbGw9IiM5QzlDOTciLz4KPC9zdmc+Cjwvc3ZnPgo8L3N2Zz4K';">
                     </div>
                 </td>
                 <td><strong>${escapeHtml(member.name || 'N/A')}</strong></td>
@@ -1456,72 +996,70 @@ async function loadMembers() {
         
     } catch (error) {
         console.error('Load members error:', error);
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="7" style="text-align: center; color: red; padding: 20px;">
-                    Failed to load members. 
-                    <br>${error.message}
-                    <br><button onclick="loadMembers()" class="btn btn-link">Retry</button>
-                </td>
-            </tr>
-        `;
+        tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red; padding: 20px;">Failed to load members: ' + error.message + '</td></tr>';
         showMessage('Failed to load members: ' + error.message, 'error');
     }
 }
 
+// Get certificates function
 async function getCertificates() {
-    const CERTIFICATES_ENDPOINT = `${backendUrl}/api/certificates`;
-    const FALLBACK_LOCAL = false; // Set to true if you need local fallback
-    
     try {
-        console.log('Fetching certificates from:', CERTIFICATES_ENDPOINT);
+        console.log('Fetching certificates from:', `${backendUrl}/api/certificates`);
         
-        // 1. Attempt backend fetch
-        const response = await fetch(CERTIFICATES_ENDPOINT, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            credentials: 'include'
+        let backendCertificates = [];
+        let localCertificates = getLocalCertificates();
+        
+        // Try to fetch from backend
+        try {
+            const res = await fetch(`${backendUrl}/api/certificates`, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (res.ok) {
+                backendCertificates = await res.json();
+                backendCertificates = backendCertificates.map(cert => ({ ...cert, isFromBackend: true }));
+            }
+        } catch (error) {
+            console.warn('Backend request failed, using local data only', error);
+        }
+        
+        // Merge backend and local certificates
+        const mergedCertificates = [...backendCertificates];
+        
+        // Add local certificates that don't exist in backend
+        localCertificates.forEach(localCert => {
+            const existsInBackend = backendCertificates.find(backendCert => 
+                backendCert._id === localCert._id || 
+                backendCert.number === localCert.number
+            );
+            
+            if (!existsInBackend) {
+                mergedCertificates.push({ ...localCert, isFromBackend: false });
+            }
         });
-
-        // 2. Handle response
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        let certificates = await response.json();
         
-        // 3. Process certificates
-        certificates = certificates.map(cert => ({
-            ...cert,
-            isFromBackend: true,
-            // Normalize dates for sorting
-            sortDate: new Date(cert.createdAt || cert.issueDate || Date.now())
-        }));
-
-        // 4. Sort by date (newest first)
-        certificates.sort((a, b) => b.sortDate - a.sortDate);
+        // Sort by creation date (newest first)
+        mergedCertificates.sort((a, b) => {
+            const dateA = new Date(a.createdAt || a.issueDate || 0);
+            const dateB = new Date(b.createdAt || b.issueDate || 0);
+            return dateB - dateA;
+        });
         
-        currentCertificates = certificates;
-        return certificates;
-
+        currentCertificates = mergedCertificates;
+        return currentCertificates;
+        
     } catch (error) {
-        console.error('Certificate fetch failed:', error);
+        console.error('Get certificates error:', error);
+        showMessage('Failed to load certificates: ' + error.message, 'error');
         
-        if (FALLBACK_LOCAL) {
-            console.warn('Falling back to local certificates');
-            const localCertificates = getLocalCertificates().map(cert => ({
-                ...cert,
-                isFromBackend: false,
-                sortDate: new Date(cert.createdAt || cert.issueDate || Date.now())
-            }));
-            currentCertificates = localCertificates;
-            return localCertificates;
-        }
-        
-        throw error; // Re-throw for loadDashboard() to handle
+        // Fallback to local data only
+        const localCertificates = getLocalCertificates();
+        currentCertificates = localCertificates.map(cert => ({ ...cert, isFromBackend: false }));
+        return currentCertificates;
     }
 }
 
@@ -3731,22 +3269,7 @@ function generateIdCardPreview() {
                 console.log('No file selected, using default');
                 resolve(defaultImage);
             }
-        
-    // Global modal triggers (for sidebar buttons)
-    document.addEventListener('click', (e) => {
-        // Add Member button
-        if (e.target.closest('#addMemberBtn')) {
-            e.preventDefault();
-            if (window.memberModal) window.memberModal.show();
-        }
-
-        // Add Certificate button
-        if (e.target.closest('#addCertBtn')) {
-            e.preventDefault();
-            if (window.certModal) window.certModal.show();
-        }
-    });
-});
+        });
     }
     
     // Process both images
@@ -3871,6 +3394,8 @@ function setupPreviewListeners() {
         });
     }
 }
+
+
 
 
 
@@ -4343,6 +3868,7 @@ async function checkSystemHealth() {
         }
     }
 }
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Certificate verification function
 async function verifyCertificate(certificateNumber) {
@@ -4378,29 +3904,104 @@ async function verifyCertificate(certificateNumber) {
     }
 }
 
-        // Check if mobile device
-        document.addEventListener('DOMContentLoaded', function() {
+// Event listeners and initialization
+document.addEventListener('DOMContentLoaded', function() {
     try {
         console.log('NARAP Admin Panel initializing...');
         
-        // YOUR CODE GOES HERE
-        // Check if mobile device
-        const isMobile = window.innerWidth <= 768;
-        const cardWidth = isMobile ? '100%' : '400px';
-        const photoSize = isMobile ? '60px' : '80px';
-        const photoHeight = isMobile ? '75px' : '100px';
-        const fontSize = isMobile ? '13px' : '11px';
-        const titleSize = isMobile ? '16px' : '14px';
+        // Load theme
+        if (typeof loadTheme === 'function') loadTheme();
         
-        // Properly define cardDiv first
-        const cardDiv = document.getElementById('generatedIdCard');
+        // Auto-fill admin credentials on page load
+        if (typeof fillAdminCredentials === 'function') fillAdminCredentials();
         
-        if (cardDiv) {
-            cardDiv.innerHTML = 'something'; // Fixed typo
-            cardDiv.style.display = 'block';
-        } else {
-            console.warn('generatedIdCard element not found');
+        // Initialize dashboard as default tab
+        switchTab('dashboard');
+        
+        // Initialize all modals
+        window.initModals = function() {
+            const modals = {
+                memberModal: '#memberModal',
+                editMemberModal: '#editMemberModal',
+                addCertificateModal: '#addCertificateModal',
+                viewCertificateModal: '#viewCertificateModal'
+            };
+            Object.keys(modals).forEach(key => {
+                const el = document.querySelector(modals[key]);
+                if (el) window[key] = new bootstrap.Modal(el);
+            });
+        };
+        initModals(); // Initialize on first load
+        
+        // Setup preview listeners
+        if (typeof setupPreviewListeners === 'function') setupPreviewListeners();
+        
+        // Sidebar functionality
+        const sidebar = document.querySelector('.sidebar');
+        const hamburgerBtn = document.getElementById('hamburgerButton');
+        const overlay = document.querySelector('.sidebar-overlay');
+        
+        // Toggle sidebar function
+        function toggleSidebar() {
+            if (sidebar) sidebar.classList.toggle('mobile-open');
+            if (overlay) overlay.classList.toggle('active');
+            document.body.style.overflow = sidebar && sidebar.classList.contains('mobile-open') ? 'hidden' : '';
         }
+        
+        // Hamburger button click
+        if (hamburgerBtn) {
+            hamburgerBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleSidebar();
+            });
+        }
+        
+        // Overlay click
+        if (overlay) {
+            overlay.addEventListener('click', toggleSidebar);
+        }
+        
+        // Close sidebar when clicking nav items on mobile
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function() {
+                if (window.innerWidth <= 768) {
+                    toggleSidebar();
+                }
+            });
+        });
+        
+        // Close sidebar when resizing to desktop
+        window.addEventListener('resize', function() {
+            if (window.innerWidth >= 769) {
+                if (sidebar) sidebar.classList.remove('mobile-open');
+                if (overlay) overlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+        
+        // Set up modal close on outside click
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        });
+        
+        // Global modal triggers (consolidated - removed duplicates)
+        document.addEventListener('click', (e) => {
+            // Add Member button
+            if (e.target.closest('#addMemberBtn')) {
+                e.preventDefault();
+                if (window.memberModal) window.memberModal.show();
+            }
+            // Add Certificate button
+            if (e.target.closest('#addCertBtn')) {
+                e.preventDefault();
+                if (window.certModal) window.certModal.show();
+            }
+        });
         
         // Set up connection status monitoring
         if (typeof updateConnectionStatus === 'function') {
@@ -4431,78 +4032,26 @@ async function verifyCertificate(certificateNumber) {
         // Populate state filter dropdown
         if (typeof populateStateFilter === 'function') populateStateFilter();
         
-        // Add search functionality
-        const memberSearch = document.getElementById('memberSearch');
-        if (memberSearch) {
-            memberSearch.addEventListener('input', function() {
-                if (typeof searchMembers === 'function') searchMembers(this.value);
-            });
-        }
-        
-        const certificateSearch = document.getElementById('certificateSearch');
-        if (certificateSearch) {
-            certificateSearch.addEventListener('input', function() {
-                if (typeof searchCertificates === 'function') searchCertificates(this.value);
-            });
-        }
-        
-        // Add filter functionality
-        const positionFilter = document.getElementById('positionFilter');
-        if (positionFilter) {
-            positionFilter.addEventListener('change', function() {
-                if (typeof filterMembers === 'function') filterMembers();
-            });
-        }
-        
-        const stateFilter = document.getElementById('stateFilter');
-        if (stateFilter) {
-            stateFilter.addEventListener('change', function() {
-                if (typeof filterMembers === 'function') filterMembers();
-            });
-        }
-        
-        const certificateStatusFilter = document.getElementById('certificateStatusFilter');
-        if (certificateStatusFilter) {
-            certificateStatusFilter.addEventListener('change', function() {
-                if (typeof filterCertificates === 'function') filterCertificates();
-            });
-        }
-        
-        // Add password strength checker
-        const memberPasswordField = document.getElementById('memberPassword');
-        if (memberPasswordField) {
-            memberPasswordField.addEventListener('input', function() {
-                if (typeof checkPasswordStrength === 'function') checkPasswordStrength(this.value);
-            });
-        }
-        
-        // Auto-generate member code
-        const memberCodeField = document.getElementById('memberCode');
-        if (memberCodeField && !memberCodeField.value) {
-            if (typeof generateMemberCode === 'function') {
-                memberCodeField.value = generateMemberCode();
-            }
-        }
-        
         // Set up periodic health checks
         if (typeof checkSystemHealth === 'function') {
             setInterval(checkSystemHealth, 60000); // Check every minute
         }
         
+        // Small delay to ensure all elements are rendered
+        setTimeout(function() {
+            if (typeof finalizeInitialization === 'function') finalizeInitialization();
+        }, 100);
+        
         console.log('NARAP Admin Panel initialized successfully');
-        if (typeof backendUrl !== 'undefined') {
-            console.log('Backend URL:', backendUrl);
-        }
         
     } catch (error) {
         console.error('Error during initialization:', error);
-        console.error('Initialization error:', error.message, error.filename, error.lineno);
+        console.error('Initialization error details:', error.message, error.stack);
         if (typeof notifyAdmin === 'function') {
-            notifyAdmin('Error occurred: ' + error.message);
+            notifyAdmin('Error occurred during initialization: ' + error.message);
         }
     }
 });
-
 
 
 // Keyboard shortcuts
@@ -5616,6 +5165,7 @@ function getMessageStyle(type) {
 
 
 // Initialize performance monitor
+const performanceMonitor = new PerformanceMonitor();
 
 // Enhanced API call wrapper with performance monitoring
 async function apiCall(endpoint, options = {}) {
@@ -6018,6 +5568,7 @@ window.narapAdmin = {
 };
 
 
+
 // Export for module systems if needed
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.narapAdmin;
@@ -6030,39 +5581,3 @@ console.log('Ready for production use!');
 
 
 
-// Fixed sidebar toggle code
-
-const sidebar = document.querySelector('.sidebar');
-const overlay = document.querySelector('.sidebar-overlay');
-const body = document.body;
-
-function toggleSidebar() {
-    sidebar.classList.toggle('active');
-    overlay.classList.toggle('active');
-    body.classList.toggle('sidebar-open');
-}
-
-// Add overlay click listener only once
-overlay.addEventListener('click', function() {
-    sidebar.classList.remove('active');
-    overlay.classList.remove('active');
-    body.classList.remove('sidebar-open');
-});
-
-// Close sidebar when clicking on links (optional)
-document.querySelectorAll('.sidebar a').forEach(link => {
-    link.addEventListener('click', function() {
-        if (window.innerWidth <= 768) {
-            toggleSidebar();
-        }
-    });
-});
-
-// Handle window resize
-window.addEventListener('resize', function() {
-    if (window.innerWidth > 768) {
-        sidebar.classList.remove('active');
-        overlay.classList.remove('active');
-        body.classList.remove('sidebar-open');
-    }
-});
