@@ -10,11 +10,171 @@
     <script src="js/admin.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Modal Styles -->
+    <style>
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            z-index: 1001;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+        }
+
+        .close-btn:hover {
+            color: #000;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            padding: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        .form-buttons {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .file-upload {
+            position: relative;
+        }
+
+        .file-upload input[type="file"] {
+            display: none;
+        }
+
+        .file-upload-label {
+            display: inline-block;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            width: 100%;
+        }
+
+        .file-upload-label:hover {
+            background: #e9ecef;
+        }
+
+        .password-strength {
+            margin-top: 5px;
+            font-size: 12px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .modal-content {
+                width: 95%;
+                max-height: 95vh;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
     <!-- Messages Container -->
     <div id="messages" class="messages"></div>
-
     <!-- Login Section -->
     <div id="loginSection" class="login-container">
         <div class="login-card">
@@ -22,9 +182,8 @@
                 <img src="images/narap-logo.jpg" alt="NARAP Logo">
             </div>
             <h1 class="login-title">🛡️ NARAP Admin Panel</h1>
-            <p class="login-subtitle">Nigerian Association Of Refregiration And Air Conditioning Practitioners
-<br>Administration Dashboard</p>
-            
+            <p class="login-subtitle">Nigerian Association Of Refregiration And Air Conditioning Practitioners<br>Administration Dashboard</p>
+                       
             <form onsubmit="login(event)">
                 <div class="form-group">
                     <label for="username">Username:</label>
@@ -49,11 +208,10 @@
                     </button>
                 </div>
             </form>
-            
+                       
             <div id="loginError"></div>
         </div>
     </div>
-
     <!-- Admin Panel -->
     <div id="adminSection" class="admin-container">
             <button class="hamburger-btn" onclick="toggleSidebar()">
@@ -69,8 +227,7 @@
                 <div class="sidebar-title">NARAP Admin</div>
                 <div class="sidebar-subtitle">Management System</div>
             </div>
-
-                       
+                                   
             <nav class="nav-list">
                 <a href="#" class="nav-item active" id="btn-dashboard" onclick="switchTab('dashboard')">
                     <i class="fas fa-tachometer-alt"></i>
@@ -94,7 +251,6 @@
                 </a>
             </nav>
         </div>
-
         <!-- Main Content -->
         <div class="main-content">
             <!-- Header -->
@@ -102,26 +258,23 @@
     <button class="hamburger-btn" onclick="toggleSidebar()">
         <i class="fas fa-bars"></i>
     </button>
-    
-    <h1 class="header-title" id="headerTitle">Dashboard</h1>
-    
-    <div class="header-actions">
+       <h1 class="header-title" id="headerTitle">Dashboard</h1>
+       <div class="header-actions">
         <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle Theme">
             <i class="fas fa-moon"></i>
         </button>
-        
+               
         <div class="connection-status">
             <div class="connection-indicator" id="connectionIndicator"></div>
             <span class="connection-text" id="connectionText">Online</span>
         </div>
-        
+               
         <button class="logout-btn" onclick="logout()">
             <i class="fas fa-sign-out-alt"></i>
             <span>Logout</span>
         </button>
     </div>
 </div>
-
             <!-- Content Area -->
             <!-- Content Area -->
 <div class="content">
@@ -145,7 +298,6 @@
             </div>
         </div>
     </div>
-
     <!-- Members Tab -->
     <div id="panel-members" class="panel" style="display: none;">
         <h2>Members Management</h2>
@@ -154,7 +306,6 @@
             <!-- Members table, forms, etc. -->
         </div>
     </div>
-
     <!-- Certificates Tab -->
     <div id="panel-certificates" class="panel" style="display: none;">
         <h2>Certificates Management</h2>
@@ -163,7 +314,6 @@
             <!-- Certificates table, forms, etc. -->
         </div>
     </div>
-
     <!-- Analytics Tab -->
     <div id="panel-analytics" class="panel" style="display: none;">
         <h2>Analytics</h2>
@@ -172,7 +322,6 @@
             <!-- Charts, graphs, etc. -->
         </div>
     </div>
-
     <!-- System Tab -->
     <div id="panel-system" class="panel" style="display: none;">
         <h2>System Settings</h2>
@@ -182,8 +331,6 @@
         </div>
     </div>
 </div>
-
-
                     <!-- Statistics -->
                     <div class="stats-grid">
                         <div class="stat-card">
@@ -203,7 +350,7 @@
                             <div class="stat-label">System Uptime</div>
                         </div>
                     </div>
-                    
+                                       
                     <!-- Recent Activity -->
                     <div class="activity-log">
                         <div class="chart-title" style="padding: 20px 20px 0;">Recent Activity</div>
@@ -212,7 +359,6 @@
                         </div>
                     </div>
                 </div>
-
                 <!-- Members Tab -->
                 <div id="panel-members" class="panel hidden">
                     <!-- Action Buttons -->
@@ -234,7 +380,6 @@
                             Refresh
                         </button>
                     </div>
-
                     <!-- Search and Filter -->
                     <div class="search-filter-bar">
                         <input type="text" class="form-group input search-input" id="memberSearch" placeholder="Search members..." oninput="searchMembers(this.value)">
@@ -250,7 +395,6 @@
                             <option value="">All States</option>
                         </select>
                     </div>
-
                     <!-- Members Table -->
                     <div class="data-table-container">
                         <table class="data-table" id="membersTable">
@@ -273,7 +417,6 @@
                         </table>
                     </div>
                 </div>
-
                 <!-- Certificates Tab -->
                 <div id="panel-certificates" class="panel hidden">
                     <!-- Action Buttons -->
@@ -291,7 +434,6 @@
                             Refresh
                         </button>
                     </div>
-
                     <!-- Search and Filter -->
                     <div class="search-filter-bar">
                         <input type="text" class="form-group input search-input" id="certificateSearch" placeholder="Search certificates..." oninput="searchCertificates(this.value)">
@@ -302,7 +444,6 @@
                             <option value="expired">Expired</option>
                         </select>
                     </div>
-
                     <!-- Certificates Table -->
                     <div class="data-table-container">
                         <table class="data-table" id="certificatesTable">
@@ -324,7 +465,6 @@
                         </table>
                     </div>
                 </div>
-
                 <!-- Analytics Tab -->
                 <div id="panel-analytics" class="panel hidden">
                     <!-- Charts Container -->
@@ -348,7 +488,6 @@
                             </div>
                         </div>
                     </div>
-
                     <!-- Detailed Statistics -->
                     <div class="stats-grid">
                         <div class="stat-card">
@@ -369,7 +508,6 @@
                         </div>
                     </div>
                 </div>
-
                 <!-- System Tab -->
                 <div id="panel-system" class="panel hidden">
                     <!-- System Actions -->
@@ -395,7 +533,6 @@
                             Clear All Data
                         </button>
                     </div>
-
                     <!-- System Information -->
                     <div class="stats-grid">
                         <div class="stat-card">
@@ -415,7 +552,6 @@
                             <div class="stat-label">Server Status</div>
                         </div>
                     </div>
-
                     <!-- Activity Logs -->
                     <div class="activity-log">
                         <div class="chart-title" style="padding: 20px 20px 0;">System Activity Logs</div>
@@ -425,7 +561,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- Footer -->
             <div class="admin-footer">
                 <div class="footer-left">
@@ -448,7 +583,6 @@
             </div>
         </div>
     </div>
-
     <!-- Add Member Modal -->
     <div id="addMemberModal" class="modal">
         <div class="modal-backdrop" onclick="closeAddMemberModal()"></div>
@@ -493,7 +627,8 @@
                             <option value="FINANCIAL SECRETARY">Financial Secretary</option>
                             <option value="ASSISTANT FINANCIAL SECRETARY">Assistant Financial Secretary</option>
                             <option value="TREASURER">Treasurer</option>
-                                                        <option value="PUBLIC RELATION OFFICE">Public Relation Officer (PRO)</option>
+                                                        
+                            <option value="PUBLIC RELATION OFFICE">Public Relation Officer (PRO)</option>
                             <option value="PROVOST MARSHAL 1">Provost Marshal 1</option>
                             <option value="PROVOST MARSHAL 2">Provost Marshal 2</option>
                             <option value="STATE WELFARE COORDINATOR">State Welfare Coordinator</option>
@@ -529,13 +664,13 @@
                         </div>
                     </div>
                 </div>
-                
+                               
                 <!-- ID Card Preview -->
                 <div id="idCardPreview" class="hidden">
                     <h3>ID Card Preview</h3>
                     <div id="generatedIdCard"></div>
                 </div>
-                
+                               
                 <div class="form-buttons">
                     <button type="button" onclick="generateIdCardPreview()" class="btn btn-info">
                         <i class="fas fa-eye"></i>
@@ -553,7 +688,6 @@
             </form>
         </div>
     </div>
-
     <!-- Edit Member Modal -->
     <div id="editMemberModal" class="modal">
         <div class="modal-backdrop" onclick="closeEditMemberModal()"></div>
@@ -590,7 +724,7 @@
                             <option value="VICE PRESIDENT (South South)">Vice President (South South)</option>
                             <option value="VICE PRESIDENT (South West)">Vice President (South West)</option>
                             <option value="SECRETARY">Secretary</option>
-                            <option value="ASSISTANT SECRETARY">Assistant Secretary</option>
+                                                        <option value="ASSISTANT SECRETARY">Assistant Secretary</option>
                             <option value="FINANCIAL SECRETARY">Financial Secretary</option>
                             <option value="ASSISTANT FINANCIAL SECRETARY">Assistant Financial Secretary</option>
                             <option value="TREASURER">Treasurer</option>
@@ -630,7 +764,7 @@
                         </div>
                     </div>
                 </div>
-                
+                               
                 <div class="form-buttons">
                     <button type="submit" class="btn btn-success">
                         <i class="fas fa-save"></i>
@@ -644,7 +778,6 @@
             </form>
         </div>
     </div>
-
     <!-- View ID Card Modal -->
     <div id="viewIdCardModal" class="modal">
          <div class="modal-backdrop" onclick="closeViewIdCardModal()"></div>
@@ -672,7 +805,6 @@
             </div>
         </div>
     </div>
-
     <!-- Issue Certificate Modal -->
     <div id="issueCertificateModal" class="modal">
         <div class="modal-backdrop" onclick="closeIssueCertificateModal()"></div>
@@ -723,13 +855,13 @@
                         <textarea id="certificateDescription" rows="3" placeholder="Certificate description or achievement details"></textarea>
                     </div>
                 </div>
-                
+                               
                 <!-- Certificate Preview -->
                 <div id="certificatePreview" class="hidden">
                     <h3>Certificate Preview</h3>
                     <div id="generatedCertificate"></div>
                 </div>
-                
+                               
                 <div class="form-buttons">
                     <button type="button" onclick="generateCertificatePreview()" class="btn btn-info">
                         <i class="fas fa-eye"></i>
@@ -747,7 +879,6 @@
             </form>
         </div>
     </div>
-
     <!-- View Certificate Modal -->
     <div id="viewCertificateModal" class="modal">
         <div class="modal-backdrop" onclick="closeViewCertificateModal()"></div>
@@ -775,7 +906,6 @@
             </div>
         </div>
     </div>
-
     <!-- Import Modal -->
     <div id="importModal" class="modal">
         <div class="modal-backdrop" onclick="closeImportModal()"></div>
@@ -818,7 +948,6 @@
             <div id="importStatus"></div>
         </div>
     </div>
-
     <!-- Restore Modal -->
     <div id="restoreModal" class="modal">
         <div class="modal-backdrop" onclick="closeRestoreModal()"></div>
@@ -856,7 +985,6 @@
             <div id="restoreStatus"></div>
         </div>
     </div>
-
     <!-- Confirmation Modal -->
     <div id="confirmModal" class="modal">
         <div class="modal-backdrop" onclick="closeConfirmModal()"></div>
@@ -880,3 +1008,4 @@
     </div>
 </body>
 </html>
+
