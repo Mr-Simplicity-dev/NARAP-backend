@@ -5295,6 +5295,170 @@ function getMessageStyle(type) {
     }
 }
 
+// View functions for modals
+function viewIdCard(memberId) {
+    const member = currentMembers.find(m => m._id === memberId);
+    if (!member) {
+        showMessage('Member not found', 'error');
+        return;
+    }
+    
+    // Populate the view modal with member data
+    const modalContent = document.getElementById('viewIdCardContent');
+    if (modalContent) {
+        modalContent.innerHTML = `
+            <div class="id-card-view">
+                <div class="id-card-header">
+                    <img src="images/narap-logo.jpg" alt="NARAP Logo" class="id-logo">
+                    <h3>NARAP</h3>
+                    <p>Nigerian Association of Refrigeration<br>And Air Conditioning Practitioners</p>
+                </div>
+                <div class="id-card-body">
+                    <div class="id-photo">
+                        <img src="${member.passportPhoto || 'images/default-avatar.png'}" alt="Photo">
+                    </div>
+                    <div class="id-details">
+                        <h4>${member.name}</h4>
+                        <p><strong>Code:</strong> ${member.code}</p>
+                        <p><strong>Position:</strong> ${member.position}</p>
+                        <p><strong>State:</strong> ${member.state}</p>
+                        <p><strong>Zone:</strong> ${member.zone}</p>
+                    </div>
+                </div>
+                <div class="signature-area">
+                    <img src="${member.signature || 'images/default-signature.png'}" alt="Signature" class="signature">
+                </div>
+            </div>
+        `;
+    }
+    
+    document.getElementById('viewIdCardModal').style.display = 'block';
+}
+
+function viewCertificate(certificateId) {
+    const certificate = currentCertificates.find(c => c._id === certificateId || c.id === certificateId);
+    if (!certificate) {
+        showMessage('Certificate not found', 'error');
+        return;
+    }
+    
+    // Populate the view modal with certificate data
+    const modalContent = document.getElementById('viewCertificateContent');
+    if (modalContent) {
+        modalContent.innerHTML = `
+            <div class="certificate-view">
+                ${certificate.status === 'revoked' ? '<div class="revoked-watermark">REVOKED</div>' : ''}
+                <div class="cert-header">
+                    <img src="images/narap-logo.jpg" alt="NARAP Logo" class="cert-logo">
+                    <h2>NARAP Certificate</h2>
+                </div>
+                <div class="cert-body">
+                    <h3>${certificate.title}</h3>
+                    <p><strong>Certificate Number:</strong> ${certificate.number}</p>
+                    <p><strong>Recipient:</strong> ${certificate.recipient}</p>
+                    <p><strong>Type:</strong> ${certificate.type}</p>
+                    <p><strong>Issue Date:</strong> ${formatDate(certificate.issueDate)}</p>
+                    ${certificate.validUntil ? `<p><strong>Valid Until:</strong> ${formatDate(certificate.validUntil)}</p>` : ''}
+                    <p><strong>Description:</strong> ${certificate.description}</p>
+                    <p><strong>Status:</strong> <span class="status-${certificate.status || 'active'}">${(certificate.status || 'active').toUpperCase()}</span></p>
+                </div>
+            </div>
+        `;
+    }
+    
+    document.getElementById('viewCertificateModal').style.display = 'block';
+}
+
+// Revoke certificate function
+async function revokeCertificate(certificateId) {
+    const reason = prompt('Please enter the reason for revoking this certificate:');
+    if (!reason) {
+        showMessage('Revocation cancelled', 'info');
+        return;
+    }
+    
+    if (!confirm('Are you sure you want to revoke this certificate?')) {
+        return;
+    }
+    
+    try {
+        showMessage('Revoking certificate...', 'info');
+        
+        // Update certificate status
+        const certificate = currentCertificates.find(c => c._id === certificateId || c.id === certificateId);
+        if (certificate) {
+            certificate.status = 'revoked';
+            certificate.revokedAt = new Date().toISOString();
+            certificate.revokedReason = reason;
+            certificate.revokedBy = 'Admin'; // You might want to get actual admin name
+            
+            // Save to local storage
+            saveLocalCertificates(currentCertificates);
+            
+            // Try to sync with backend
+            if (navigator.onLine) {
+                try {
+                    await fetch(`${backendUrl}/api/certificates/${certificateId}/revoke`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ reason, revokedBy: 'Admin' })
+                    });
+                } catch (error) {
+                    console.warn('Backend sync failed for revocation:', error);
+                }
+            }
+            
+            showMessage('Certificate revoked successfully!', 'success');
+            await loadCertificates();
+        }
+    } catch (error) {
+        console.error('Revoke certificate error:', error);
+        showMessage('Failed to revoke certificate', 'error');
+    }
+}
+
+// Restore certificate function
+async function restoreCertificate(certificateId) {
+    if (!confirm('Are you sure you want to restore this certificate?')) {
+        return;
+    }
+    
+    try {
+        showMessage('Restoring certificate...', 'info');
+        
+        const certificate = currentCertificates.find(c => c._id === certificateId || c.id === certificateId);
+        if (certificate) {
+            certificate.status = 'active';
+            delete certificate.revokedAt;
+            delete certificate.revokedReason;
+            delete certificate.revokedBy;
+            
+            // Save to local storage
+            saveLocalCertificates(currentCertificates);
+            
+            // Try to sync with backend
+            if (navigator.onLine) {
+                try {
+                    await fetch(`${backendUrl}/api/certificates/${certificateId}/restore`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include'
+                    });
+                } catch (error) {
+                    console.warn('Backend sync failed for restoration:', error);
+                }
+            }
+            
+            showMessage('Certificate restored successfully!', 'success');
+            await loadCertificates();
+        }
+    } catch (error) {
+        console.error('Restore certificate error:', error);
+        showMessage('Failed to restore certificate', 'error');
+    }
+}
+
 
 // Add this class definition RIGHT BEFORE your existing line
 class PerformanceMonitor {
