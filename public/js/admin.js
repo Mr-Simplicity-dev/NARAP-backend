@@ -427,22 +427,27 @@ function logout() {
 
 // Tab switching functionality
 function switchTab(tabName) {
-    // Hide all tab contents
-    const tabContents = document.querySelectorAll('.tab-content');
-    tabContents.forEach(tab => tab.classList.remove('active'));
+    console.log('🔄 Switching to tab:', tabName);
+    
+    // Hide all tab contents - Updated to match your HTML
+    const tabContents = document.querySelectorAll('.panel');
+    tabContents.forEach(tab => tab.style.display = 'none');
     
     // Remove active class from all nav items
     const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(item => item.classList.remove('active'));
     
-    // Show selected tab
-    const selectedTab = document.getElementById(tabName + 'Tab');
+    // Show selected tab - Updated to match your HTML
+    const selectedTab = document.getElementById('panel-' + tabName);
     if (selectedTab) {
-        selectedTab.classList.add('active');
+        selectedTab.style.display = 'block';
+        console.log('✅ Tab found and activated:', 'panel-' + tabName);
+    } else {
+        console.error('❌ Tab not found:', 'panel-' + tabName);
     }
     
     // Add active class to selected nav item
-    const selectedNav = document.querySelector(`[data-tab="${tabName}"]`);
+    const selectedNav = document.querySelector(`#btn-${tabName}`);
     if (selectedNav) {
         selectedNav.classList.add('active');
     }
@@ -459,6 +464,7 @@ function switchTab(tabName) {
             loadDashboard();
             break;
         case 'members':
+            console.log('📋 Loading members tab...');
             loadMembers();
             break;
         case 'certificates':
@@ -472,6 +478,7 @@ function switchTab(tabName) {
             break;
     }
 }
+
 
 // Load dashboard data
 async function loadDashboard() {
@@ -3965,8 +3972,7 @@ function quickIssueCertificate() {
     setTimeout(() => showIssueCertificateModal(), 100);
 }
 
-// System health monitoring
-// ─────────────────────────────────────────────────────────────────────────────
+
 // Robust checkSystemHealth: fetches JSON health data and updates UI
 async function checkSystemHealth() {
     try {
@@ -5320,9 +5326,6 @@ class PerformanceMonitor {
         this.startTime = Date.now();
     }
 }
-
-
-
 
 // Enhanced API call wrapper with performance monitoring
 async function apiCall(endpoint, options = {}) {
