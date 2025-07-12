@@ -1189,6 +1189,50 @@ async function loadCertificates() {
     }
 }
 
+
+// Add this alias function for loadDashboard compatibility
+async function getCertificates() {
+    try {
+        console.log('Loading certificates...');
+        const url = `${backendUrl}/api/certificates`;
+        console.log('Fetching certificates from:', url);
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            credentials: 'include',
+            headers: getAuthHeaders()
+        });
+
+        // Handle token expiration
+        if (response.status === 401) {
+            console.log('🔐 Token expired, redirecting to login');
+            localStorage.removeItem('authToken');
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('adminSection').style.display = 'none';
+            showMessage('Session expired. Please login again.', 'warning');
+            return [];
+        }
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log('✅ Certificates loaded successfully:', data.length, 'certificates');
+        
+        if (data.length === 0) {
+            showMessage('No certificates found', 'info');
+        }
+        
+        return Array.isArray(data) ? data : [];
+    } catch (error) {
+        console.error('Error fetching certificates:', error);
+        showMessage('Failed to load certificates: ' + error.message, 'error');
+        return [];
+    }
+}
+
+
 // ✅ Add this function if it doesn't exist
 function displayCertificates(certificates) {
     const certificatesTableBody = document.getElementById('certificatesTableBody');
