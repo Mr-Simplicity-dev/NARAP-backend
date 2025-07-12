@@ -1151,11 +1151,22 @@ async function loadUsers() {
     try {
         console.log('Fetching members from:', `${backendUrl}/api/getUsers`);
         
+        // Create abort controller for proper timeout handling
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(() => abortController.abort(), 15000);
+        
         const res = await fetch(`${backendUrl}/api/getUsers`, {
             method: 'GET',
             credentials: 'include',
-            headers: getAuthHeaders()
-        }, 15000); // 15 second timeout for data loading
+            headers: getAuthHeaders(),
+            signal: abortController.signal
+        });
+        
+        clearTimeout(timeoutId); // Clear timeout if request completes
+        
+        // Debug: Log response details
+        console.log('Response status:', res.status);
+        console.log('Response headers:', [...res.headers.entries()]);
         
         // Handle token expiration
         if (res.status === 401) {
@@ -1168,11 +1179,25 @@ async function loadUsers() {
         }
         
         if (!res.ok) {
-            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            const errorText = await res.text();
+            console.error('Error response body:', errorText);
+            throw new Error(`HTTP ${res.status}: ${res.statusText || 'Unknown error'}`);
         }
         
-        const members = await res.json();
-        currentMembers = Array.isArray(members) ? members : [];
+        const responseData = await res.json();
+        console.log('Raw API response:', responseData);
+        
+        // Handle different response formats
+        let members = [];
+        if (Array.isArray(responseData)) {
+            members = responseData;
+        } else if (responseData.data && Array.isArray(responseData.data)) {
+            members = responseData.data;
+        } else if (responseData.users && Array.isArray(responseData.users)) {
+            members = responseData.users;
+        }
+        
+        currentMembers = members;
         console.log('✅ Members loaded successfully:', currentMembers.length, 'members');
         return currentMembers;
         
@@ -1205,19 +1230,41 @@ async function loadMembers() {
         console.log('Loading members...');
         tableBody.innerHTML = '<tr><td colspan="7" class="loading">Loading members...</td></tr>';
         
+        // Debug: Check if we have a valid token
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('No authentication token found');
+        }
+        console.log('Using token:', token);
+        
+        // Debug: Check the loadUsers function
+        console.log('Calling loadUsers()...');
         const members = await loadUsers();
+        console.log('Received members data:', members); // Inspect this in console
         
         // Clear the table
         tableBody.innerHTML = '';
         
         if (!members || members.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666; padding: 20px;">No members found</td></tr>';
+            const noMembersRow = document.createElement('tr');
+            noMembersRow.innerHTML = `
+                <td colspan="7" style="text-align: center; color: #666; padding: 20px;">
+                    No members found. 
+                    <button onclick="location.reload()" class="btn btn-link">Try again</button>
+                </td>
+            `;
+            tableBody.appendChild(noMembersRow);
             showMessage('No members found', 'info');
             return;
         }
         
         // Create table rows
         members.forEach((member, index) => {
+            if (!member._id) {
+                console.warn('Member missing ID:', member);
+                return; // Skip invalid members
+            }
+            
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>
@@ -1225,7 +1272,7 @@ async function loadMembers() {
                         <img src="${member.passport || 'images/default-avatar.png'}" 
                              alt="Photo" 
                              style="width: 100%; height: 100%; object-fit: cover;"
-                                                          onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNFNUU3RUIiLz4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4PSI4IiB5PSI4Ij4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDEyQzE0LjIwOTEgMTIgMTYgMTAuMjA5MSAxNiA4QzE2IDUuNzkwODYgMTQuMjA5MSA0IDEyIDRDOS43OTA4NiA0IDggNS43OTA4NiA4IDhDOCAxMC4yMDkxIDkuNzkwODYgMTIgMTIgMTJaIiBmaWxsPSIjOUM5Qzk3Ii8+CjxwYXRoIGQ9Ik0xMiAxNEM5LjMzIDEzLjk5IDcuMDEgMTUuNzMgNiAxOC4yNEM1Ljk5IDE4LjQ0IDYuMTEgMTguNjMgNi4yOSAxOC43MkM2LjY3IDE4Ljk2IDcuMDggMTkuMTYgNy41IDE5LjMxQzguOTIgMTkuODYgMTAuNDQgMjAgMTIgMjBDMTMuNTYgMjAgMTUuMDggMTkuODYgMTYuNSAxOS4zMUMxNi45MiAxOS4xNiAxNy4zMyAxOC45NiAxNy43MSAxOC43MkMxNy44OSAxOC42MyAxOC4wMSAxOC40NCAxOCAxOC4yNEMxNi45OSAxNS43MyAxNC42NyAxMy45OSAxMiAxNFoiIGZpbGw9IiM5QzlDOTciLz4KPC9zdmc+Cjwvc3ZnPgo8L3N2Zz4K';">
+                             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNFNUU3RUIiLz4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4PSI4IiB5PSI4Ij4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDEyQzE0LjIwOTEgMTIgMTYgMTAuMjA5MSAxNiA4QzE2IDUuNzkwODYgMTQuMjA5MSA0IDEyIDRDOS43OTA4NiA0IDggNS43OTA4NiA4IDhDOCAxMC4yMDkxIDkuNzkwODYgMTIgMTIgMTJaIiBmaWxsPSIjOUM5Qzk3Ii8+CjxwYXRoIGQ9Ik0xMiAxNEM5LjMzIDEzLjk5IDcuMDEgMTUuNzMgNiAxOC4yNEM1Ljk5IDE4LjQ0IDYuMTEgMTguNjMgNi4yOSAxOC43MkM2LjY3IDE4Ljk2IDcuMDggMTkuMTYgNy41IDE5LjMxQzguOTIgMTkuODYgMTAuNDQgMjAgMTIgMjBDMTMuNTYgMjAgMTUuMDggMTkuODYgMTYuNSAxOS4zMUMxNi45MiAxOS4xNiAxNy4zMyAxOC45NiAxNy43MSAxOC43MkMxNy44OSAxOC42MyAxOC4wMSAxOC40NCAxOCAxOC4yNEMxNi45OSAxNS43MyAxNC42NyAxMy45OSAxMiAxNFoiIGZpbGw9IiM5QzlDOTciLz4KPC9zdmc+Cjwvc3ZnPgo8L3N2Zz4K';">
                     </div>
                 </td>
                 <td><strong>${escapeHtml(member.name || 'N/A')}</strong></td>
@@ -1254,7 +1301,15 @@ async function loadMembers() {
         
     } catch (error) {
         console.error('Load members error:', error);
-        tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red; padding: 20px;">Failed to load members: ' + error.message + '</td></tr>';
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" style="text-align: center; color: red; padding: 20px;">
+                    Failed to load members. 
+                    <br>${error.message}
+                    <br><button onclick="loadMembers()" class="btn btn-link">Retry</button>
+                </td>
+            </tr>
+        `;
         showMessage('Failed to load members: ' + error.message, 'error');
     }
 }
