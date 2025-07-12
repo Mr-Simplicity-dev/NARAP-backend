@@ -1155,6 +1155,8 @@ async function loadUsers() {
         const abortController = new AbortController();
         const timeoutId = setTimeout(() => abortController.abort(), 15000);
         
+        console.log('Auth headers:', getAuthHeaders());
+        
         const res = await fetch(`${backendUrl}/api/getUsers`, {
             method: 'GET',
             credentials: 'include',
