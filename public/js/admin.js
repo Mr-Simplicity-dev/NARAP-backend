@@ -426,30 +426,32 @@ function logout() {
 }
 
 // Tab switching functionality
+
 function switchTab(tabName) {
-    console.log('🔄 Switching to tab:', tabName);
-    
-    // Hide all tab contents - Updated to match your HTML
-    const tabContents = document.querySelectorAll('.panel');
-    tabContents.forEach(tab => tab.style.display = 'none');
+    // Hide all panels
+    const panels = document.querySelectorAll('.panel');
+    panels.forEach(panel => {
+        panel.classList.remove('active');
+        panel.style.display = 'none';
+    });
     
     // Remove active class from all nav items
     const navItems = document.querySelectorAll('.nav-item');
-    navItems.forEach(item => item.classList.remove('active'));
+    navItems.forEach(item => {
+        item.classList.remove('active');
+    });
     
-    // Show selected tab - Updated to match your HTML
-    const selectedTab = document.getElementById('panel-' + tabName);
-    if (selectedTab) {
-        selectedTab.style.display = 'block';
-        console.log('✅ Tab found and activated:', 'panel-' + tabName);
-    } else {
-        console.error('❌ Tab not found:', 'panel-' + tabName);
+    // Show selected panel
+    const selectedPanel = document.getElementById(`panel-${tabName}`);
+    if (selectedPanel) {
+        selectedPanel.classList.add('active');
+        selectedPanel.style.display = 'block';
     }
     
     // Add active class to selected nav item
-    const selectedNav = document.querySelector(`#btn-${tabName}`);
-    if (selectedNav) {
-        selectedNav.classList.add('active');
+    const selectedNavItem = document.getElementById(`btn-${tabName}`);
+    if (selectedNavItem) {
+        selectedNavItem.classList.add('active');
     }
     
     // Update header title
@@ -458,26 +460,18 @@ function switchTab(tabName) {
         headerTitle.textContent = tabName.charAt(0).toUpperCase() + tabName.slice(1);
     }
     
-    // Load tab-specific data
-    switch(tabName) {
-        case 'dashboard':
-            loadDashboard();
-            break;
-        case 'members':
-            console.log('📋 Loading members tab...');
-            loadMembers();
-            break;
-        case 'certificates':
-            loadCertificates();
-            break;
-        case 'analytics':
-            loadAnalytics();
-            break;
-        case 'system':
-            loadSystemInfo();
-            break;
+    // Close sidebar on mobile after tab switch
+    if (window.innerWidth <= 768) {
+        closeSidebar();
     }
 }
+
+// Initialize dashboard on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Ensure only dashboard is visible initially
+    switchTab('dashboard');
+});
+
 
 
 // Load dashboard data

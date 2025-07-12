@@ -119,276 +119,278 @@
             </div>
             
             <!-- Content Area -->
-            <div class="content">
-                <!-- Dashboard Tab -->
-                <div id="panel-dashboard" class="panel active" style="display: block;">
-                    <!-- Quick Links -->
-                    <div class="quick-links">
-                        <div class="quick-link-card" onclick="switchTab('members')">
-                            <div class="quick-link-icon">
-                                <i class="fas fa-users"></i>
-                            </div>
-                            <div class="quick-link-title">Members Management</div>
-                            <div class="quick-link-desc">Add, edit, and manage member profiles</div>
-                        </div>
-                        <div class="quick-link-card" onclick="switchTab('certificates')">
-                            <div class="quick-link-icon">
-                                <i class="fas fa-certificate"></i>
-                            </div>
-                            <div class="quick-link-title">Certificates</div>
-                            <div class="quick-link-desc">Issue and manage certificates</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Statistics -->
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-number" id="totalMembers">0</div>
-                            <div class="stat-label">Total Members</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number" id="totalCertificates">0</div>
-                            <div class="stat-label">Total Certificates</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number" id="newThisMonth">0</div>
-                            <div class="stat-label">New This Month</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number" id="systemUptime">0d</div>
-                            <div class="stat-label">System Uptime</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Recent Activity -->
-                    <div class="activity-log">
-                        <div class="chart-title" style="padding: 20px 20px 0;">Recent Activity</div>
-                        <div id="recentActivity">
-                            <div class="loading">Loading recent activity...</div>
-                        </div>
-                    </div>
+            <!-- Content Area -->
+<div class="content">
+    <!-- Dashboard Tab -->
+    <div id="panel-dashboard" class="panel">
+        <!-- Quick Links -->
+        <div class="quick-links">
+            <div class="quick-link-card" onclick="switchTab('members')">
+                <div class="quick-link-icon">
+                    <i class="fas fa-users"></i>
                 </div>
-                
-                <!-- Members Tab -->
-                <div id="panel-members" class="panel" style="display: none;">
-                    <h2>Members Management</h2>
-                    
-                    <!-- Action Buttons -->
-                    <div class="action-buttons">
-                        <button class="btn btn-primary" onclick="showAddMemberModal()">
-                            <i class="fas fa-plus"></i>
-                            Add Member
-                        </button>
-                        <button class="btn btn-success" onclick="exportMembers('csv')">
-                            <i class="fas fa-download"></i>
-                            Export CSV
-                        </button>
-                        <button class="btn btn-info" onclick="showImportModal()">
-                            <i class="fas fa-upload"></i>
-                            Import CSV
-                        </button>
-                        <button class="btn btn-warning" onclick="refreshMembers()">
-                            <i class="fas fa-sync"></i>
-                            Refresh
-                        </button>
-                    </div>
-                    
-                    <!-- Search and Filter -->
-                    <div class="search-filter-bar">
-                        <input type="text" class="form-group input search-input" id="memberSearch" placeholder="Search members..." oninput="searchMembers(this.value)">
-                        <select class="form-group select" id="positionFilter" onchange="filterMembers()">
-                            <option value="">All Positions</option>
-                            <option value="PRESIDENT">President</option>
-                            <option value="VICE PRESIDENT">Vice President</option>
-                            <option value="SECRETARY">Secretary</option>
-                            <option value="TREASURER">Treasurer</option>
-                            <option value="MEMBER">Member</option>
-                        </select>
-                        <select class="form-group select" id="stateFilter" onchange="filterMembers()">
-                            <option value="">All States</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Members Table -->
-                    <div class="data-table-container">
-                        <table class="data-table" id="membersTable">
-                            <thead>
-                                <tr>
-                                    <th>Photo</th>
-                                    <th>Name</th>
-                                    <th>Email</th>
-                                    <th>Code</th>
-                                    <th>Position</th>
-                                    <th>State</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="membersTableBody">
-                                <tr>
-                                    <td colspan="7" class="loading">Loading members...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="quick-link-title">Members Management</div>
+                <div class="quick-link-desc">Add, edit, and manage member profiles</div>
+            </div>
+            <div class="quick-link-card" onclick="switchTab('certificates')">
+                <div class="quick-link-icon">
+                    <i class="fas fa-certificate"></i>
                 </div>
-                
-                <!-- Certificates Tab -->
-                <div id="panel-certificates" class="panel" style="display: none;">
-                    <h2>Certificates Management</h2>
-                    
-                    <!-- Action Buttons -->
-                    <div class="action-buttons">
-                        <button class="btn btn-primary" onclick="showIssueCertificateModal()">
-                            <i class="fas fa-plus"></i>
-                            Issue Certificate
-                        </button>
-                        <button class="btn btn-success" onclick="exportCertificates()">
-                            <i class="fas fa-download"></i>
-                            Export Data
-                        </button>
-                        <button class="btn btn-warning" onclick="refreshCertificates()">
-                            <i class="fas fa-sync"></i>
-                            Refresh
-                        </button>
-                    </div>
-                    
-                    <!-- Search and Filter -->
-                    <div class="search-filter-bar">
-                        <input type="text" class="form-group input search-input" id="certificateSearch" placeholder="Search certificates..." oninput="searchCertificates(this.value)">
-                        <select class="form-group select" id="certificateStatusFilter" onchange="filterCertificates()">
-                            <option value="">All Status</option>
-                            <option value="active">Active</option>
-                            <option value="revoked">Revoked</option>
-                            <option value="expired">Expired</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Certificates Table -->
-                    <div class="data-table-container">
-                        <table class="data-table" id="certificatesTable">
-                            <thead>
-                                <tr>
-                                    <th>Certificate #</th>
-                                    <th>Recipient</th>
-                                    <th>Title</th>
-                                    <th>Issue Date</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="certificatesTableBody">
-                                <tr>
-                                    <td colspan="6" class="loading">Loading certificates...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                
-                <!-- Analytics Tab -->
-                <div id="panel-analytics" class="panel" style="display: none;">
-                    <h2>Analytics</h2>
-                    
-                    <!-- Charts Container -->
-                    <div class="charts-container">
-                        <div class="chart-card">
-                            <div class="chart-title">Member Registration Trend</div>
-                            <canvas id="memberChart" width="400" height="200"></canvas>
-                        </div>
-                        <div class="chart-card">
-                            <div class="chart-title">Certificate Issuance</div>
-                            <canvas id="certificateChart" width="400" height="200"></canvas>
-                        </div>
-                        <div class="chart-card">
-                            <div class="chart-title">Members by State</div>
-                            <canvas id="stateChart" width="400" height="200"></canvas>
-                        </div>
-                        <div class="chart-card">
-                            <div class="chart-title">System Health</div>
-                            <div id="systemHealth">
-                                <div class="loading">Loading system health data...</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Detailed Statistics -->
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-number" id="avgMembersPerMonth">0</div>
-                            <div class="stat-label">Avg Members/Month</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number" id="activeCertificates">0</div>
-                            <div class="stat-label">Active Certificates</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number" id="revokedCertificates">0</div>
-                            <div class="stat-label">Revoked Certificates</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number" id="systemLoad">0%</div>
-                            <div class="stat-label">System Load</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- System Tab -->
-                <div id="panel-system" class="panel" style="display: none;">
-                    <h2>System Settings</h2>
-                    
-                    <!-- System Actions -->
-                    <div class="action-buttons">
-                        <button class="btn btn-primary" onclick="syncWithBackend()">
-                            <i class="fas fa-sync"></i>
-                            Sync with Backend
-                        </button>
-                        <button class="btn btn-success" onclick="createBackup()">
-                            <i class="fas fa-download"></i>
-                            Create Backup
-                        </button>
-                        <button class="btn btn-info" onclick="showRestoreModal()">
-                            <i class="fas fa-upload"></i>
-                            Restore Backup
-                        </button>
-                        <button class="btn btn-warning" onclick="exportAllData()">
-                            <i class="fas fa-file-export"></i>
-                            Export All Data
-                        </button>
-                        <button class="btn btn-danger" onclick="confirmClearAllData()">
-                            <i class="fas fa-trash"></i>
-                            Clear All Data
-                        </button>
-                    </div>
-                    
-                    <!-- System Information -->
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-number" id="dbSize">0 MB</div>
-                            <div class="stat-label">Database Size</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number" id="lastBackup">Never</div>
-                            <div class="stat-label">Last Backup</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number" id="lastSync">Never</div>
-                            <div class="stat-label">Last Sync</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number" id="serverStatus">Unknown</div>
-                            <div class="stat-label">Server Status</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Activity Logs -->
-                    <div class="activity-log">
-                        <div class="chart-title" style="padding: 20px 20px 0;">System Activity Logs</div>
-                        <div id="systemLogs">
-                            <div class="loading">Loading system logs...</div>
-                        </div>
-                    </div>
+                <div class="quick-link-title">Certificates</div>
+                <div class="quick-link-desc">Issue and manage certificates</div>
+            </div>
+        </div>
+        
+        <!-- Statistics -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="totalMembers">0</div>
+                <div class="stat-label">Total Members</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalCertificates">0</div>
+                <div class="stat-label">Total Certificates</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="newThisMonth">0</div>
+                <div class="stat-label">New This Month</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="systemUptime">0d</div>
+                <div class="stat-label">System Uptime</div>
+            </div>
+        </div>
+        
+        <!-- Recent Activity -->
+        <div class="activity-log">
+            <div class="chart-title" style="padding: 20px 20px 0;">Recent Activity</div>
+            <div id="recentActivity">
+                <div class="loading">Loading recent activity...</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Members Tab -->
+    <div id="panel-members" class="panel">
+        <h2>Members Management</h2>
+        
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button class="btn btn-primary" onclick="showAddMemberModal()">
+                <i class="fas fa-plus"></i>
+                Add Member
+            </button>
+            <button class="btn btn-success" onclick="exportMembers('csv')">
+                <i class="fas fa-download"></i>
+                Export CSV
+            </button>
+            <button class="btn btn-info" onclick="showImportModal()">
+                <i class="fas fa-upload"></i>
+                Import CSV
+            </button>
+            <button class="btn btn-warning" onclick="refreshMembers()">
+                <i class="fas fa-sync"></i>
+                Refresh
+            </button>
+        </div>
+        
+        <!-- Search and Filter -->
+        <div class="search-filter-bar">
+            <input type="text" class="form-group input search-input" id="memberSearch" placeholder="Search members..." oninput="searchMembers(this.value)">
+            <select class="form-group select" id="positionFilter" onchange="filterMembers()">
+                <option value="">All Positions</option>
+                <option value="PRESIDENT">President</option>
+                <option value="VICE PRESIDENT">Vice President</option>
+                <option value="SECRETARY">Secretary</option>
+                <option value="TREASURER">Treasurer</option>
+                <option value="MEMBER">Member</option>
+            </select>
+            <select class="form-group select" id="stateFilter" onchange="filterMembers()">
+                <option value="">All States</option>
+            </select>
+        </div>
+        
+        <!-- Members Table -->
+        <div class="data-table-container">
+            <table class="data-table" id="membersTable">
+                <thead>
+                    <tr>
+                        <th>Photo</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Code</th>
+                        <th>Position</th>
+                        <th>State</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="membersTableBody">
+                    <tr>
+                        <td colspan="7" class="loading">Loading members...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Certificates Tab -->
+    <div id="panel-certificates" class="panel">
+        <h2>Certificates Management</h2>
+        
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button class="btn btn-primary" onclick="showIssueCertificateModal()">
+                <i class="fas fa-plus"></i>
+                Issue Certificate
+            </button>
+            <button class="btn btn-success" onclick="exportCertificates()">
+                <i class="fas fa-download"></i>
+                Export Data
+            </button>
+            <button class="btn btn-warning" onclick="refreshCertificates()">
+                <i class="fas fa-sync"></i>
+                Refresh
+            </button>
+        </div>
+        
+        <!-- Search and Filter -->
+        <div class="search-filter-bar">
+            <input type="text" class="form-group input search-input" id="certificateSearch" placeholder="Search certificates..." oninput="searchCertificates(this.value)">
+            <select class="form-group select" id="certificateStatusFilter" onchange="filterCertificates()">
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="revoked">Revoked</option>
+                <option value="expired">Expired</option>
+            </select>
+        </div>
+        
+        <!-- Certificates Table -->
+        <div class="data-table-container">
+            <table class="data-table" id="certificatesTable">
+                <thead>
+                    <tr>
+                        <th>Certificate #</th>
+                        <th>Recipient</th>
+                        <th>Title</th>
+                        <th>Issue Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="certificatesTableBody">
+                    <tr>
+                        <td colspan="6" class="loading">Loading certificates...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Analytics Tab -->
+    <div id="panel-analytics" class="panel">
+        <h2>Analytics</h2>
+        
+        <!-- Charts Container -->
+        <div class="charts-container">
+            <div class="chart-card">
+                <div class="chart-title">Member Registration Trend</div>
+                <canvas id="memberChart" width="400" height="200"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Certificate Issuance</div>
+                <canvas id="certificateChart" width="400" height="200"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Members by State</div>
+                <canvas id="stateChart" width="400" height="200"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">System Health</div>
+                <div id="systemHealth">
+                    <div class="loading">Loading system health data...</div>
                 </div>
             </div>
+        </div>
+        
+        <!-- Detailed Statistics -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="avgMembersPerMonth">0</div>
+                <div class="stat-label">Avg Members/Month</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="activeCertificates">0</div>
+                <div class="stat-label">Active Certificates</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="revokedCertificates">0</div>
+                <div class="stat-label">Revoked Certificates</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="systemLoad">0%</div>
+                <div class="stat-label">System Load</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- System Tab -->
+    <div id="panel-system" class="panel">
+        <h2>System Settings</h2>
+        
+        <!-- System Actions -->
+        <div class="action-buttons">
+            <button class="btn btn-primary" onclick="syncWithBackend()">
+                <i class="fas fa-sync"></i>
+                Sync with Backend
+            </button>
+            <button class="btn btn-success" onclick="createBackup()">
+                <i class="fas fa-download"></i>
+                Create Backup
+            </button>
+            <button class="btn btn-info" onclick="showRestoreModal()">
+                <i class="fas fa-upload"></i>
+                Restore Backup
+            </button>
+            <button class="btn btn-warning" onclick="exportAllData()">
+                <i class="fas fa-file-export"></i>
+                Export All Data
+            </button>
+            <button class="btn btn-danger" onclick="confirmClearAllData()">
+                <i class="fas fa-trash"></i>
+                Clear All Data
+            </button>
+        </div>
+        
+        <!-- System Information -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="dbSize">0 MB</div>
+                <div class="stat-label">Database Size</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="lastBackup">Never</div>
+                <div class="stat-label">Last Backup</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="lastSync">Never</div>
+                <div class="stat-label">Last Sync</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="serverStatus">Unknown</div>
+                <div class="stat-label">Server Status</div>
+            </div>
+        </div>
+        
+        <!-- Activity Logs -->
+        <div class="activity-log">
+            <div class="chart-title" style="padding: 20px 20px 0;">System Activity Logs</div>
+            <div id="systemLogs">
+                <div class="loading">Loading system logs...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
             
             <!-- Footer -->
             <div class="admin-footer">

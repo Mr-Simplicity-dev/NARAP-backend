@@ -1457,9 +1457,9 @@ body.sidebar-open {
                 grid-template-columns: 1fr;
             }
         }
-    /* Add this to the end of your admin.css file */
+   
 
-/* Ensure panels are visible when active */
+
 .panel {
     display: none;
 }
