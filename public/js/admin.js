@@ -5290,6 +5290,38 @@ function getMessageStyle(type) {
 }
 
 
+// Add this class definition RIGHT BEFORE your existing line
+class PerformanceMonitor {
+    constructor() {
+        this.startTime = Date.now();
+        this.metrics = {};
+    }
+    
+    start(label = 'default') {
+        this.metrics[label] = Date.now();
+        return this;
+    }
+    
+    end(label = 'default') {
+        if (this.metrics[label]) {
+            return Date.now() - this.metrics[label];
+        }
+        return 0;
+    }
+    
+    log(message, label = 'default') {
+        const duration = this.end(label);
+        console.log(`⏱️ Performance: ${message} - ${duration}ms`);
+        return duration;
+    }
+    
+    reset() {
+        this.metrics = {};
+        this.startTime = Date.now();
+    }
+}
+
+
 // Initialize performance monitor
 const performanceMonitor = new PerformanceMonitor();
 
