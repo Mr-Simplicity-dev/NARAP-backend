@@ -507,19 +507,153 @@ window.addEventListener('resize', function() {
 
 // ===== INITIALIZE ON PAGE LOAD =====
 document.addEventListener('DOMContentLoaded', function() {
-    // Create the overlay element
-    createSidebarOverlay();
-    
-    // Add click event to all nav items to close sidebar on mobile
-    const navItems = document.querySelectorAll('.nav-item');
-    navItems.forEach(item => {
-        item.addEventListener('click', function() {
-            if (window.innerWidth <= 768) {
+    try {
+        console.log('NARAP Admin Panel initializing...');
+        
+        // Load theme
+        if (typeof loadTheme === 'function') loadTheme();
+        
+        // Auto-fill admin credentials on page load
+        if (typeof fillAdminCredentials === 'function') fillAdminCredentials();
+        
+        // Initialize dashboard as default tab
+        switchTab('dashboard');
+        
+        // Initialize all modals
+        window.initModals = function() {
+            const modals = {
+                memberModal: '#memberModal',
+                editMemberModal: '#editMemberModal',
+                addCertificateModal: '#addCertificateModal',
+                viewCertificateModal: '#viewCertificateModal'
+            };
+            Object.keys(modals).forEach(key => {
+                const el = document.querySelector(modals[key]);
+                if (el) window[key] = new bootstrap.Modal(el);
+            });
+        };
+        initModals(); // Initialize on first load
+        
+        // Setup preview listeners
+        if (typeof setupPreviewListeners === 'function') setupPreviewListeners();
+        
+        // Sidebar functionality
+        const sidebar = document.querySelector('.sidebar');
+        const hamburgerBtn = document.getElementById('hamburgerButton');
+        const overlay = document.querySelector('.sidebar-overlay');
+        
+        // Toggle sidebar function
+        function toggleSidebar() {
+            if (sidebar) sidebar.classList.toggle('mobile-open');
+            if (overlay) overlay.classList.toggle('active');
+            document.body.style.overflow = sidebar && sidebar.classList.contains('mobile-open') ? 'hidden' : '';
+        }
+        
+        // Hamburger button click
+        if (hamburgerBtn) {
+            hamburgerBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
                 toggleSidebar();
+            });
+        }
+        
+        // Overlay click
+        if (overlay) {
+            overlay.addEventListener('click', toggleSidebar);
+        }
+        
+        // Close sidebar when clicking nav items on mobile
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function() {
+                if (window.innerWidth <= 768) {
+                    toggleSidebar();
+                }
+            });
+        });
+        
+        // Close sidebar when resizing to desktop
+        window.addEventListener('resize', function() {
+            if (window.innerWidth >= 769) {
+                if (sidebar) sidebar.classList.remove('mobile-open');
+                if (overlay) overlay.classList.remove('active');
+                document.body.style.overflow = '';
             }
         });
-    });
+        
+        // Set up modal close on outside click
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        });
+        
+        // Global modal triggers (consolidated - removed duplicates)
+        document.addEventListener('click', (e) => {
+            // Add Member button
+            if (e.target.closest('#addMemberBtn')) {
+                e.preventDefault();
+                if (window.memberModal) window.memberModal.show();
+            }
+            // Add Certificate button
+            if (e.target.closest('#addCertBtn')) {
+                e.preventDefault();
+                if (window.certModal) window.certModal.show();
+            }
+        });
+        
+        // Set up connection status monitoring
+        if (typeof updateConnectionStatus === 'function') {
+            updateConnectionStatus();
+            window.addEventListener('online', updateConnectionStatus);
+            window.addEventListener('offline', updateConnectionStatus);
+        }
+        
+        // Add Enter key support for login
+        const passwordField = document.getElementById('password');
+        if (passwordField) {
+            passwordField.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    if (typeof login === 'function') login();
+                }
+            });
+        }
+        
+        const usernameField = document.getElementById('username');
+        if (usernameField) {
+            usernameField.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    if (typeof login === 'function') login();
+                }
+            });
+        }
+        
+        // Populate state filter dropdown
+        if (typeof populateStateFilter === 'function') populateStateFilter();
+        
+        // Set up periodic health checks
+        if (typeof checkSystemHealth === 'function') {
+            setInterval(checkSystemHealth, 60000); // Check every minute
+        }
+        
+        // Small delay to ensure all elements are rendered
+        setTimeout(function() {
+            if (typeof finalizeInitialization === 'function') finalizeInitialization();
+        }, 100);
+        
+        console.log('NARAP Admin Panel initialized successfully');
+        
+    } catch (error) {
+        console.error('Error during initialization:', error);
+        console.error('Initialization error details:', error.message, error.stack);
+        if (typeof notifyAdmin === 'function') {
+            notifyAdmin('Error occurred during initialization: ' + error.message);
+        }
+    }
 });
+
 
 // Tab switching functionality
 
@@ -529,48 +663,67 @@ function switchTab(tabName) {
         console.warn('switchTab called without valid tabName:', tabName);
         return;
     }
-
-    // Hide all content sections
-    document.querySelectorAll('.content-section').forEach(panel => {
+    
+    console.log('Switching to tab:', tabName);
+    
+    // Hide all panels by adding 'hidden' class and setting display none
+    document.querySelectorAll('.panel').forEach(panel => {
+        panel.classList.add('hidden');
         panel.style.display = 'none';
     });
-
+    
     // Remove active class from all nav items
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
     });
-
-    // Show the selected content section
-    const activePanel = document.getElementById(`${tabName}-content`);
-    if (activePanel) activePanel.style.display = 'block';
-
-    // Add active class to the clicked nav item
-    const activeTab = document.getElementById(`${tabName}-tab`);
-    if (activeTab) activeTab.classList.add('active');
-
-    // Update the header title
+    
+    // Show the selected panel by removing 'hidden' class and setting display block
+    const activePanel = document.getElementById(`panel-${tabName}`);
+    if (activePanel) {
+        activePanel.classList.remove('hidden');
+        activePanel.style.display = 'block';
+        console.log('Showing panel:', activePanel.id);
+    } else {
+        console.error(`Panel not found: panel-${tabName}`);
+        console.log('Available panels:', Array.from(document.querySelectorAll('.panel')).map(p => p.id));
+        return;
+    }
+    
+    // Add active class to the nav item
+    const activeTab = document.getElementById(`btn-${tabName}`);
+    if (activeTab) {
+        activeTab.classList.add('active');
+        console.log('Activated tab:', activeTab.id);
+    } else {
+        console.error(`Tab button not found: btn-${tabName}`);
+    }
+    
+    // Update header title
     const header = document.getElementById('headerTitle');
     if (header) header.textContent = tabName.charAt(0).toUpperCase() + tabName.slice(1);
-
+    
     // Load tab-specific content
     switch(tabName) {
         case 'dashboard':
-            loadDashboard?.();
+            if (typeof loadDashboard === 'function') loadDashboard();
             break;
         case 'members':
-            loadMembers?.();
+            if (typeof loadMembers === 'function') loadMembers();
             break;
         case 'certificates':
-            loadCertificates?.();
+            if (typeof loadCertificates === 'function') loadCertificates();
             break;
         case 'analytics':
-            loadAnalytics?.();
+            if (typeof loadAnalytics === 'function') loadAnalytics();
             break;
         case 'system':
-            loadSystemInfo?.();
+            if (typeof loadSystemInfo === 'function') loadSystemInfo();
             break;
+        default:
+            console.warn(`No handler for tab: ${tabName}`);
     }
 }
+
 
 
 
@@ -3721,44 +3874,6 @@ function setupPreviewListeners() {
 
 
 
-// Call this when the page loads
-document.addEventListener('DOMContentLoaded', function() {
-    // === ADD THIS BLOCK === //
-    // Initialize all modals
-    window.initModals = function() {
-        const modals = {
-            memberModal: '#memberModal',
-            editMemberModal: '#editMemberModal',
-            addCertificateModal: '#addCertificateModal',
-            viewCertificateModal: '#viewCertificateModal'
-        };
-        Object.keys(modals).forEach(key => {
-            const el = document.querySelector(modals[key]);
-            if (el) window[key] = new bootstrap.Modal(el);
-        
-    // Global modal triggers (for sidebar buttons)
-    document.addEventListener('click', (e) => {
-        // Add Member button
-        if (e.target.closest('#addMemberBtn')) {
-            e.preventDefault();
-            if (window.memberModal) window.memberModal.show();
-        }
-
-        // Add Certificate button
-        if (e.target.closest('#addCertBtn')) {
-            e.preventDefault();
-            if (window.certModal) window.certModal.show();
-        }
-    });
-});
-    };
-    initModals(); // Initialize on first load
-    // === END ADD === //
-    
-    setupPreviewListeners();
-});
-
-
 function generateCertificatePreview() {
     const recipient = document.getElementById('certificateRecipient').value;
     const title = document.getElementById('certificateTitle').value;
@@ -4263,94 +4378,12 @@ async function verifyCertificate(certificateNumber) {
     }
 }
 
-// Event listeners and initialization
-document.addEventListener('DOMContentLoaded', function() {
+        // Check if mobile device
+        document.addEventListener('DOMContentLoaded', function() {
     try {
         console.log('NARAP Admin Panel initializing...');
         
-        // Load theme
-        loadTheme();
-        
-        // Auto-fill admin credentials on page load
-        fillAdminCredentials();
-        
-        // Set up navigation
-        const navItems = document.querySelectorAll('.nav-item');
-        navItems.forEach(item => {
-            item.addEventListener('click', function(e) {
-                e.preventDefault();
-                const tabName = this.getAttribute('data-tab');
-                switchTab(tabName);
-            
-    // Global modal triggers (for sidebar buttons)
-    document.addEventListener('click', (e) => {
-        // Add Member button
-        if (e.target.closest('#addMemberBtn')) {
-            e.preventDefault();
-            if (window.memberModal) window.memberModal.show();
-        }
-
-        // Add Certificate button
-        if (e.target.closest('#addCertBtn')) {
-            e.preventDefault();
-            if (window.certModal) window.certModal.show();
-        }
-    });
-});
-        });
-
-        
-// Wait for DOM to load
-document.addEventListener('DOMContentLoaded', function() {
-    const sidebar = document.querySelector('.sidebar');
-    const hamburgerBtn = document.getElementById('hamburgerButton');
-    const overlay = document.querySelector('.sidebar-overlay');
-
-    // Toggle sidebar function
-    function toggleSidebar() {
-        sidebar.classList.toggle('mobile-open');
-        overlay.classList.toggle('active');
-        document.body.style.overflow = sidebar.classList.contains('mobile-open') ? 'hidden' : '';
-    }
-
-    // Hamburger button click
-    hamburgerBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        toggleSidebar();
-    });
-
-    // Overlay click
-    overlay.addEventListener('click', toggleSidebar);
-
-    // Close when clicking a nav item (mobile)
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.addEventListener('click', function() {
-            if (window.innerWidth <= 768) {
-                toggleSidebar();
-            }
-        });
-    });
-
-    // Close when resizing to desktop
-    window.addEventListener('resize', function() {
-        if (window.innerWidth >= 769) {
-            sidebar.classList.remove('mobile-open');
-            overlay.classList.remove('active');
-            document.body.style.overflow = '';
-        }
-    });
-});
-        
-        // Set up modal close on outside click
-        const modals = document.querySelectorAll('.modal');
-        modals.forEach(modal => {
-            modal.addEventListener('click', function(e) {
-                if (e.target === modal) {
-                    modal.style.display = 'none';
-                }
-            });
-        });
-        
+        // YOUR CODE GOES HERE
         // Check if mobile device
         const isMobile = window.innerWidth <= 768;
         const cardWidth = isMobile ? '100%' : '400px';
@@ -4363,25 +4396,25 @@ document.addEventListener('DOMContentLoaded', function() {
         const cardDiv = document.getElementById('generatedIdCard');
         
         if (cardDiv) {
-            // Now you can safely use cardDiv
-           if(cardDiv) cardDiv.innerHTM = 'something';
-            // or
+            cardDiv.innerHTML = 'something'; // Fixed typo
             cardDiv.style.display = 'block';
         } else {
             console.warn('generatedIdCard element not found');
         }
         
         // Set up connection status monitoring
-        updateConnectionStatus();
-        window.addEventListener('online', updateConnectionStatus);
-        window.addEventListener('offline', updateConnectionStatus);
+        if (typeof updateConnectionStatus === 'function') {
+            updateConnectionStatus();
+            window.addEventListener('online', updateConnectionStatus);
+            window.addEventListener('offline', updateConnectionStatus);
+        }
         
         // Add Enter key support for login
         const passwordField = document.getElementById('password');
         if (passwordField) {
             passwordField.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
-                    login();
+                    if (typeof login === 'function') login();
                 }
             });
         }
@@ -4390,72 +4423,86 @@ document.addEventListener('DOMContentLoaded', function() {
         if (usernameField) {
             usernameField.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
-                    login();
+                    if (typeof login === 'function') login();
                 }
             });
         }
         
         // Populate state filter dropdown
-        populateStateFilter();
+        if (typeof populateStateFilter === 'function') populateStateFilter();
         
         // Add search functionality
         const memberSearch = document.getElementById('memberSearch');
         if (memberSearch) {
             memberSearch.addEventListener('input', function() {
-                searchMembers(this.value);
+                if (typeof searchMembers === 'function') searchMembers(this.value);
             });
         }
         
         const certificateSearch = document.getElementById('certificateSearch');
         if (certificateSearch) {
             certificateSearch.addEventListener('input', function() {
-                searchCertificates(this.value);
+                if (typeof searchCertificates === 'function') searchCertificates(this.value);
             });
         }
         
         // Add filter functionality
         const positionFilter = document.getElementById('positionFilter');
         if (positionFilter) {
-            positionFilter.addEventListener('change', filterMembers);
+            positionFilter.addEventListener('change', function() {
+                if (typeof filterMembers === 'function') filterMembers();
+            });
         }
         
         const stateFilter = document.getElementById('stateFilter');
         if (stateFilter) {
-            stateFilter.addEventListener('change', filterMembers);
+            stateFilter.addEventListener('change', function() {
+                if (typeof filterMembers === 'function') filterMembers();
+            });
         }
         
         const certificateStatusFilter = document.getElementById('certificateStatusFilter');
         if (certificateStatusFilter) {
-            certificateStatusFilter.addEventListener('change', filterCertificates);
+            certificateStatusFilter.addEventListener('change', function() {
+                if (typeof filterCertificates === 'function') filterCertificates();
+            });
         }
         
         // Add password strength checker
         const memberPasswordField = document.getElementById('memberPassword');
         if (memberPasswordField) {
             memberPasswordField.addEventListener('input', function() {
-                checkPasswordStrength(this.value);
+                if (typeof checkPasswordStrength === 'function') checkPasswordStrength(this.value);
             });
         }
         
         // Auto-generate member code
         const memberCodeField = document.getElementById('memberCode');
         if (memberCodeField && !memberCodeField.value) {
-            memberCodeField.value = generateMemberCode();
+            if (typeof generateMemberCode === 'function') {
+                memberCodeField.value = generateMemberCode();
+            }
         }
         
         // Set up periodic health checks
-        setInterval(checkSystemHealth, 60000); // Check every minute
+        if (typeof checkSystemHealth === 'function') {
+            setInterval(checkSystemHealth, 60000); // Check every minute
+        }
         
         console.log('NARAP Admin Panel initialized successfully');
-        console.log('Backend URL:', backendUrl);
+        if (typeof backendUrl !== 'undefined') {
+            console.log('Backend URL:', backendUrl);
+        }
         
     } catch (error) {
         console.error('Error during initialization:', error);
-        // Log error details and notify admin
         console.error('Initialization error:', error.message, error.filename, error.lineno);
-        notifyAdmin('Error occurred: ' + error.message);
+        if (typeof notifyAdmin === 'function') {
+            notifyAdmin('Error occurred: ' + error.message);
+        }
     }
 });
+
 
 
 // Keyboard shortcuts
@@ -5969,42 +6016,6 @@ window.narapAdmin = {
     enhanceAccessibility,
     startSystemMonitoring
 };
-
-// Final event listener for complete initialization
-document.addEventListener('DOMContentLoaded', function() {
-    // Small delay to ensure all elements are rendered
-    setTimeout(finalizeInitialization, 100);
-
-    // Global modal triggers (for sidebar buttons)
-    document.addEventListener('click', (e) => {
-        // Add Member button
-        if (e.target.closest('#addMemberBtn')) {
-            e.preventDefault();
-            if (window.memberModal) window.memberModal.show();
-        }
-
-        // Add Certificate button
-        if (e.target.closest('#addCertBtn')) {
-            e.preventDefault();
-            if (window.certModal) window.certModal.show();
-        }
-    });
-
-
-    // === Global Modal Triggers ===
-    document.addEventListener('click', (e) => {
-        if (e.target.closest('#addMemberBtn')) {
-            e.preventDefault();
-            if (window.memberModal) window.memberModal.show();
-        }
-
-        if (e.target.closest('#addCertBtn')) {
-            e.preventDefault();
-            if (window.certModal) window.certModal.show();
-        }
-    });
-
-});
 
 
 // Export for module systems if needed

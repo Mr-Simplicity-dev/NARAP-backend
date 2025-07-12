@@ -123,26 +123,66 @@
 </div>
 
             <!-- Content Area -->
-            <div class="content">
-                <!-- Dashboard Tab -->
-                <div id="panel-dashboard" class="panel">
-                    <!-- Quick Links -->
-                    <div class="quick-links">
-                        <div class="quick-link-card" onclick="switchTab('members')">
-                            <div class="quick-link-icon">
-                                <i class="fas fa-users"></i>
-                            </div>
-                            <div class="quick-link-title">Members Management</div>
-                            <div class="quick-link-desc">Add, edit, and manage member profiles</div>
-                        </div>
-                        <div class="quick-link-card" onclick="switchTab('certificates')">
-                            <div class="quick-link-icon">
-                                <i class="fas fa-certificate"></i>
-                            </div>
-                            <div class="quick-link-title">Certificates</div>
-                            <div class="quick-link-desc">Issue and manage certificates</div>
-                        </div>
-                    </div>
+            <!-- Content Area -->
+<div class="content">
+    <!-- Dashboard Tab -->
+    <div id="panel-dashboard" class="panel" style="display: block;">
+        <!-- Quick Links -->
+        <div class="quick-links">
+            <div class="quick-link-card" onclick="switchTab('members')">
+                <div class="quick-link-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="quick-link-title">Members Management</div>
+                <div class="quick-link-desc">Add, edit, and manage member profiles</div>
+            </div>
+            <div class="quick-link-card" onclick="switchTab('certificates')">
+                <div class="quick-link-icon">
+                    <i class="fas fa-certificate"></i>
+                </div>
+                <div class="quick-link-title">Certificates</div>
+                <div class="quick-link-desc">Issue and manage certificates</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Members Tab -->
+    <div id="panel-members" class="panel" style="display: none;">
+        <h2>Members Management</h2>
+        <!-- Add your members content here -->
+        <div class="members-content">
+            <!-- Members table, forms, etc. -->
+        </div>
+    </div>
+
+    <!-- Certificates Tab -->
+    <div id="panel-certificates" class="panel" style="display: none;">
+        <h2>Certificates Management</h2>
+        <!-- Add your certificates content here -->
+        <div class="certificates-content">
+            <!-- Certificates table, forms, etc. -->
+        </div>
+    </div>
+
+    <!-- Analytics Tab -->
+    <div id="panel-analytics" class="panel" style="display: none;">
+        <h2>Analytics</h2>
+        <!-- Add your analytics content here -->
+        <div class="analytics-content">
+            <!-- Charts, graphs, etc. -->
+        </div>
+    </div>
+
+    <!-- System Tab -->
+    <div id="panel-system" class="panel" style="display: none;">
+        <h2>System Settings</h2>
+        <!-- Add your system content here -->
+        <div class="system-content">
+            <!-- System settings, configurations, etc. -->
+        </div>
+    </div>
+</div>
+
 
                     <!-- Statistics -->
                     <div class="stats-grid">

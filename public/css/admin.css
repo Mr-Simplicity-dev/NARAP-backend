@@ -1292,3 +1292,10 @@ body {
 body.sidebar-open {
     overflow: hidden;
 }
+.panel {
+    display: none;
+}
+
+.panel.active {
+    display: block;
+}
