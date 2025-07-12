@@ -1,31 +1,5 @@
 // Make sure this matches your server port
-const backendUrl = window.location.origin.includes('localhost')
-    ? 'http://localhost:10000'
-    : window.location.origin;
-
-
-    // Add after backendUrl declaration
-function fetchWithTimeout(url, options = {}, timeout = 10000) {
-    return new Promise((resolve, reject) => {
-        const controller = new AbortController();
-        options.signal = controller.signal;
-        
-        const timeoutId = setTimeout(() => {
-            controller.abort();
-            reject(new DOMException("Request timed out", "AbortError"));
-        }, timeout);
-
-        fetch(url, options)
-            .then(response => {
-                clearTimeout(timeoutId);
-                resolve(response);
-            })
-            .catch(error => {
-                clearTimeout(timeoutId);
-                reject(error);
-            });
-    });
-}
+const backendUrl = "http://localhost:5000";
 
 // Add this to verify the URL is correct
 console.log('Admin panel initialized with backend URL:', backendUrl);
@@ -34,135 +8,102 @@ let selectedMembers = new Set();
 let currentMembers = [];
 let currentCertificates = [];
 
+// Enhanced notification system
 class NotificationManager {
     constructor() {
-        this.container = null;
-        this.createContainer();
+        this.notifications = [];
+        this.container = this.createContainer();
     }
     
     createContainer() {
-        try {
-            // Wait for DOM to be ready
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => this.createContainer());
-                return;
-            }
-            
-            // Remove existing container if any
-            const existing = document.getElementById('notification-container');
-            if (existing) {
-
-    // === Modal Initialization ===
-    window.initModals = function() {
-        const modals = {
-            memberModal: '#memberModal',
-            editMemberModal: '#editMemberModal',
-            addCertificateModal: '#addCertificateModal',
-            viewCertificateModal: '#viewCertificateModal'
-        };
-
-        Object.keys(modals).forEach(key => {
-            const el = document.querySelector(modals[key]);
-            if (el) window[key] = new bootstrap.Modal(el);
-        });
-    };
-    initModals();
-
-                existing.remove();
-            }
-            
-            // Create new container
-            this.container = document.createElement('div');
-            this.container.id = 'notification-container';
-            this.container.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                z-index: 10000;
-                pointer-events: none;
-            `;
-            
-            // Safely append to body
-            const body = document.body || document.getElementsByTagName('body')[0];
-            if (body) {
-                body.appendChild(this.container);
-            } else {
-                console.warn('Document body not available for notifications');
-            }
-        } catch (error) {
-            console.error('Error creating notification container:', error);
-        }
+        const container = document.createElement('div');
+        container.id = 'notificationContainer';
+        container.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            max-width: 400px;
+        `;
+        document.body.appendChild(container);
+        return container;
     }
     
     show(message, type = 'info', duration = 5000) {
-        try {
-            if (!this.container) {
-                this.createContainer();
-            }
-            
-            if (!this.container) {
-                console.log(`${type.toUpperCase()}: ${message}`);
-                return;
-            }
-            
-            const notification = document.createElement('div');
-            notification.style.cssText = `
-                background: ${this.getBackgroundColor(type)};
-                color: white;
-                padding: 12px 20px;
-                margin-bottom: 10px;
-                border-radius: 4px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-                pointer-events: auto;
-                opacity: 0;
-                transform: translateX(100%);
-                transition: all 0.3s ease;
-                max-width: 300px;
-                word-wrap: break-word;
-            `;
-            notification.textContent = message;
-            
-            this.container.appendChild(notification);
-            
-            // Animate in
+        const notification = this.createNotification(message, type);
+        this.container.appendChild(notification);
+        this.notifications.push(notification);
+        
+        // Auto remove
+        setTimeout(() => {
+            this.remove(notification);
+        }, duration);
+        
+        return notification;
+    }
+    
+    createNotification(message, type) {
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        
+        const colors = {
+            success: { bg: '#d4edda', border: '#c3e6cb', text: '#155724' },
+            error: { bg: '#f8d7da', border: '#f5c6cb', text: '#721c24' },
+            warning: { bg: '#fff3cd', border: '#ffeaa7', text: '#856404' },
+            info: { bg: '#d1ecf1', border: '#bee5eb', text: '#0c5460' }
+        };
+        
+        const color = colors[type] || colors.info;
+        
+        notification.style.cssText = `
+            background: ${color.bg};
+            border: 1px solid ${color.border};
+            color: ${color.text};
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            animation: slideIn 0.3s ease-out;
+            cursor: pointer;
+            position: relative;
+        `;
+        
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span>${message}</span>
+                <button onclick="notificationManager.remove(this.parentElement.parentElement)" style="background: none; border: none; color: inherit; font-size: 18px; cursor: pointer; margin-left: 10px;">&times;</button>
+            </div>
+        `;
+        
+        notification.addEventListener('click', () => {
+            this.remove(notification);
+        });
+        
+        return notification;
+    }
+    
+    remove(notification) {
+        if (notification && notification.parentElement) {
+            notification.style.animation = 'slideOut 0.3s ease-in';
             setTimeout(() => {
-                notification.style.opacity = '1';
-                notification.style.transform = 'translateX(0)';
-            }, 10);
-            
-            // Auto remove
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.style.opacity = '0';
-                    notification.style.transform = 'translateX(100%)';
-                    setTimeout(() => {
-                        if (notification.parentNode) {
-                            notification.remove();
-                        }
-                    }, 300);
+                if (notification.parentElement) {
+                    notification.parentElement.removeChild(notification);
                 }
-            }, duration);
-            
-        } catch (error) {
-            console.error('Error showing notification:', error);
-            console.log(`${type.toUpperCase()}: ${message}`);
+                const index = this.notifications.indexOf(notification);
+                if (index > -1) {
+                    this.notifications.splice(index, 1);
+                }
+            }, 300);
         }
     }
     
-    getBackgroundColor(type) {
-        const colors = {
-            success: '#28a745',
-            error: '#dc3545',
-            warning: '#ffc107',
-            info: '#17a2b8'
-        };
-        return colors[type] || colors.info;
+    clear() {
+        this.notifications.forEach(notification => {
+            this.remove(notification);
+        });
     }
 }
 
-function initializeNotificationManager() {
-    // no-op
-}
 
 // Local storage keys
 const LOCAL_MEMBERS_KEY = 'narap_local_members';
@@ -270,27 +211,20 @@ function clearLoginForm() {
 }
 
 // Enhanced showMessage function
-function showMessage(message, type = 'info') {
-    try {
-        if (!notificationManager) {
-            initializeNotificationManager();
-        }
-        
-        if (notificationManager) {
-            notificationManager.show(message, type);
-        } else {
-            // Fallback to console and alert
-            console.log(`${type.toUpperCase()}: ${message}`);
-            if (type === 'error') {
-                alert(`Error: ${message}`);
-            }
-        }
-    } catch (error) {
-        console.error('Error in showMessage:', error);
-        console.log(`${type.toUpperCase()}: ${message}`);
+function showMessage(message, type = 'success') {
+    console.log(`Message (${type}):`, message);
+    
+    const messagesDiv = document.getElementById('messages');
+    if (messagesDiv) {
+        messagesDiv.innerHTML = `<div class="${type}" style="padding: 10px; margin: 10px 0; border-radius: 4px; ${getMessageStyle(type)}">${message}</div>`;
+        setTimeout(() => messagesDiv.innerHTML = '', 5000);
+    }
+    
+    // Also log to console for debugging
+    if (type === 'error') {
+        console.error('Error message:', message);
     }
 }
-
 
 function getMessageStyle(type) {
     switch(type) {
@@ -307,17 +241,6 @@ function getMessageStyle(type) {
     }
 }
 
-
-
-// Update your getAuthHeaders function
-function getAuthHeaders() {
-    const token = localStorage.getItem('token');
-    return {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` })
-    };
-}
 
 // Corrected login function
 async function login(event) {
@@ -337,50 +260,27 @@ async function login(event) {
     }
     
     console.log('🔐 Login attempt:', { username, password: '***' });
-    
-    // Global modal triggers (for sidebar buttons)
-    document.addEventListener('click', (e) => {
-        // Add Member button
-        if (e.target.closest('#addMemberBtn')) {
-            e.preventDefault();
-            if (window.memberModal) window.memberModal.show();
-        }
-
-        // Add Certificate button
-        if (e.target.closest('#addCertBtn')) {
-            e.preventDefault();
-            if (window.certModal) window.certModal.show();
-        }
-    });
-    
     console.log('Backend URL:', backendUrl);
     
     try {
         showMessage('Logging in...', 'info');
         
-        // ✅ Use fetchWithTimeout with 10 second timeout
         const res = await fetch(`${backendUrl}/api/login`, {
             method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ email: username, password }),
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ username, password }),
             credentials: 'include'
-        }, 10000); // 10 second timeout
+        });
         
         console.log('Response status:', res.status);
         console.log('Response ok:', res.ok);
         
-        // Handle response
-        const data = await res.json();
-        console.log('Response data:', data);
-        
-        if (data.success) {
+        if (res.ok) {
+            const data = await res.json();
             console.log('✅ Login successful:', data);
-            
-            // Store token if provided
-            if (data.token) {
-                localStorage.setItem('token', data.token);
-                console.log('🔑 Token stored');
-            }
             
             showMessage('Login successful!', 'success');
             document.getElementById('loginSection').style.display = 'none';
@@ -394,8 +294,9 @@ async function login(event) {
                 showMessage('Login successful, but failed to load dashboard', 'warning');
             }
         } else {
-            console.log('❌ Login failed:', data);
-            const errorMessage = data.message || 'Login failed';
+            const errorData = await res.json().catch(() => ({ message: 'Unknown error' }));
+            console.log('❌ Login failed:', errorData);
+            const errorMessage = errorData.message || `Server error: ${res.status}`;
             loginError.innerHTML = `<div class="error">Login failed: ${errorMessage}</div>`;
             showMessage(`Login failed: ${errorMessage}`, 'error');
         }
@@ -405,10 +306,8 @@ async function login(event) {
         
         let errorMessage = 'Network error: Please check your connection and try again';
         
-        if (error.name === 'AbortError') {
-            errorMessage = 'Request timed out. The server may be slow or unavailable.';
-        } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
-            errorMessage = 'Cannot connect to server. Please check your internet connection or server deployment on Vercel.';
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            errorMessage = 'Cannot connect to server. Please ensure the server is running on port 5000';
         } else if (error.message.includes('JSON')) {
             errorMessage = 'Server response error. Please check server logs';
         }
@@ -429,948 +328,204 @@ function logout() {
     }
 }
 
-// ===== SIDEBAR TOGGLE FUNCTIONALITY =====
- {
-    
-    const overlay = document.querySelector('.sidebar-overlay');
-    
-    
-    
-    // Toggle overlay if it exists
-    if (overlay) {
-        overlay.classList.toggle('active');
-    }
-    
-    // Prevent scrolling when sidebar is open
-    if (sidebar.classList.contains('mobile-open')) {
-        document.body.style.overflow = 'hidden';
-    } else {
-        document.body.style.overflow = '';
-    }
-}
-
-// ===== CREATE OVERLAY ELEMENT =====
-function createSidebarOverlay() {
-    const overlay = document.createElement('div');
-    overlay.className = 'sidebar-overlay';
-    overlay.onclick = toggleSidebar;
-    document.body.appendChild(overlay);
-    
-    // Add some basic styling to the overlay
-    const style = document.createElement('style');
-    style.textContent = `
-        .sidebar-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 999;
-            display: none;
-        }
-        .sidebar-overlay.active {
-            display: block;
-            animation: fadeIn 0.3s ease-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-// ===== CLOSE SIDEBAR WHEN CLICKING OUTSIDE =====
-document.addEventListener('click', function(event) {
-    
-    const hamburger = document.querySelector('.hamburger-btn');
-    
-    if (sidebar.classList.contains('mobile-open') && 
-        !sidebar.contains(event.target) && 
-        event.target !== hamburger) {
-        toggleSidebar();
-    }
-});
-
-// ===== CLOSE SIDEBAR WHEN RESIZING TO DESKTOP =====
-window.addEventListener('resize', function() {
-    
-    const overlay = document.querySelector('.sidebar-overlay');
-    
-    if (window.innerWidth >= 769 && sidebar.classList.contains('mobile-open')) {
-        sidebar.classList.remove('mobile-open');
-        if (overlay) overlay.classList.remove('active');
-        document.body.style.overflow = '';
-    }
-});
-
-// ===== INITIALIZE ON PAGE LOAD =====
-document.addEventListener('DOMContentLoaded', function() {
-    try {
-        console.log('NARAP Admin Panel initializing...');
-        
-        // Load theme
-        if (typeof loadTheme === 'function') loadTheme();
-        
-        // Auto-fill admin credentials on page load
-        if (typeof fillAdminCredentials === 'function') fillAdminCredentials();
-        
-        // Initialize dashboard as default tab
-        switchTab('dashboard');
-        
-        // Initialize all modals
-        window.initModals = function() {
-            const modals = {
-                memberModal: '#memberModal',
-                editMemberModal: '#editMemberModal',
-                addCertificateModal: '#addCertificateModal',
-                viewCertificateModal: '#viewCertificateModal'
-            };
-            Object.keys(modals).forEach(key => {
-                const el = document.querySelector(modals[key]);
-                if (el) window[key] = new bootstrap.Modal(el);
-            });
-        };
-        initModals(); // Initialize on first load
-        
-        // Setup preview listeners
-        if (typeof setupPreviewListeners === 'function') setupPreviewListeners();
-        
-        // Sidebar functionality
-        const sidebar = document.querySelector('.sidebar');
-        const hamburgerBtn = document.getElementById('hamburgerButton');
-        const overlay = document.querySelector('.sidebar-overlay');
-        
-        // Toggle sidebar function
-        function toggleSidebar() {
-            if (sidebar) sidebar.classList.toggle('mobile-open');
-            if (overlay) overlay.classList.toggle('active');
-            document.body.style.overflow = sidebar && sidebar.classList.contains('mobile-open') ? 'hidden' : '';
-        }
-        
-        // Hamburger button click
-        if (hamburgerBtn) {
-            hamburgerBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                toggleSidebar();
-            });
-        }
-        
-        // Overlay click
-        if (overlay) {
-            overlay.addEventListener('click', toggleSidebar);
-        }
-        
-        // Close sidebar when clicking nav items on mobile
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', function() {
-                if (window.innerWidth <= 768) {
-                    toggleSidebar();
-                }
-            });
-        });
-        
-        // Close sidebar when resizing to desktop
-        window.addEventListener('resize', function() {
-            if (window.innerWidth >= 769) {
-                if (sidebar) sidebar.classList.remove('mobile-open');
-                if (overlay) overlay.classList.remove('active');
-                document.body.style.overflow = '';
-            }
-        });
-        
-        // Set up modal close on outside click
-        const modals = document.querySelectorAll('.modal');
-        modals.forEach(modal => {
-            modal.addEventListener('click', function(e) {
-                if (e.target === modal) {
-                    modal.style.display = 'none';
-                }
-            });
-        });
-        
-        // Global modal triggers (consolidated - removed duplicates)
-        document.addEventListener('click', (e) => {
-            // Add Member button
-            if (e.target.closest('#addMemberBtn')) {
-                e.preventDefault();
-                if (window.memberModal) window.memberModal.show();
-            }
-            // Add Certificate button
-            if (e.target.closest('#addCertBtn')) {
-                e.preventDefault();
-                if (window.certModal) window.certModal.show();
-            }
-        });
-        
-        // Set up connection status monitoring
-        if (typeof updateConnectionStatus === 'function') {
-            updateConnectionStatus();
-            window.addEventListener('online', updateConnectionStatus);
-            window.addEventListener('offline', updateConnectionStatus);
-        }
-        
-        // Add Enter key support for login
-        const passwordField = document.getElementById('password');
-        if (passwordField) {
-            passwordField.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    if (typeof login === 'function') login();
-                }
-            });
-        }
-        
-        const usernameField = document.getElementById('username');
-        if (usernameField) {
-            usernameField.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    if (typeof login === 'function') login();
-                }
-            });
-        }
-        
-        // Populate state filter dropdown
-        if (typeof populateStateFilter === 'function') populateStateFilter();
-        
-        // Set up periodic health checks
-        if (typeof checkSystemHealth === 'function') {
-            setInterval(checkSystemHealth, 60000); // Check every minute
-        }
-        
-        // Small delay to ensure all elements are rendered
-        setTimeout(function() {
-            if (typeof finalizeInitialization === 'function') finalizeInitialization();
-        }, 100);
-        
-        console.log('NARAP Admin Panel initialized successfully');
-        
-    } catch (error) {
-        console.error('Error during initialization:', error);
-        console.error('Initialization error details:', error.message, error.stack);
-        if (typeof notifyAdmin === 'function') {
-            notifyAdmin('Error occurred during initialization: ' + error.message);
-        }
-    }
-});
-
-
 // Tab switching functionality
-
-
 function switchTab(tabName) {
-    if (!tabName || typeof tabName !== 'string') {
-        console.warn('switchTab called without valid tabName:', tabName);
-        return;
-    }
-    
-    console.log('Switching to tab:', tabName);
-    
-    // Hide all panels by adding 'hidden' class and setting display none
-    document.querySelectorAll('.panel').forEach(panel => {
-        panel.classList.add('hidden');
-        panel.style.display = 'none';
-    });
+    // Hide all tab contents
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(tab => tab.classList.remove('active'));
     
     // Remove active class from all nav items
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.remove('active');
-    });
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => item.classList.remove('active'));
     
-    // Show the selected panel by removing 'hidden' class and setting display block
-    const activePanel = document.getElementById(`panel-${tabName}`);
-    if (activePanel) {
-        activePanel.classList.remove('hidden');
-        activePanel.style.display = 'block';
-        console.log('Showing panel:', activePanel.id);
-    } else {
-        console.error(`Panel not found: panel-${tabName}`);
-        console.log('Available panels:', Array.from(document.querySelectorAll('.panel')).map(p => p.id));
-        return;
+    // Show selected tab
+    const selectedTab = document.getElementById(tabName + 'Tab');
+    if (selectedTab) {
+        selectedTab.classList.add('active');
     }
     
-    // Add active class to the nav item
-    const activeTab = document.getElementById(`btn-${tabName}`);
-    if (activeTab) {
-        activeTab.classList.add('active');
-        console.log('Activated tab:', activeTab.id);
-    } else {
-        console.error(`Tab button not found: btn-${tabName}`);
+    // Add active class to selected nav item
+    const selectedNav = document.querySelector(`[data-tab="${tabName}"]`);
+    if (selectedNav) {
+        selectedNav.classList.add('active');
     }
     
     // Update header title
-    const header = document.getElementById('headerTitle');
-    if (header) header.textContent = tabName.charAt(0).toUpperCase() + tabName.slice(1);
+    const headerTitle = document.getElementById('headerTitle');
+    if (headerTitle) {
+        headerTitle.textContent = tabName.charAt(0).toUpperCase() + tabName.slice(1);
+    }
     
-    // Load tab-specific content
+    // Load tab-specific data
     switch(tabName) {
         case 'dashboard':
-            if (typeof loadDashboard === 'function') loadDashboard();
+            loadDashboard();
             break;
         case 'members':
-            if (typeof loadMembers === 'function') loadMembers();
+            loadMembers();
             break;
         case 'certificates':
-            if (typeof loadCertificates === 'function') loadCertificates();
+            loadCertificates();
             break;
         case 'analytics':
-            if (typeof loadAnalytics === 'function') loadAnalytics();
+            loadAnalytics();
             break;
         case 'system':
-            if (typeof loadSystemInfo === 'function') loadSystemInfo();
+            loadSystemInfo();
             break;
-        default:
-            console.warn(`No handler for tab: ${tabName}`);
     }
 }
-
-
-
 
 // Load dashboard data
 async function loadDashboard() {
-    const DASHBOARD_TIMEOUT = 10000; // 10 seconds timeout
-    let timeoutController;
-    
     try {
         console.log('Loading dashboard...');
-        showMessage('Loading dashboard...', 'info');
         
-        // Create timeout controller for fetch requests
-        timeoutController = new AbortController();
-        const timeoutId = setTimeout(() => timeoutController.abort(), DASHBOARD_TIMEOUT);
-        
-        // Load data with timeout protection
         const [members, certificates] = await Promise.all([
-            getMembers(timeoutController.signal).catch(e => {
-                console.error('Members fetch error:', e);
-                throw new Error('getMembers: ' + e.message);
-            }),
-            getCertificates(timeoutController.signal).catch(e => {
-                console.error('Certificates fetch error:', e);
-                throw new Error('getCertificates: ' + e.message);
-            })
+            getMembers(),
+            getCertificates()
         ]);
-
-        clearTimeout(timeoutId); // Clear timeout if successful
-
-        // Validate data structure
-        if (!Array.isArray(members) || !Array.isArray(certificates)) {
-            throw new Error('Invalid data format received');
-        }
-
+        
         // Update statistics
-        const updateStats = () => {
-            try {
-                const totalMembersEl = document.getElementById('totalMembers');
-                const totalCertificatesEl = document.getElementById('totalCertificates');
-                const newThisMonthEl = document.getElementById('newThisMonth');
-                const systemUptimeEl = document.getElementById('systemUptime');
-                
-                if (totalMembersEl) totalMembersEl.textContent = members.length.toLocaleString();
-                if (totalCertificatesEl) totalCertificatesEl.textContent = certificates.length.toLocaleString();
-                
-                // Calculate new members this month
-                const thisMonth = new Date().getMonth();
-                const thisYear = new Date().getFullYear();
-                const newThisMonth = members.filter(member => {
-                    const memberDate = member.createdAt || member.dateAdded;
-                    if (!memberDate) return false;
-                    const date = new Date(memberDate);
-                    return date.getMonth() === thisMonth && date.getFullYear() === thisYear;
-                }).length;
-                
-                if (newThisMonthEl) newThisMonthEl.textContent = newThisMonth.toLocaleString();
-                
-                // Calculate system uptime (placeholder)
-                if (systemUptimeEl) {
-                    const uptimeDays = Math.floor(performance.now() / (1000 * 60 * 60 * 24));
-                    systemUptimeEl.textContent = `${uptimeDays}d`;
-                }
-            } catch (statsError) {
-                console.error('Stats update failed:', statsError);
-            }
-        };
-
-        updateStats();
-
+        const totalMembersEl = document.getElementById('totalMembers');
+        const totalCertificatesEl = document.getElementById('totalCertificates');
+        const newThisMonthEl = document.getElementById('newThisMonth');
+        const systemUptimeEl = document.getElementById('systemUptime');
+        
+        if (totalMembersEl) totalMembersEl.textContent = members.length;
+        if (totalCertificatesEl) totalCertificatesEl.textContent = certificates.length;
+        
+        // Calculate new members this month
+        const thisMonth = new Date().getMonth();
+        const thisYear = new Date().getFullYear();
+        const newThisMonth = members.filter(member => {
+            if (!member.createdAt && !member.dateAdded) return false;
+            const memberDate = new Date(member.createdAt || member.dateAdded);
+            return memberDate.getMonth() === thisMonth && memberDate.getFullYear() === thisYear;
+        }).length;
+        
+        if (newThisMonthEl) newThisMonthEl.textContent = newThisMonth;
+        
+        // Calculate system uptime (placeholder)
+        if (systemUptimeEl) {
+            systemUptimeEl.textContent = Math.floor(Date.now() / (1000 * 60 * 60 * 24)) + 'd';
+        }
+        
         // Load recent activity
-        try {
-            if (typeof loadRecentActivity === 'function') {
-                loadRecentActivity(members, certificates);
-            }
-        } catch (activityError) {
-            console.error('Recent activity load failed:', activityError);
-        }
-
-        // Display data
-        try {
-            if (typeof displayMembers === 'function') {
-                displayMembers(members);
-            }
-            if (typeof displayCertificates === 'function') {
-                displayCertificates(certificates);
-            }
-        } catch (displayError) {
-            console.error('Data display failed:', displayError);
-            throw new Error('Could not render dashboard components');
-        }
-
-        console.log('✅ Dashboard loaded successfully');
-        showMessage('Dashboard loaded successfully!', 'success');
+        loadRecentActivity(members, certificates);
+        
+        console.log('Dashboard loaded successfully');
         
     } catch (error) {
-        console.error('❌ Dashboard load error:', error);
-        
-        let errorMessage = 'Failed to load dashboard data';
-        let isPartialLoad = false;
-        
-        if (error.name === 'AbortError') {
-            errorMessage = 'Dashboard load timed out. Please try again.';
-        } else if (error.message.includes('getMembers')) {
-            errorMessage = 'Failed to load members data';
-        } else if (error.message.includes('getCertificates')) {
-            errorMessage = 'Failed to load certificates data';
-        } else if (error.message.includes('Invalid data format')) {
-            errorMessage = 'Server returned invalid data format';
-        } else {
-            errorMessage += ': ' + (error.message || 'Unknown error');
-        }
-
-        // Attempt partial load
-        try {
-            console.log('Attempting partial load...');
-            const fallbackMembers = await getMembers();
-            if (Array.isArray(fallbackMembers)) {
-                if (typeof displayMembers === 'function') {
-                    displayMembers(fallbackMembers);
-                }
-                const totalMembersEl = document.getElementById('totalMembers');
-                if (totalMembersEl) totalMembersEl.textContent = fallbackMembers.length.toLocaleString();
-                isPartialLoad = true;
-            }
-        } catch (fallbackError) {
-            console.error('Fallback load failed:', fallbackError);
-        }
-
-        showMessage(
-            isPartialLoad 
-                ? `${errorMessage} (showing partial data)` 
-                : errorMessage,
-            isPartialLoad ? 'warning' : 'error'
-        );
-        
-        // Track the error
-        if (typeof trackError === 'function') {
-            trackError('dashboard_load_failure', {
-                error: error.message,
-                partialLoad: isPartialLoad
-            });
-        }
-    } finally {
-        // Clean up any pending timeouts
-        if (timeoutController) {
-            clearTimeout(timeoutController.timeoutId);
-        }
-        
-        // Update loading state
-        document.querySelectorAll('.loading-indicator').forEach(el => {
-            el.style.display = 'none';
-        });
-    }
-}
-
-// Helper functions needed for the dashboard to work:
-
-async function getMembers(signal) {
-    try {
-        const response = await fetch(`${backendUrl}/api/getUsers`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            credentials: 'include',
-            signal
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        if (!Array.isArray(data)) {
-            throw new Error('Invalid members data format');
-        }
-
-        return data.map(member => ({
-            ...member,
-            createdAt: member.createdAt || member.dateAdded
-        }));
-        
-    } catch (error) {
-        console.error('getMembers failed:', error);
-        throw error;
-    }
-}
-
-async function getCertificates(signal) {
-    try {
-        const response = await fetch(`${backendUrl}/api/certificates`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            credentials: 'include',
-            signal
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        if (!Array.isArray(data)) {
-            throw new Error('Invalid certificates data format');
-        }
-
-        return data.map(cert => ({
-            ...cert,
-            createdAt: cert.createdAt || cert.issueDate
-        }));
-        
-    } catch (error) {
-        console.error('getCertificates failed:', error);
-        throw error;
+        console.error('Dashboard load error:', error);
+        showMessage('Failed to load dashboard data', 'error');
     }
 }
 
 // Recent activity function
 function loadRecentActivity(members = [], certificates = []) {
-    try {
-        const activityDiv = document.getElementById('recentActivity');
-        if (!activityDiv) {
-            console.log('Recent activity element not found');
-            return;
-        }
-        
-        // Show loading state
+    const activityDiv = document.getElementById('recentActivity');
+    if (!activityDiv) return;
+    
+    const activities = [];
+    
+    // Add recent members (last 3)
+    const recentMembers = members
+        .filter(m => m.createdAt || m.dateAdded)
+        .sort((a, b) => new Date(b.createdAt || b.dateAdded) - new Date(a.createdAt || a.dateAdded))
+        .slice(0, 3);
+    
+    recentMembers.forEach(member => {
+        activities.push({
+            icon: 'fas fa-user-plus',
+            text: `New member registered: ${member.name}`,
+            time: formatTimeAgo(member.createdAt || member.dateAdded),
+            type: 'member'
+        });
+    });
+    
+    // Add recent certificates (last 2)
+    const recentCertificates = certificates
+        .filter(c => c.createdAt || c.issueDate)
+        .sort((a, b) => new Date(b.createdAt || b.issueDate) - new Date(a.createdAt || a.issueDate))
+        .slice(0, 2);
+    
+    recentCertificates.forEach(cert => {
+        activities.push({
+            icon: 'fas fa-certificate',
+            text: `Certificate issued to: ${cert.recipient}`,
+            time: formatTimeAgo(cert.createdAt || cert.issueDate),
+            type: 'certificate'
+        });
+    });
+    
+    if (activities.length === 0) {
         activityDiv.innerHTML = `
-            <div class="activity-loading" style="padding: 20px; text-align: center; color: #666;">
-                <i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>
-                Loading recent activity...
+            <div class="activity-item" style="padding: 20px; text-align: center; color: #666;">
+                <i class="fas fa-info-circle" style="margin-right: 8px;"></i>
+                No recent activity found
             </div>
         `;
-        
-        const activities = [];
-        
-        // Add recent members (last 3) with error handling
-        try {
-            const recentMembers = members
-                .filter(m => m && (m.createdAt || m.dateAdded))
-                .sort((a, b) => {
-                    const dateA = new Date(a.createdAt || a.dateAdded);
-                    const dateB = new Date(b.createdAt || b.dateAdded);
-                    return dateB - dateA;
-                })
-                .slice(0, 3);
-            
-            recentMembers.forEach(member => {
-                if (member && member.name) {
-                    activities.push({
-                        icon: 'fas fa-user-plus',
-                        text: `New member registered: ${member.name}`,
-                        time: formatTimeAgo(member.createdAt || member.dateAdded),
-                        type: 'member',
-                        date: new Date(member.createdAt || member.dateAdded),
-                        details: `Code: ${member.code || 'N/A'}, State: ${member.state || 'N/A'}`
-                    });
-                }
-            });
-        } catch (memberError) {
-            console.error('Error processing recent members:', memberError);
-        }
-        
-        // Add recent certificates (last 2) with error handling
-        try {
-            const recentCertificates = certificates
-                .filter(c => c && (c.createdAt || c.issueDate))
-                .sort((a, b) => {
-                    const dateA = new Date(a.createdAt || a.issueDate);
-                    const dateB = new Date(b.createdAt || b.issueDate);
-                    return dateB - dateA;
-                })
-                .slice(0, 2);
-            
-            recentCertificates.forEach(cert => {
-                if (cert && cert.recipient) {
-                    activities.push({
-                        icon: 'fas fa-certificate',
-                        text: `Certificate issued to: ${cert.recipient}`,
-                        time: formatTimeAgo(cert.createdAt || cert.issueDate),
-                        type: 'certificate',
-                        date: new Date(cert.createdAt || cert.issueDate),
-                        details: `Number: ${cert.number || 'N/A'}, Title: ${cert.title || 'N/A'}`
-                    });
-                }
-            });
-        } catch (certError) {
-            console.error('Error processing recent certificates:', certError);
-        }
-        
-        // Sort all activities by date (most recent first)
-        activities.sort((a, b) => b.date - a.date);
-        
-        // Display activities or empty state
-        if (activities.length === 0) {
-            activityDiv.innerHTML = `
-                <div class="activity-item" style="padding: 20px; text-align: center; color: #666;">
-                    <i class="fas fa-info-circle" style="margin-right: 8px; font-size: 18px; color: #ccc;"></i>
-                    <div style="margin-top: 8px;">No recent activity found</div>
-                    <div style="font-size: 12px; color: #999; margin-top: 4px;">
-                        Activity will appear here when members register or certificates are issued
-                    </div>
-                </div>
-            `;
-            return;
-        }
-        
-        // Render activities with improved styling
-        activityDiv.innerHTML = activities.map(activity => `
-            <div class="activity-item" style="
-                padding: 12px 20px; 
-                border-bottom: 1px solid #eee; 
-                display: flex; 
-                align-items: center; 
-                gap: 12px;
-                transition: background-color 0.2s ease;
-                cursor: pointer;
-            " 
-            onmouseover="this.style.backgroundColor='#f8f9fa'" 
-            onmouseout="this.style.backgroundColor='transparent'"
-            title="${activity.details}">
-                <div class="activity-icon" style="
-                    width: 32px; 
-                    height: 32px; 
-                    border-radius: 50%; 
-                    display: flex; 
-                    align-items: center; 
-                    justify-content: center; 
-                    ${activity.type === 'member' ? 
-                        'background: #e3f2fd; color: #1976d2;' : 
-                        'background: #fff3e0; color: #f57c00;'
-                    }
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                ">
-                    <i class="${activity.icon}" style="font-size: 14px;"></i>
-                </div>
-                <div class="activity-content" style="flex: 1; min-width: 0;">
-                    <div class="activity-text" style="
-                        font-size: 14px; 
-                        color: #333; 
-                        margin-bottom: 2px;
-                        white-space: nowrap;
-                        overflow: hidden;
-                        text-overflow: ellipsis;
-                    ">${activity.text}</div>
-                    <div class="activity-time" style="
-                        font-size: 12px; 
-                        color: #666;
-                        display: flex;
-                        align-items: center;
-                        gap: 4px;
-                    ">
-                        <i class="fas fa-clock" style="font-size: 10px;"></i>
-                        ${activity.time}
-                    </div>
-                </div>
-                <div class="activity-badge" style="
-                    padding: 2px 8px;
-                    border-radius: 12px;
-                    font-size: 10px;
-                    font-weight: bold;
-                    text-transform: uppercase;
-                    ${activity.type === 'member' ? 
-                        'background: #e3f2fd; color: #1976d2;' : 
-                        'background: #fff3e0; color: #f57c00;'
-                    }
-                ">
-                    ${activity.type}
-                </div>
-            </div>
-        `).join('');
-        
-        console.log(`✅ Recent activity loaded: ${activities.length} items`);
-        
-    } catch (error) {
-        console.error('❌ Load recent activity error:', error);
-        
-        const activityDiv = document.getElementById('recentActivity');
-        if (activityDiv) {
-            activityDiv.innerHTML = `
-                <div class="activity-item" style="padding: 20px; text-align: center; color: #dc3545;">
-                    <i class="fas fa-exclamation-triangle" style="margin-right: 8px; font-size: 18px;"></i>
-                    <div style="margin-top: 8px;">Failed to load recent activity</div>
-                    <div style="font-size: 12px; color: #666; margin-top: 4px;">
-                        ${error.message || 'Unknown error occurred'}
-                    </div>
-                    <button onclick="loadDashboard()" style="
-                        margin-top: 10px;
-                        padding: 4px 12px;
-                        background: #007bff;
-                        color: white;
-                        border: none;
-                        border-radius: 4px;
-                        font-size: 12px;
-                        cursor: pointer;
-                    ">
-                        Retry
-                    </button>
-                </div>
-            `;
-        }
-        
-        showMessage('Failed to load recent activity: ' + error.message, 'error');
+        return;
     }
+    
+    activityDiv.innerHTML = activities.map(activity => `
+        <div class="activity-item" style="padding: 12px 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 12px;">
+            <div class="activity-icon" style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; ${activity.type === 'member' ? 'background: #e3f2fd; color: #1976d2;' : 'background: #fff3e0; color: #f57c00;'}">
+                <i class="${activity.icon}" style="font-size: 14px;"></i>
+            </div>
+            <div class="activity-content" style="flex: 1;">
+                <div class="activity-text" style="font-size: 14px; color: #333; margin-bottom: 2px;">${activity.text}</div>
+                <div class="activity-time" style="font-size: 12px; color: #666;">${activity.time}</div>
+            </div>
+        </div>
+    `).join('');
 }
-
 
 // Helper function to format time ago
 function formatTimeAgo(dateString) {
-    try {
-        if (!dateString) return 'Unknown time';
-        
-        const date = new Date(dateString);
-        
-        // Validate date
-        if (isNaN(date.getTime())) {
-            console.warn('Invalid date string:', dateString);
-            return 'Invalid date';
-        }
-        
-        const now = new Date();
-        const diffInSeconds = Math.floor((now - date) / 1000);
-        
-        // Handle future dates
-        if (diffInSeconds < 0) {
-            return 'In the future';
-        }
-        
-        // Less than 1 minute
-        if (diffInSeconds < 60) return 'Just now';
-        
-        // Less than 1 hour
-        if (diffInSeconds < 3600) {
-            const minutes = Math.floor(diffInSeconds / 60);
-            return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
-        }
-        
-        // Less than 1 day
-        if (diffInSeconds < 86400) {
-            const hours = Math.floor(diffInSeconds / 3600);
-            return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
-        }
-        
-        // Less than 30 days (1 month)
-        if (diffInSeconds < 2592000) {
-            const days = Math.floor(diffInSeconds / 86400);
-            return `${days} day${days !== 1 ? 's' : ''} ago`;
-        }
-        
-        // More than 30 days - use formatted date
-        return formatDate(dateString);
-        
-    } catch (error) {
-        console.error('Error in formatTimeAgo:', error, 'for date:', dateString);
-        return 'Unknown time';
-    }
-}
-
-// ✅ Add the formatDate helper function
-function formatDate(dateString) {
-    try {
-        if (!dateString) return 'Unknown date';
-        
-        const date = new Date(dateString);
-        
-        // Validate date
-        if (isNaN(date.getTime())) {
-            console.warn('Invalid date string in formatDate:', dateString);
-            return 'Invalid date';
-        }
-        
-        // Format options
-        const options = {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        };
-        
-        // Check if date is this year
-        const currentYear = new Date().getFullYear();
-        const dateYear = date.getFullYear();
-        
-        if (dateYear === currentYear) {
-            // Same year - don't show year
-            return date.toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric'
-            });
-        } else {
-            // Different year - show full date
-            return date.toLocaleDateString('en-US', options);
-        }
-        
-    } catch (error) {
-        console.error('Error in formatDate:', error, 'for date:', dateString);
-        return 'Unknown date';
-    }
-}
-
-// ✅ Optional: Add a more detailed date formatter
-function formatDateTime(dateString) {
-    try {
-        if (!dateString) return 'Unknown date/time';
-        
-        const date = new Date(dateString);
-        
-        if (isNaN(date.getTime())) {
-            return 'Invalid date/time';
-        }
-        
-        const now = new Date();
-        const isToday = date.toDateString() === now.toDateString();
-        const isYesterday = date.toDateString() === new Date(now.getTime() - 86400000).toDateString();
-        
-        const timeOptions = {
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        };
-        
-        if (isToday) {
-            return `Today at ${date.toLocaleTimeString('en-US', timeOptions)}`;
-        } else if (isYesterday) {
-            return `Yesterday at ${date.toLocaleTimeString('en-US', timeOptions)}`;
-        } else {
-            const dateOptions = {
-                month: 'short',
-                day: 'numeric',
-                year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-            };
-            
-            return `${date.toLocaleDateString('en-US', dateOptions)} at ${date.toLocaleTimeString('en-US', timeOptions)}`;
-        }
-        
-    } catch (error) {
-        console.error('Error in formatDateTime:', error, 'for date:', dateString);
-        return 'Unknown date/time';
-    }
-}
-
-// ✅ Optional: Add relative date formatter for longer periods
-function formatRelativeDate(dateString) {
-    try {
-        if (!dateString) return 'Unknown time';
-        
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) return 'Invalid date';
-        
-        const now = new Date();
-        const diffInSeconds = Math.floor((now - date) / 1000);
-        
-        if (diffInSeconds < 0) return 'In the future';
-        if (diffInSeconds < 60) return 'Just now';
-        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
-        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
-        if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
-        if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 604800)} weeks ago`;
-        if (diffInSeconds < 31536000) return `${Math.floor(diffInSeconds / 2592000)} months ago`;
-        
-        const years = Math.floor(diffInSeconds / 31536000);
-        return `${years} year${years !== 1 ? 's' : ''} ago`;
-        
-    } catch (error) {
-        console.error('Error in formatRelativeDate:', error);
-        return 'Unknown time';
-    }
+    if (!dateString) return 'Unknown time';
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+    
+    return formatDate(dateString);
 }
 
 // Get members function
-async function loadUsers() {
+async function getMembers() {
     try {
         console.log('Fetching members from:', `${backendUrl}/api/getUsers`);
-        
-        // Create abort controller for proper timeout handling
-        const abortController = new AbortController();
-        const timeoutId = setTimeout(() => abortController.abort(), 15000);
-        
-        console.log('Auth headers:', getAuthHeaders());
         
         const res = await fetch(`${backendUrl}/api/getUsers`, {
             method: 'GET',
             credentials: 'include',
-            headers: getAuthHeaders(),
-            signal: abortController.signal
+            headers: {
+                'Content-Type': 'application/json'
+            }
         });
         
-        clearTimeout(timeoutId); // Clear timeout if request completes
-        
-        // Debug: Log response details
-        console.log('Response status:', res.status);
-        console.log('Response headers:', [...res.headers.entries()]);
-        
-        // Handle token expiration
-        if (res.status === 401) {
-            console.log('🔐 Token expired, redirecting to login');
-            localStorage.removeItem('token');
-            document.getElementById('loginSection').style.display = 'block';
-            document.getElementById('adminSection').style.display = 'none';
-            showMessage('Session expired. Please login again.', 'warning');
-            return [];
-        }
-        
         if (!res.ok) {
-            const errorText = await res.text();
-            console.error('Error response body:', errorText);
-            throw new Error(`HTTP ${res.status}: ${res.statusText || 'Unknown error'}`);
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
         
-        const responseData = await res.json();
-        console.log('Raw API response:', responseData);
-        
-        // Handle different response formats
-        let members = [];
-        if (Array.isArray(responseData)) {
-            members = responseData;
-        } else if (responseData.data && Array.isArray(responseData.data)) {
-            members = responseData.data;
-        } else if (responseData.users && Array.isArray(responseData.users)) {
-            members = responseData.users;
-        }
-        
-        currentMembers = members;
-        console.log('✅ Members loaded successfully:', currentMembers.length, 'members');
+        const members = await res.json();
+        currentMembers = Array.isArray(members) ? members : [];
         return currentMembers;
         
     } catch (error) {
-        console.error('❌ Get members error:', error);
-        
-        let errorMessage = 'Failed to load members: ' + error.message;
-        if (error.name === 'AbortError') {
-            errorMessage = 'Request timed out while loading members. Please try again.';
-        }
-        
-        showMessage(errorMessage, 'error');
+        console.error('Get members error:', error);
+        showMessage('Failed to load members: ' + error.message, 'error');
         currentMembers = [];
         return [];
     }
 }
-
-
 
 // Load members tab
 async function loadMembers() {
@@ -1385,41 +540,19 @@ async function loadMembers() {
         console.log('Loading members...');
         tableBody.innerHTML = '<tr><td colspan="7" class="loading">Loading members...</td></tr>';
         
-        // Debug: Check if we have a valid token
-        const token = localStorage.getItem('token');
-        if (!token) {
-            throw new Error('No authentication token found');
-        }
-        console.log('Using token:', token);
-        
-        // Debug: Check the loadUsers function
-        console.log('Calling loadUsers()...');
-        const members = await loadUsers();
-        console.log('Received members data:', members); // Inspect this in console
+        const members = await getMembers();
         
         // Clear the table
         tableBody.innerHTML = '';
         
         if (!members || members.length === 0) {
-            const noMembersRow = document.createElement('tr');
-            noMembersRow.innerHTML = `
-                <td colspan="7" style="text-align: center; color: #666; padding: 20px;">
-                    No members found. 
-                    <button onclick="location.reload()" class="btn btn-link">Try again</button>
-                </td>
-            `;
-            tableBody.appendChild(noMembersRow);
+            tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666; padding: 20px;">No members found</td></tr>';
             showMessage('No members found', 'info');
             return;
         }
         
         // Create table rows
         members.forEach((member, index) => {
-            if (!member._id) {
-                console.warn('Member missing ID:', member);
-                return; // Skip invalid members
-            }
-            
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>
@@ -1427,7 +560,7 @@ async function loadMembers() {
                         <img src="${member.passport || 'images/default-avatar.png'}" 
                              alt="Photo" 
                              style="width: 100%; height: 100%; object-fit: cover;"
-                             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNFNUU3RUIiLz4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4PSI4IiB5PSI4Ij4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDEyQzE0LjIwOTEgMTIgMTYgMTAuMjA5MSAxNiA4QzE2IDUuNzkwODYgMTQuMjA5MSA0IDEyIDRDOS43OTA4NiA0IDggNS43OTA4NiA4IDhDOCAxMC4yMDkxIDkuNzkwODYgMTIgMTIgMTJaIiBmaWxsPSIjOUM5Qzk3Ii8+CjxwYXRoIGQ9Ik0xMiAxNEM5LjMzIDEzLjk5IDcuMDEgMTUuNzMgNiAxOC4yNEM1Ljk5IDE4LjQ0IDYuMTEgMTguNjMgNi4yOSAxOC43MkM2LjY3IDE4Ljk2IDcuMDggMTkuMTYgNy41IDE5LjMxQzguOTIgMTkuODYgMTAuNDQgMjAgMTIgMjBDMTMuNTYgMjAgMTUuMDggMTkuODYgMTYuNSAxOS4zMUMxNi45MiAxOS4xNiAxNy4zMyAxOC45NiAxNy43MSAxOC43MkMxNy44OSAxOC42MyAxOC4wMSAxOC40NCAxOCAxOC4yNEMxNi45OSAxNS43MyAxNC42NyAxMy45OSAxMiAxNFoiIGZpbGw9IiM5QzlDOTciLz4KPC9zdmc+Cjwvc3ZnPgo8L3N2Zz4K';">
+                                                          onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNFNUU3RUIiLz4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4PSI4IiB5PSI4Ij4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDEyQzE0LjIwOTEgMTIgMTYgMTAuMjA5MSAxNiA4QzE2IDUuNzkwODYgMTQuMjA5MSA0IDEyIDRDOS43OTA4NiA0IDggNS43OTA4NiA4IDhDOCAxMC4yMDkxIDkuNzkwODYgMTIgMTIgMTJaIiBmaWxsPSIjOUM5Qzk3Ii8+CjxwYXRoIGQ9Ik0xMiAxNEM5LjMzIDEzLjk5IDcuMDEgMTUuNzMgNiAxOC4yNEM1Ljk5IDE4LjQ0IDYuMTEgMTguNjMgNi4yOSAxOC43MkM2LjY3IDE4Ljk2IDcuMDggMTkuMTYgNy41IDE5LjMxQzguOTIgMTkuODYgMTAuNDQgMjAgMTIgMjBDMTMuNTYgMjAgMTUuMDggMTkuODYgMTYuNSAxOS4zMUMxNi45MiAxOS4xNiAxNy4zMyAxOC45NiAxNy43MSAxOC43MkMxNy44OSAxOC42MyAxOC4wMSAxOC40NCAxOCAxOC4yNEMxNi45OSAxNS43MyAxNC42NyAxMy45OSAxMiAxNFoiIGZpbGw9IiM5QzlDOTciLz4KPC9zdmc+Cjwvc3ZnPgo8L3N2Zz4K';">
                     </div>
                 </td>
                 <td><strong>${escapeHtml(member.name || 'N/A')}</strong></td>
@@ -1456,72 +589,70 @@ async function loadMembers() {
         
     } catch (error) {
         console.error('Load members error:', error);
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="7" style="text-align: center; color: red; padding: 20px;">
-                    Failed to load members. 
-                    <br>${error.message}
-                    <br><button onclick="loadMembers()" class="btn btn-link">Retry</button>
-                </td>
-            </tr>
-        `;
+        tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red; padding: 20px;">Failed to load members: ' + error.message + '</td></tr>';
         showMessage('Failed to load members: ' + error.message, 'error');
     }
 }
 
+// Get certificates function
 async function getCertificates() {
-    const CERTIFICATES_ENDPOINT = `${backendUrl}/api/certificates`;
-    const FALLBACK_LOCAL = false; // Set to true if you need local fallback
-    
     try {
-        console.log('Fetching certificates from:', CERTIFICATES_ENDPOINT);
+        console.log('Fetching certificates from:', `${backendUrl}/api/certificates`);
         
-        // 1. Attempt backend fetch
-        const response = await fetch(CERTIFICATES_ENDPOINT, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            credentials: 'include'
+        let backendCertificates = [];
+        let localCertificates = getLocalCertificates();
+        
+        // Try to fetch from backend
+        try {
+            const res = await fetch(`${backendUrl}/api/certificates`, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (res.ok) {
+                backendCertificates = await res.json();
+                backendCertificates = backendCertificates.map(cert => ({ ...cert, isFromBackend: true }));
+            }
+        } catch (error) {
+            console.warn('Backend request failed, using local data only', error);
+        }
+        
+        // Merge backend and local certificates
+        const mergedCertificates = [...backendCertificates];
+        
+        // Add local certificates that don't exist in backend
+        localCertificates.forEach(localCert => {
+            const existsInBackend = backendCertificates.find(backendCert => 
+                backendCert._id === localCert._id || 
+                backendCert.number === localCert.number
+            );
+            
+            if (!existsInBackend) {
+                mergedCertificates.push({ ...localCert, isFromBackend: false });
+            }
         });
-
-        // 2. Handle response
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        let certificates = await response.json();
         
-        // 3. Process certificates
-        certificates = certificates.map(cert => ({
-            ...cert,
-            isFromBackend: true,
-            // Normalize dates for sorting
-            sortDate: new Date(cert.createdAt || cert.issueDate || Date.now())
-        }));
-
-        // 4. Sort by date (newest first)
-        certificates.sort((a, b) => b.sortDate - a.sortDate);
+        // Sort by creation date (newest first)
+        mergedCertificates.sort((a, b) => {
+            const dateA = new Date(a.createdAt || a.issueDate || 0);
+            const dateB = new Date(b.createdAt || b.issueDate || 0);
+            return dateB - dateA;
+        });
         
-        currentCertificates = certificates;
-        return certificates;
-
+        currentCertificates = mergedCertificates;
+        return currentCertificates;
+        
     } catch (error) {
-        console.error('Certificate fetch failed:', error);
+        console.error('Get certificates error:', error);
+        showMessage('Failed to load certificates: ' + error.message, 'error');
         
-        if (FALLBACK_LOCAL) {
-            console.warn('Falling back to local certificates');
-            const localCertificates = getLocalCertificates().map(cert => ({
-                ...cert,
-                isFromBackend: false,
-                sortDate: new Date(cert.createdAt || cert.issueDate || Date.now())
-            }));
-            currentCertificates = localCertificates;
-            return localCertificates;
-        }
-        
-        throw error; // Re-throw for loadDashboard() to handle
+        // Fallback to local data only
+        const localCertificates = getLocalCertificates();
+        currentCertificates = localCertificates.map(cert => ({ ...cert, isFromBackend: false }));
+        return currentCertificates;
     }
 }
 
@@ -1647,42 +778,6 @@ async function loadCertificates() {
         showMessage('Failed to load certificates: ' + error.message, 'error');
     }
 }
-
-// ✅ Add this function if it doesn't exist
-function displayCertificates(certificates) {
-    const certificatesTableBody = document.getElementById('certificatesTableBody');
-    if (!certificatesTableBody) {
-        console.log('Certificates table body not found');
-        return;
-    }
-    
-    if (!certificates || certificates.length === 0) {
-        certificatesTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No certificates found</td></tr>';
-        return;
-    }
-    
-    certificatesTableBody.innerHTML = certificates.map(cert => `
-        <tr>
-            <td>${cert.number || 'N/A'}</td>
-            <td>${cert.recipient || 'N/A'}</td>
-            <td>${cert.title || 'N/A'}</td>
-            <td>${cert.type || 'N/A'}</td>
-            <td><span class="badge ${cert.status === 'active' ? 'badge-success' : cert.status === 'revoked' ? 'badge-danger' : 'badge-warning'}">${cert.status || 'N/A'}</span></td>
-            <td>${cert.issueDate ? new Date(cert.issueDate).toLocaleDateString() : (cert.createdAt ? new Date(cert.createdAt).toLocaleDateString() : 'N/A')}</td>
-            <td>
-                <button onclick="viewCertificate('${cert._id}')" class="btn btn-sm btn-info">View</button>
-                ${cert.status === 'active' ? 
-                    `<button onclick="revokeCertificate('${cert._id}')" class="btn btn-sm btn-warning">Revoke</button>` : 
-                    cert.status === 'revoked' ? 
-                    `<button onclick="activateCertificate('${cert._id}')" class="btn btn-sm btn-success">Activate</button>` : 
-                    ''
-                }
-                <button onclick="deleteCertificate('${cert._id}')" class="btn btn-sm btn-danger">Delete</button>
-            </td>
-        </tr>
-    `).join('');
-}
-
 
 // Helper function to get status colors
 function getStatusColor(status) {
@@ -1912,7 +1007,7 @@ async function revokeCertificate(certificateId) {
                     <h3 style="color: #dc3545;">
                         <i class="fas fa-ban"></i> Revoke Certificate
                     </h3>
-                    <span class="close" onclick="window.closeRevocationModal()">&times;</span>
+                    <span class="close" onclick="closeRevocationModal()">&times;</span>
                 </div>
                 <div class="modal-body">
                     <div class="certificate-info" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
@@ -2812,47 +1907,59 @@ function closeConfirmModal() {
 async function addMember(event) {
     event.preventDefault();
     
-    const formData = new FormData(event.target);
-    const memberData = Object.fromEntries(formData.entries());
+    const formData = {
+        name: document.getElementById('memberName').value.trim(),
+        email: document.getElementById('memberEmail').value.trim(),
+        password: document.getElementById('memberPassword').value,
+        code: document.getElementById('memberCode').value.trim(),
+        position: document.getElementById('memberPosition').value,
+        state: document.getElementById('memberState').value.trim(),
+        zone: document.getElementById('memberZone').value.trim()
+    };
     
-    // Validation
-    if (!memberData.name || !memberData.email || !memberData.password || !memberData.code || !memberData.state || !memberData.zone) {
+    // Validate form data
+    if (!formData.name || !formData.email || !formData.password || !formData.code) {
         showMessage('Please fill in all required fields', 'error');
         return;
     }
     
+    // Email validation
+    if (!validateEmail(formData.email)) {
+        showMessage('Please enter a valid email address', 'error');
+        return;
+    }
+    
+    // Password validation
+    const passwordValidation = validatePassword(formData.password);
+    if (!passwordValidation.isValid) {
+        showMessage(passwordValidation.message, 'error');
+        return;
+    }
+    
     try {
-        showMessage('Adding member...', 'info');
+        showMessage('Adding member...', 'success');
         
         const res = await fetch(`${backendUrl}/api/addUser`, {
             method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify(memberData),
-            credentials: 'include'
-        }, 15000); // 15 second timeout
-        
-        const data = await res.json();
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(formData)
+        });
         
         if (res.ok) {
             showMessage('Member added successfully!', 'success');
-            event.target.reset();
-            await loadDashboard(); // Refresh the dashboard
+            closeAddMemberModal();
+            await loadMembers();
+            await loadDashboard();
         } else {
-            showMessage(data.message || 'Failed to add member', 'error');
+            const errorData = await res.json().catch(() => ({}));
+            showMessage('Failed to add member: ' + (errorData.message || 'Unknown error'), 'error');
         }
-        
     } catch (error) {
         console.error('Add member error:', error);
-        
-        let errorMessage = 'Failed to add member: ' + error.message;
-        if (error.name === 'AbortError') {
-            errorMessage = 'Request timed out while adding member. Please try again.';
-        }
-        
-        showMessage(errorMessage, 'error');
+        showMessage('Network error while adding member', 'error');
     }
 }
-
 
 async function editMember(memberId) {
     const member = currentMembers.find(m => m._id === memberId);
@@ -2910,39 +2017,33 @@ async function updateMember(event) {
     }
 }
 
-async function deleteMember(id) {
-    if (!confirm('Are you sure you want to delete this member?')) return;
+async function deleteMember(memberId) {
+    if (!confirm('Are you sure you want to delete this member?\n\nThis action cannot be undone!')) {
+        return;
+    }
     
     try {
-        showMessage('Deleting member...', 'info');
-        
-        const res = await fetchWithTimeout(`${backendUrl}/api/deleteUser/${id}`, {
+        const res = await fetch(`${backendUrl}/api/deleteUser/${memberId}`, {
             method: 'DELETE',
-            headers: getAuthHeaders(),
-            credentials: 'include'
-        }, 10000);
-        
-        const data = await res.json();
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
         
         if (res.ok) {
             showMessage('Member deleted successfully!', 'success');
-            await loadDashboard(); // Refresh the dashboard
+            await loadMembers();
+            await loadDashboard();
         } else {
-            showMessage(data.message || 'Failed to delete member', 'error');
+            const errorData = await res.json().catch(() => ({}));
+                        showMessage('Failed to delete member: ' + (errorData.message || 'Unknown error'), 'error');
         }
-        
     } catch (error) {
         console.error('Delete member error:', error);
-        
-        let errorMessage = 'Failed to delete member: ' + error.message;
-        if (error.name === 'AbortError') {
-            errorMessage = 'Request timed out while deleting member. Please try again.';
-        }
-        
-        showMessage(errorMessage, 'error');
+        showMessage('Network error while deleting member', 'error');
     }
 }
-
 
 // Search and filter functions
 function searchMembers(searchTerm) {
@@ -3164,28 +2265,18 @@ function savePendingSync(pendingSync) {
 }
 
 // Sync pending changes with backend
- async function syncPendingChanges() {
+async function syncPendingChanges() {
     if (!navigator.onLine) {
         showMessage('Cannot sync while offline', 'error');
         return;
     }
     
     const pendingSync = getPendingSync();
-    const totalPending = pendingSync.certificateCreations.length + 
-                         pendingSync.certificateUpdates.length + 
-                         pendingSync.certificateDeletions.length;
-    
-    if (totalPending === 0) {
-        showMessage('No pending changes to sync', 'info'); // Changed from error to info
-        return;
-    }
-    
     let syncCount = 0;
     let errorCount = 0;
     
     try {
         showMessage('Syncing pending changes...', 'success');
-
         
         // Sync certificate creations
         for (const cert of pendingSync.certificateCreations) {
@@ -3236,13 +2327,7 @@ function savePendingSync(pendingSync) {
             });
         }
         
-        // Change the message type based on results
-        let messageType = 'success';
-        if (errorCount > 0) {
-            messageType = syncCount > 0 ? 'warning' : 'error';
-        }
-        
-        showMessage(`Sync completed: ${syncCount} synced, ${errorCount} failed`, messageType);
+        showMessage(`Sync completed: ${syncCount} synced, ${errorCount} failed`, syncCount > 0 ? 'success' : 'error');
         
     } catch (error) {
         console.error('Sync error:', error);
@@ -3253,7 +2338,7 @@ function savePendingSync(pendingSync) {
 // Export functions
 async function exportMembers(format = 'csv') {
     try {
-        const members = currentMembers.length > 0 ? currentMembers : await loadUsers();
+        const members = currentMembers.length > 0 ? currentMembers : await getMembers();
         
         if (format === 'csv') {
             const csvContent = convertToCSV(members);
@@ -3393,7 +2478,7 @@ async function createBackup() {
     try {
         showMessage('Creating backup...', 'success');
         
-        const members = currentMembers.length > 0 ? currentMembers : await loadUsers();
+        const members = currentMembers.length > 0 ? currentMembers : await getMembers();
         const certificates = currentCertificates.length > 0 ? currentCertificates : await getCertificates();
         
         const backupData = {
@@ -3419,7 +2504,7 @@ async function exportAllData() {
     try {
         showMessage('Exporting all data...', 'success');
         
-        const members = currentMembers.length > 0 ? currentMembers : await loadUsers();
+        const members = currentMembers.length > 0 ? currentMembers : await getMembers();
         const certificates = currentCertificates.length > 0 ? currentCertificates : await getCertificates();
         
         const allData = {
@@ -3611,48 +2696,66 @@ function checkPasswordStrength(password) {
 
 
 // Add touch-friendly features for mobile devices
-// Add this safer version at the end of admin.js
 function addMobileSupport() {
-    try {
-        // Larger touch targets for mobile
-        if (window.innerWidth <= 768) {
-            const buttons = document.querySelectorAll('.btn-sm');
-            buttons.forEach(btn => {
-                if (btn) {
-                    btn.style.minHeight = '44px';
-                    btn.style.minWidth = '44px';
-                    btn.style.padding = '8px 12px';
-                }
-            });
-        }
-        
-        // Handle orientation change
-        window.addEventListener('orientationchange', function() {
-            setTimeout(() => {
-                try {
-                    const preview = document.getElementById('idCardPreview');
-                    if (preview && !preview.classList.contains('hidden')) {
-                        if (typeof generateIdCardPreview === 'function') {
-                            generateIdCardPreview();
-                        }
-                    }
-                } catch (error) {
-                    console.log('Orientation change error:', error);
-                }
-            }, 100);
+    // Larger touch targets for mobile
+    if (window.innerWidth <= 768) {
+        const buttons = document.querySelectorAll('.btn-sm');
+        buttons.forEach(btn => {
+            btn.style.minHeight = '44px';
+            btn.style.minWidth = '44px';
+            btn.style.padding = '8px 12px';
         });
         
-    } catch (error) {
-        console.log('Mobile support error:', error);
+        // Make table buttons more touch-friendly
+        const tableButtons = document.querySelectorAll('td button');
+        tableButtons.forEach(btn => {
+            btn.style.margin = '2px';
+            btn.style.minHeight = '40px';
+        });
     }
+    
+    // Handle orientation change
+    window.addEventListener('orientationchange', function() {
+        setTimeout(() => {
+            // Regenerate preview if visible
+            const preview = document.getElementById('idCardPreview');
+            if (preview && !preview.classList.contains('hidden')) {
+                generateIdCardPreview();
+            }
+            
+            // Reload certificates table to adjust layout
+            if (document.getElementById('certificatesTableBody')) {
+                loadCertificates();
+            }
+        }, 100);
+    });
+    
+    // Add swipe gestures for tables on mobile
+    const tables = document.querySelectorAll('.table-responsive, table');
+    tables.forEach(table => {
+        let startX = 0;
+        let scrollLeft = 0;
+        
+        table.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].pageX - table.offsetLeft;
+            scrollLeft = table.scrollLeft;
+        });
+        
+        table.addEventListener('touchmove', (e) => {
+            if (!startX) return;
+            e.preventDefault();
+            const x = e.touches[0].pageX - table.offsetLeft;
+            const walk = (x - startX) * 2;
+            table.scrollLeft = scrollLeft - walk;
+        });
+        
+        table.addEventListener('touchend', () => {
+            startX = 0;
+        });
+    });
 }
 
-// Safely add event listener
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', addMobileSupport);
-} else {
-    addMobileSupport();
-}
+
 
 // Call mobile support when tables are loaded
 const originalLoadCertificates = loadCertificates;
@@ -3731,22 +2834,7 @@ function generateIdCardPreview() {
                 console.log('No file selected, using default');
                 resolve(defaultImage);
             }
-        
-    // Global modal triggers (for sidebar buttons)
-    document.addEventListener('click', (e) => {
-        // Add Member button
-        if (e.target.closest('#addMemberBtn')) {
-            e.preventDefault();
-            if (window.memberModal) window.memberModal.show();
-        }
-
-        // Add Certificate button
-        if (e.target.closest('#addCertBtn')) {
-            e.preventDefault();
-            if (window.certModal) window.certModal.show();
-        }
-    });
-});
+        });
     }
     
     // Process both images
@@ -3871,6 +2959,7 @@ function setupPreviewListeners() {
         });
     }
 }
+
 
 
 
@@ -4315,32 +3404,27 @@ function quickIssueCertificate() {
 }
 
 // System health monitoring
-// ─────────────────────────────────────────────────────────────────────────────
-// Robust checkSystemHealth: fetches JSON health data and updates UI
 async function checkSystemHealth() {
     try {
-        const res = await fetch(`${backendUrl}/api/health`, {
+        const response = await fetch(`${backendUrl}/api/health`, {
             credentials: 'include'
         });
-        if (!res.ok) {
-            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        
+        if (response.ok) {
+            const health = await response.json();
+            const serverStatusElement = document.getElementById('serverStatus');
+            const systemLoadElement = document.getElementById('systemLoad');
+            
+            if (serverStatusElement) serverStatusElement.textContent = 'Healthy';
+            if (systemLoadElement) systemLoadElement.textContent = health.load || '0%';
+        } else {
+            const serverStatusElement = document.getElementById('serverStatus');
+            if (serverStatusElement) serverStatusElement.textContent = 'Warning';
         }
-        const health = await res.json();
+    } catch (error) {
         const serverStatusElement = document.getElementById('serverStatus');
-        const systemLoadElement = document.getElementById('systemLoad');
-        if (serverStatusElement) {
-            serverStatusElement.textContent = health.status === 'healthy' ? 'Healthy' : 'Unhealthy';
-        }
-        if (systemLoadElement) {
-            systemLoadElement.textContent = health.load || '0%';
-        }
-    } catch (err) {
-        console.error('Health check failed:', err);
-        showMessage(`Health check failed: ${err.message}`, 'error');
-        const serverStatusElement = document.getElementById('serverStatus');
-        if (serverStatusElement) {
-            serverStatusElement.textContent = 'Error';
-        }
+        if (serverStatusElement) serverStatusElement.textContent = 'Error';
+        console.error('Health check failed:', error);
     }
 }
 
@@ -4378,12 +3462,160 @@ async function verifyCertificate(certificateNumber) {
     }
 }
 
-        // Check if mobile device
-        document.addEventListener('DOMContentLoaded', function() {
+// Event listeners and initialization
+document.addEventListener('DOMContentLoaded', function() {
     try {
         console.log('NARAP Admin Panel initializing...');
         
-        // YOUR CODE GOES HERE
+        // Load theme
+        if (typeof loadTheme === 'function') loadTheme();
+        
+        // Auto-fill admin credentials on page load
+        if (typeof fillAdminCredentials === 'function') fillAdminCredentials();
+        
+        // Initialize dashboard as default tab
+        switchTab('dashboard');
+        
+        // Initialize all modals
+        window.initModals = function() {
+            const modals = {
+                memberModal: '#memberModal',
+                editMemberModal: '#editMemberModal',
+                addCertificateModal: '#addCertificateModal',
+                viewCertificateModal: '#viewCertificateModal'
+            };
+            Object.keys(modals).forEach(key => {
+                const el = document.querySelector(modals[key]);
+                if (el) window[key] = new bootstrap.Modal(el);
+            });
+        };
+        initModals(); // Initialize on first load
+        
+        // Setup preview listeners
+        if (typeof setupPreviewListeners === 'function') setupPreviewListeners();
+        
+        // Sidebar functionality
+        const sidebar = document.querySelector('.sidebar');
+        const hamburgerBtn = document.getElementById('hamburgerButton');
+        const overlay = document.querySelector('.sidebar-overlay');
+        
+        // Toggle sidebar function
+        function toggleSidebar() {
+            if (sidebar) sidebar.classList.toggle('mobile-open');
+            if (overlay) overlay.classList.toggle('active');
+            document.body.style.overflow = sidebar && sidebar.classList.contains('mobile-open') ? 'hidden' : '';
+        }
+        
+        // Hamburger button click
+        if (hamburgerBtn) {
+            hamburgerBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleSidebar();
+            });
+        }
+        
+        // Overlay click
+        if (overlay) {
+            overlay.addEventListener('click', toggleSidebar);
+        }
+        
+        // Close sidebar when clicking nav items on mobile
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function() {
+                if (window.innerWidth <= 768) {
+                    toggleSidebar();
+                }
+            });
+        });
+        
+        // Close sidebar when resizing to desktop
+        window.addEventListener('resize', function() {
+            if (window.innerWidth >= 769) {
+                if (sidebar) sidebar.classList.remove('mobile-open');
+                if (overlay) overlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+        
+        // Set up modal close on outside click
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        });
+        
+        // Global modal triggers (consolidated - removed duplicates)
+        document.addEventListener('click', (e) => {
+            // Add Member button
+            if (e.target.closest('#addMemberBtn')) {
+                e.preventDefault();
+                if (window.memberModal) window.memberModal.show();
+            }
+            // Add Certificate button
+            if (e.target.closest('#addCertBtn')) {
+                e.preventDefault();
+                if (window.certModal) window.certModal.show();
+            }
+        });
+        
+        // Set up connection status monitoring
+        if (typeof updateConnectionStatus === 'function') {
+            updateConnectionStatus();
+            window.addEventListener('online', updateConnectionStatus);
+            window.addEventListener('offline', updateConnectionStatus);
+        }
+        
+        // Add Enter key support for login
+        const passwordField = document.getElementById('password');
+        if (passwordField) {
+            passwordField.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    if (typeof login === 'function') login();
+                }
+            });
+        }
+        
+        const usernameField = document.getElementById('username');
+        if (usernameField) {
+            usernameField.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    if (typeof login === 'function') login();
+                }
+            });
+        }
+        
+        // Populate state filter dropdown
+        if (typeof populateStateFilter === 'function') populateStateFilter();
+        
+        // Set up periodic health checks
+        if (typeof checkSystemHealth === 'function') {
+            setInterval(checkSystemHealth, 60000); // Check every minute
+        }
+        
+        // Small delay to ensure all elements are rendered
+        setTimeout(function() {
+            if (typeof finalizeInitialization === 'function') finalizeInitialization();
+        }, 100);
+        
+        console.log('NARAP Admin Panel initialized successfully');
+        
+    } catch (error) {
+        console.error('Error during initialization:', error);
+        console.error('Initialization error details:', error.message, error.stack);
+        if (typeof notifyAdmin === 'function') {
+            notifyAdmin('Error occurred during initialization: ' + error.message);
+        }
+    }
+});
+
+    
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        console.log('NARAP Admin Panel initializing...');
+        
         // Check if mobile device
         const isMobile = window.innerWidth <= 768;
         const cardWidth = isMobile ? '100%' : '400px';
@@ -4392,12 +3624,63 @@ async function verifyCertificate(certificateNumber) {
         const fontSize = isMobile ? '13px' : '11px';
         const titleSize = isMobile ? '16px' : '14px';
         
-        // Properly define cardDiv first
+        // Get cardDiv element (you need to define this)
         const cardDiv = document.getElementById('generatedIdCard');
         
         if (cardDiv) {
-            cardDiv.innerHTML = 'something'; // Fixed typo
-            cardDiv.style.display = 'block';
+            cardDiv.innerHTML = `
+                <div class="id-card-preview" style="
+                    border: 2px solid #333;
+                    padding: ${isMobile ? '10px' : '20px'};
+                    max-width: ${cardWidth};
+                    background: white;
+                    margin: 10px 0;
+                    font-family: Arial, sans-serif;
+                    box-sizing: border-box;
+                ">
+                    <!-- Header section -->
+                    <div class="id-card-header" style="text-align: center; margin-bottom: 15px;">
+                        <img src="images/narap-logo.jpg" alt="NARAP Logo"
+                             style="width: ${isMobile ? '40px' : '50px'}; height: ${isMobile ? '40px' : '50px'};"
+                             onerror="this.style.display='none'">
+                        <div class="id-title">
+                            <h3 style="margin: 5px 0; color: #333; font-size: ${isMobile ? '18px' : '20px'};">NARAP</h3>
+                            <p style="font-size: ${isMobile ? '12px' : '10px'}; margin: 0; color: #666;">
+                                Nigerian Association of Refrigeration<br>And Air Conditioning Practitioners
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Body section -->
+                    <div class="id-card-body" style="
+                        display: flex;
+                        gap: 15px;
+                        align-items: flex-start;
+                        ${isMobile ? 'flex-direction: column; align-items: center;' : ''}
+                    ">
+                        <div class="id-photo">
+                            <img src="${typeof passportSrc !== 'undefined' ? passportSrc : 'images/default-avatar.jpg'}" alt="Passport Photo"
+                                 style="width: ${photoSize}; height: ${photoHeight}; border: 1px solid #ddd; object-fit: cover; display: block;">
+                        </div>
+                        <div class="id-details" style="flex: 1; ${isMobile ? 'text-align: center;' : ''}">
+                            <h4 style="margin: 0 0 10px 0; font-size: ${titleSize}; color: #333;">${typeof name !== 'undefined' && typeof escapeHtml === 'function' ? escapeHtml(name) : 'N/A'}</h4>
+                            <p style="margin: 3px 0; font-size: ${fontSize}; color: #555;"><strong>Code:</strong> ${typeof code !== 'undefined' && typeof escapeHtml === 'function' ? escapeHtml(code) : 'N/A'}</p>
+                            <p style="margin: 3px 0; font-size: ${fontSize}; color: #555;"><strong>Position:</strong> ${typeof position !== 'undefined' && typeof escapeHtml === 'function' ? escapeHtml(position) : 'N/A'}</p>
+                            <p style="margin: 3px 0; font-size: ${fontSize}; color: #555;"><strong>State:</strong> ${typeof state !== 'undefined' && typeof escapeHtml === 'function' ? escapeHtml(state) : 'N/A'}</p>
+                            <p style="margin: 3px 0; font-size: ${fontSize}; color: #555;"><strong>Zone:</strong> ${typeof zone !== 'undefined' && typeof escapeHtml === 'function' ? escapeHtml(zone) : 'N/A'}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Footer section -->
+                    <div class="id-card-footer" style="margin-top: 15px; text-align: center; border-top: 1px solid #ddd; padding-top: 10px;">
+                        <div class="signature-area">
+                            <p style="font-size: ${isMobile ? '11px' : '9px'}; margin: 0 0 5px 0; color: #666;">Member Signature:</p>
+                            <img src="${typeof signatureSrc !== 'undefined' ? signatureSrc : 'images/default-signature.png'}" alt="Signature"
+                                 style="width: ${isMobile ? '100px' : '120px'}; height: ${isMobile ? '35px' : '40px'}; border: 1px solid #ddd; object-fit: contain; background: white; display: block; margin: 0 auto;">
+                        </div>
+                    </div>
+                </div>
+            `;
         } else {
             console.warn('generatedIdCard element not found');
         }
@@ -4496,13 +3779,13 @@ async function verifyCertificate(certificateNumber) {
         
     } catch (error) {
         console.error('Error during initialization:', error);
+        // Log error details and notify admin
         console.error('Initialization error:', error.message, error.filename, error.lineno);
         if (typeof notifyAdmin === 'function') {
             notifyAdmin('Error occurred: ' + error.message);
         }
     }
 });
-
 
 
 // Keyboard shortcuts
@@ -5089,7 +4372,7 @@ async function loadAnalytics() {
         showMessage('Loading analytics...', 'success');
         
         // Ensure we have current data
-        if (currentMembers.length === 0) await loadUsers();
+        if (currentMembers.length === 0) await getMembers();
         if (currentCertificates.length === 0) await getCertificates();
         
         // Display analytics
@@ -5137,37 +4420,27 @@ function generateCharts() {
         }
         
         new Chart(ctx, {
-    type: 'line',
-    data: {
-        labels: months,
-        datasets: [{
-            label: 'New Members',
-            data: memberCounts,
-            borderColor: '#007bff',
-            backgroundColor: 'rgba(0, 123, 255, 0.1)',
-            tension: 0.4
-        }]
-    },
-    options: {
-        responsive: true,
-        scales: {
-            y: {
-                beginAtZero: true, // Add proper configuration
-                title: {
-                    display: true,
-                    text: 'Number of Members'
-                }
+            type: 'line',
+            data: {
+                labels: months,
+                datasets: [{
+                    label: 'New Members',
+                    data: memberCounts,
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    tension: 0.4
+                }]
             },
-            x: {
-                title: {
-                    display: true,
-                    text: 'Month'
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
                 }
             }
-        }
+        });
     }
-});
-}
     
     // Certificate status pie chart
     const certChart = document.getElementById('certificateStatusChart');
@@ -5394,7 +4667,7 @@ async function exportData(type, format = 'json') {
         
         switch(type) {
             case 'members':
-                data = currentMembers.length > 0 ? currentMembers : await loadUsers();
+                data = currentMembers.length > 0 ? currentMembers : await getMembers();
                 filename = `narap_members_${new Date().toISOString().split('T')[0]}`;
                 break;
                 
@@ -5404,7 +4677,7 @@ async function exportData(type, format = 'json') {
                 break;
                 
             case 'all':
-                const members = currentMembers.length > 0 ? currentMembers : await loadUsers();
+                const members = currentMembers.length > 0 ? currentMembers : await getMembers();
                 const certificates = currentCertificates.length > 0 ? currentCertificates : await getCertificates();
                 data = { members, certificates, exportDate: new Date().toISOString() };
                 filename = `narap_complete_export_${new Date().toISOString().split('T')[0]}`;
@@ -5616,6 +4889,7 @@ function getMessageStyle(type) {
 
 
 // Initialize performance monitor
+const performanceMonitor = new PerformanceMonitor();
 
 // Enhanced API call wrapper with performance monitoring
 async function apiCall(endpoint, options = {}) {
@@ -5766,7 +5040,7 @@ async function getCachedMembers(forceRefresh = false) {
     }
     
     try {
-        const members = await loadUsers();
+        const members = await getMembers();
         dataCache.set(cacheKey, members);
         return members;
     } catch (error) {
@@ -6018,6 +5292,7 @@ window.narapAdmin = {
 };
 
 
+
 // Export for module systems if needed
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.narapAdmin;
@@ -6027,42 +5302,8 @@ console.log('NARAP Admin Panel JavaScript fully loaded');
 console.log('Total functions available:', Object.keys(window.narapAdmin).length);
 console.log('Ready for production use!');
 
+// End of admin.js file
 
 
 
-// Fixed sidebar toggle code
 
-const sidebar = document.querySelector('.sidebar');
-const overlay = document.querySelector('.sidebar-overlay');
-const body = document.body;
-
-function toggleSidebar() {
-    sidebar.classList.toggle('active');
-    overlay.classList.toggle('active');
-    body.classList.toggle('sidebar-open');
-}
-
-// Add overlay click listener only once
-overlay.addEventListener('click', function() {
-    sidebar.classList.remove('active');
-    overlay.classList.remove('active');
-    body.classList.remove('sidebar-open');
-});
-
-// Close sidebar when clicking on links (optional)
-document.querySelectorAll('.sidebar a').forEach(link => {
-    link.addEventListener('click', function() {
-        if (window.innerWidth <= 768) {
-            toggleSidebar();
-        }
-    });
-});
-
-// Handle window resize
-window.addEventListener('resize', function() {
-    if (window.innerWidth > 768) {
-        sidebar.classList.remove('active');
-        overlay.classList.remove('active');
-        body.classList.remove('sidebar-open');
-    }
-});
