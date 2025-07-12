@@ -1,3 +1,24 @@
+.sidebar {
+  display: none;
+}
+
+.sidebar.active {
+  display: block;
+}
+
+@media (min-width: 769px) {
+  .sidebar {
+    display: block;
+  }
+}
+@media (max-width: 768px) {
+  .sidebar {
+    display: block; /* or flex, depending on your layout */
+    width: 100%; /* full width on mobile */
+    position: static; /* or fixed/absolute with proper positioning */
+  }
+}
+
 .modal-backdrop {
     position: fixed;
     top: 0;
