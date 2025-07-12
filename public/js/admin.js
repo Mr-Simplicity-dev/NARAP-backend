@@ -30,6 +30,33 @@ function fetchWithTimeout(url, options = {}, timeout = 10000) {
 // Add this to verify the URL is correct
 console.log('Admin panel initialized with backend URL:', backendUrl);
 
+// Add this helper function for date formatting
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'Invalid Date';
+        
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+    } catch (error) {
+        return 'Invalid Date';
+    }
+}
+
+// Add this helper function for HTML escaping
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+
 let selectedMembers = new Set();
 let currentMembers = [];
 let currentCertificates = [];
@@ -936,6 +963,58 @@ async function loadUsers() {
 async function getMembers() {
     return await loadUsers();
 }
+
+function displayMembers(members) {
+    try {
+        const membersTableBody = document.querySelector('#membersTable tbody') || 
+                                document.querySelector('#membersTableBody') ||
+                                document.getElementById('membersTableBody');
+        
+        if (!membersTableBody) {
+            console.warn('Members table body not found');
+            return;
+        }
+
+        // Clear existing rows
+        membersTableBody.innerHTML = '';
+
+        if (!members || members.length === 0) {
+            membersTableBody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding: 20px; color: #666;">No members found</td></tr>';
+            return;
+        }
+
+        members.forEach(member => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${member.id || member._id || 'N/A'}</td>
+                <td>${escapeHtml(member.name || member.fullName || 'N/A')}</td>
+                <td>${escapeHtml(member.email || 'N/A')}</td>
+                <td>${escapeHtml(member.membershipType || member.type || 'Regular')}</td>
+                <td>${formatDate(member.createdAt || member.dateAdded)}</td>
+                <td>
+                    <div style="display: flex; gap: 5px;">
+                        <button class="btn btn-sm btn-primary" onclick="viewMember('${member.id || member._id}')" title="View">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-warning" onclick="editMember('${member.id || member._id}')" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteMember('${member.id || member._id}')" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            membersTableBody.appendChild(row);
+        });
+
+        console.log('Members displayed successfully');
+    } catch (error) {
+        console.error('Error displaying members:', error);
+        showMessage('Failed to display members', 'error');
+    }
+}
+
 
 // Load members tab
 async function loadMembers() {
