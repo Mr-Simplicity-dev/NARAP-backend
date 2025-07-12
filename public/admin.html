@@ -103,21 +103,22 @@
         <i class="fas fa-bars"></i>
     </button>
     
-    <div class="header-title-container">
-        <h1 class="header-title" id="headerTitle">Dashboard</h1>
-        <div class="header-actions">
-            <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle Theme">
-                <i class="fas fa-moon"></i>
-            </button>
-            <div class="connection-status">
-                <div class="connection-indicator" id="connectionIndicator"></div>
-                <span id="connectionText">Online</span>
-            </div>
-            <button class="logout-btn" onclick="logout()">
-                <i class="fas fa-sign-out-alt"></i>
-                Logout
-            </button>
+    <h1 class="header-title" id="headerTitle">Dashboard</h1>
+    
+    <div class="header-actions">
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle Theme">
+            <i class="fas fa-moon"></i>
+        </button>
+        
+        <div class="connection-status">
+            <div class="connection-indicator" id="connectionIndicator"></div>
+            <span class="connection-text" id="connectionText">Online</span>
         </div>
+        
+        <button class="logout-btn" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Logout</span>
+        </button>
     </div>
 </div>
 
