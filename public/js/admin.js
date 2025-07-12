@@ -5961,3 +5961,41 @@ console.log('Total functions available:', Object.keys(window.narapAdmin).length)
 console.log('Ready for production use!');
 
 
+
+
+// Fixed sidebar toggle code
+
+const sidebar = document.querySelector('.sidebar');
+const overlay = document.querySelector('.sidebar-overlay');
+const body = document.body;
+
+function toggleSidebar() {
+    sidebar.classList.toggle('active');
+    overlay.classList.toggle('active');
+    body.classList.toggle('sidebar-open');
+}
+
+// Add overlay click listener only once
+overlay.addEventListener('click', function() {
+    sidebar.classList.remove('active');
+    overlay.classList.remove('active');
+    body.classList.remove('sidebar-open');
+});
+
+// Close sidebar when clicking on links (optional)
+document.querySelectorAll('.sidebar a').forEach(link => {
+    link.addEventListener('click', function() {
+        if (window.innerWidth <= 768) {
+            toggleSidebar();
+        }
+    });
+});
+
+// Handle window resize
+window.addEventListener('resize', function() {
+    if (window.innerWidth > 768) {
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+        body.classList.remove('sidebar-open');
+    }
+});
