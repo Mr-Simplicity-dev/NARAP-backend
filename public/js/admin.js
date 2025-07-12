@@ -5322,8 +5322,7 @@ class PerformanceMonitor {
 }
 
 
-// Initialize performance monitor
-const performanceMonitor = new PerformanceMonitor();
+
 
 // Enhanced API call wrapper with performance monitoring
 async function apiCall(endpoint, options = {}) {
