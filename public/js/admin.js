@@ -432,7 +432,7 @@ function logout() {
 // Tab switching functionality
 
 
-function switchTab(tabname) {
+function switchTab(tabName) {
     if (!tabName || typeof tabName !== 'string') {
         console.warn('switchTab called without valid tabName:', tabName);
         return;
