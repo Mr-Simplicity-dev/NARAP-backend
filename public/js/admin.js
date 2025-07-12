@@ -889,16 +889,16 @@ function formatRelativeDate(dateString) {
 }
 
 // Get members function
-async function loadUsers() {
+async function getMembers() {
     try {
         console.log('Fetching members from:', `${backendUrl}/api/getUsers`);
-        
+               
         const res = await fetch(`${backendUrl}/api/getUsers`, {
             method: 'GET',
             credentials: 'include',
             headers: getAuthHeaders()
         }, 15000); // 15 second timeout for data loading
-        
+               
         // Handle token expiration
         if (res.status === 401) {
             console.log('🔐 Token expired, redirecting to login');
@@ -908,29 +908,30 @@ async function loadUsers() {
             showMessage('Session expired. Please login again.', 'warning');
             return [];
         }
-        
+               
         if (!res.ok) {
             throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
-        
+               
         const members = await res.json();
         currentMembers = Array.isArray(members) ? members : [];
         console.log('✅ Members loaded successfully:', currentMembers.length, 'members');
         return currentMembers;
-        
+           
     } catch (error) {
         console.error('❌ Get members error:', error);
-        
+               
         let errorMessage = 'Failed to load members: ' + error.message;
         if (error.name === 'AbortError') {
             errorMessage = 'Request timed out while loading members. Please try again.';
         }
-        
+               
         showMessage(errorMessage, 'error');
         currentMembers = [];
         return [];
     }
 }
+
 
 
 
