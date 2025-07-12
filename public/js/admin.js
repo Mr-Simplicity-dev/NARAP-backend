@@ -430,11 +430,11 @@ function logout() {
 }
 
 // ===== SIDEBAR TOGGLE FUNCTIONALITY =====
-function toggleSidebar() {
-    const sidebar = document.querySelector('.sidebar');
+ {
+    
     const overlay = document.querySelector('.sidebar-overlay');
     
-    sidebar.classList.toggle('mobile-open');
+    
     
     // Toggle overlay if it exists
     if (overlay) {
@@ -483,7 +483,7 @@ function createSidebarOverlay() {
 
 // ===== CLOSE SIDEBAR WHEN CLICKING OUTSIDE =====
 document.addEventListener('click', function(event) {
-    const sidebar = document.querySelector('.sidebar');
+    
     const hamburger = document.querySelector('.hamburger-btn');
     
     if (sidebar.classList.contains('mobile-open') && 
@@ -495,7 +495,7 @@ document.addEventListener('click', function(event) {
 
 // ===== CLOSE SIDEBAR WHEN RESIZING TO DESKTOP =====
 window.addEventListener('resize', function() {
-    const sidebar = document.querySelector('.sidebar');
+    
     const overlay = document.querySelector('.sidebar-overlay');
     
     if (window.innerWidth >= 769 && sidebar.classList.contains('mobile-open')) {
@@ -5920,3 +5920,43 @@ console.log('Ready for production use!');
 
 
 
+// Wait for DOM to load
+document.addEventListener('DOMContentLoaded', function() {
+    const sidebar = document.querySelector('.sidebar');
+    const hamburgerBtn = document.getElementById('hamburgerButton');
+    const overlay = document.querySelector('.sidebar-overlay');
+
+    // Toggle sidebar function
+    function toggleSidebar() {
+        sidebar.classList.toggle('mobile-open');
+        overlay.classList.toggle('active');
+        document.body.style.overflow = sidebar.classList.contains('mobile-open') ? 'hidden' : '';
+    }
+
+    // Hamburger button click
+    hamburgerBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        toggleSidebar();
+    });
+
+    // Overlay click
+    overlay.addEventListener('click', toggleSidebar);
+
+    // Close when clicking a nav item (mobile)
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', function() {
+            if (window.innerWidth <= 768) {
+                toggleSidebar();
+            }
+        });
+    });
+
+    // Close when resizing to desktop
+    window.addEventListener('resize', function() {
+        if (window.innerWidth >= 769) {
+            sidebar.classList.remove('mobile-open');
+            overlay.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    });
+});
