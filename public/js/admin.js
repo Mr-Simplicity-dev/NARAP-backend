@@ -889,7 +889,7 @@ function formatRelativeDate(dateString) {
 }
 
 // Get members function
-async function getMembers() {
+async function loadUsers() {
     try {
         console.log('Fetching members from:', `${backendUrl}/api/getUsers`);
                
@@ -932,8 +932,10 @@ async function getMembers() {
     }
 }
 
-
-
+// Alias function for loadDashboard compatibility
+async function getMembers() {
+    return await loadUsers();
+}
 
 // Load members tab
 async function loadMembers() {
