@@ -4242,6 +4242,48 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
         });
+
+        
+// Wait for DOM to load
+document.addEventListener('DOMContentLoaded', function() {
+    const sidebar = document.querySelector('.sidebar');
+    const hamburgerBtn = document.getElementById('hamburgerButton');
+    const overlay = document.querySelector('.sidebar-overlay');
+
+    // Toggle sidebar function
+    function toggleSidebar() {
+        sidebar.classList.toggle('mobile-open');
+        overlay.classList.toggle('active');
+        document.body.style.overflow = sidebar.classList.contains('mobile-open') ? 'hidden' : '';
+    }
+
+    // Hamburger button click
+    hamburgerBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        toggleSidebar();
+    });
+
+    // Overlay click
+    overlay.addEventListener('click', toggleSidebar);
+
+    // Close when clicking a nav item (mobile)
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', function() {
+            if (window.innerWidth <= 768) {
+                toggleSidebar();
+            }
+        });
+    });
+
+    // Close when resizing to desktop
+    window.addEventListener('resize', function() {
+        if (window.innerWidth >= 769) {
+            sidebar.classList.remove('mobile-open');
+            overlay.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    });
+});
         
         // Set up modal close on outside click
         const modals = document.querySelectorAll('.modal');
@@ -5919,44 +5961,3 @@ console.log('Total functions available:', Object.keys(window.narapAdmin).length)
 console.log('Ready for production use!');
 
 
-
-// Wait for DOM to load
-document.addEventListener('DOMContentLoaded', function() {
-    const sidebar = document.querySelector('.sidebar');
-    const hamburgerBtn = document.getElementById('hamburgerButton');
-    const overlay = document.querySelector('.sidebar-overlay');
-
-    // Toggle sidebar function
-    function toggleSidebar() {
-        sidebar.classList.toggle('mobile-open');
-        overlay.classList.toggle('active');
-        document.body.style.overflow = sidebar.classList.contains('mobile-open') ? 'hidden' : '';
-    }
-
-    // Hamburger button click
-    hamburgerBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        toggleSidebar();
-    });
-
-    // Overlay click
-    overlay.addEventListener('click', toggleSidebar);
-
-    // Close when clicking a nav item (mobile)
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.addEventListener('click', function() {
-            if (window.innerWidth <= 768) {
-                toggleSidebar();
-            }
-        });
-    });
-
-    // Close when resizing to desktop
-    window.addEventListener('resize', function() {
-        if (window.innerWidth >= 769) {
-            sidebar.classList.remove('mobile-open');
-            overlay.classList.remove('active');
-            document.body.style.overflow = '';
-        }
-    });
-});
