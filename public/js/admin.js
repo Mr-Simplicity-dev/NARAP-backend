@@ -429,47 +429,39 @@ function logout() {
     }
 }
 
+
 // Tab switching functionality
-
-
-function switchTab(dashboard) {
-    if (!tabName || typeof tabName !== 'string') {
-        console.warn('switchTab called without valid tabName:', tabName);
-        return;
-    }
-
-    // Hide all content sections
-    document.querySelectorAll('.content-section').forEach(panel => {
-        panel.style.display = 'none';
+function switchTab(tabName) {
+    // Hide all panels
+    document.querySelectorAll('.panel').forEach(panel => {
+        panel.classList.add('hidden');
     });
-
     // Remove active class from all nav items
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
     });
-
-    // Show the selected content section
-    const activePanel = document.getElementById(`${tabName}-content`);
-    if (activePanel) activePanel.style.display = 'block';
-
-    // Add active class to the clicked nav item
-    const activeTab = document.getElementById(`${tabName}-tab`);
-    if (activeTab) activeTab.classList.add('active');
-
-    // Update the header title
-    const header = document.getElementById('headerTitle');
-    if (header) header.textContent = tabName.charAt(0).toUpperCase() + tabName.slice(1);
-
-    // Load tab-specific content
-    switch(tabName) {
-        case 'dashboard':
-            loadDashboard?.();
-            break;
+    // Show the selected panel
+    const panel = document.getElementById(`panel-${tabName}`);
+    if (panel) {
+        panel.classList.remove('hidden');
+    }
+    // Highlight the active nav button
+    const navItem = document.getElementById(`btn-${tabName}`);
+    if (navItem) {
+        navItem.classList.add('active');
+    }
+    // Update the header title (capitalize tab name)
+    const headerTitle = document.getElementById('headerTitle');
+    if (headerTitle) {
+        headerTitle.textContent = tabName.charAt(0).toUpperCase() + tabName.slice(1);
+    }
+    // Load content specific to the tab
+    switch (tabName) {
         case 'members':
-            loadMembers?.();
+            loadMembers();
             break;
         case 'certificates':
-            loadCertificates?.();
+            loadCertificates();
             break;
         case 'analytics':
             loadAnalytics?.();
@@ -477,13 +469,240 @@ function switchTab(dashboard) {
         case 'system':
             loadSystemInfo?.();
             break;
+        case 'dashboard':
+        default:
+            loadDashboard();
+            break;
     }
 }
 
+// Initialize the admin panel after login
+function initAdminPanel() {
+    switchTab('dashboard');
+    loadDashboard();
+}
+
+
+// Initialize the admin panel after login
+function initAdminPanel() {
+    switchTab('dashboard');
+    loadDashboard();
+}
+
+// ================= MEMBER FUNCTIONS =================
+async function loadMembers() {
+    const tableBody = document.getElementById('membersTableBody');
+    if (!tableBody) {
+        console.error('Members table body not found');
+        return;
+    }
+    try {
+        showLoader('membersTableBody');
+        const response = await fetch('/api/members');
+        const members = await response.json();
+        renderMembersTable(members);
+    } catch (error) {
+        console.error('Error loading members:', error);
+        showMessage('Failed to load members', 'error');
+        tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:red;">Failed to load members</td></tr>';
+    }
+}
+
+function renderMembersTable(members) {
+    const tableBody = document.getElementById('membersTableBody');
+    tableBody.innerHTML = '';
+    if (!members || members.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="7" class="no-data">No members found</td></tr>`;
+        return;
+    }
+    members.forEach(member => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                ${member.photo ? `<img src="${member.photo}" alt="${member.name}" class="member-photo">` : '<div class="avatar-placeholder"><i class="fas fa-user"></i></div>'}
+            </td>
+            <td>${member.name || 'N/A'}</td>
+            <td>${member.email || 'N/A'}</td>
+            <td>${member.code || 'N/A'}</td>
+            <td>${member.position || 'N/A'}</td>
+            <td>${member.state || 'N/A'}</td>
+            <td class="actions">
+                <button class="btn-icon" onclick="editMember('${member._id}')" title="Edit"><i class="fas fa-edit"></i></button>
+                <button class="btn-icon" onclick="viewIdCard('${member._id}')" title="View ID Card"><i class="fas fa-id-card"></i></button>
+                <button class="btn-icon danger" onclick="confirmDeleteMember('${member._id}')" title="Delete"><i class="fas fa-trash"></i></button>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+
+function renderMembersTable(members) {
+    const tableBody = document.getElementById('membersTableBody');
+    tableBody.innerHTML = '';
+    if (!members || members.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="7" class="no-data">No members found</td></tr>`;
+        return;
+    }
+    members.forEach(member => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                ${member.photo ? `<img src="${member.photo}" alt="${member.name}" class="member-photo">` : '<div class="avatar-placeholder"><i class="fas fa-user"></i></div>'}
+            </td>
+            <td>${member.name || 'N/A'}</td>
+            <td>${member.email || 'N/A'}</td>
+            <td>${member.code || 'N/A'}</td>
+            <td>${member.position || 'N/A'}</td>
+            <td>${member.state || 'N/A'}</td>
+            <td class="actions">
+                <button class="btn-icon" onclick="editMember('${member._id}')" title="Edit"><i class="fas fa-edit"></i></button>
+                <button class="btn-icon" onclick="viewIdCard('${member._id}')" title="View ID Card"><i class="fas fa-id-card"></i></button>
+                <button class="btn-icon danger" onclick="confirmDeleteMember('${member._id}')" title="Delete"><i class="fas fa-trash"></i></button>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+// ================= CERTIFICATE FUNCTIONS =================
+async function loadCertificates() {
+    const tableBody = document.getElementById('certificatesTableBody');
+    if (!tableBody) {
+        console.error('Certificates table body not found');
+        return;
+    }
+    try {
+        showLoader('certificatesTableBody');
+        const response = await fetch('/api/certificates');
+        const certificates = await response.json();
+        renderCertificatesTable(certificates);
+    } catch (error) {
+        console.error('Error loading certificates:', error);
+        showMessage('Failed to load certificates', 'error');
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:red;">Failed to load certificates</td></tr>';
+    }
+}
+
+function renderCertificatesTable(certificates) {
+    const tableBody = document.getElementById('certificatesTableBody');
+    tableBody.innerHTML = '';
+    if (!certificates || certificates.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="6" class="no-data">No certificates found</td></tr>`;
+        return;
+    }
+    certificates.forEach(certificate => {
+        const statusClass = certificate.status === 'active' ? 'status-active' : certificate.status === 'revoked' ? 'status-revoked' : 'status-expired';
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${certificate.certificateNumber || 'N/A'}</td>
+            <td>${certificate.recipientName || 'N/A'}</td>
+            <td>${certificate.title || 'N/A'}</td>
+            <td>${new Date(certificate.issueDate).toLocaleDateString() || 'N/A'}</td>
+            <td><span class="status-badge ${statusClass}">${certificate.status || 'N/A'}</span></td>
+            <td class="actions">
+                <button class="btn-icon" onclick="viewCertificate('${certificate._id}')" title="View"><i class="fas fa-eye"></i></button>
+                <button class="btn-icon" onclick="downloadCertificate('${certificate._id}')" title="Download"><i class="fas fa-download"></i></button>
+                <button class="btn-icon danger" onclick="confirmRevokeCertificate('${certificate._id}')" title="Revoke"><i class="fas fa-ban"></i></button>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+
+function renderCertificatesTable(certificates) {
+    const tableBody = document.getElementById('certificatesTableBody');
+    tableBody.innerHTML = '';
+    if (!certificates || certificates.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="6" class="no-data">No certificates found</td></tr>`;
+        return;
+    }
+    certificates.forEach(certificate => {
+        const statusClass = certificate.status === 'active' ? 'status-active' : certificate.status === 'revoked' ? 'status-revoked' : 'status-expired';
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${certificate.certificateNumber || 'N/A'}</td>
+            <td>${certificate.recipientName || 'N/A'}</td>
+            <td>${certificate.title || 'N/A'}</td>
+            <td>${new Date(certificate.issueDate).toLocaleDateString() || 'N/A'}</td>
+            <td><span class="status-badge ${statusClass}">${certificate.status || 'N/A'}</span></td>
+            <td class="actions">
+                <button class="btn-icon" onclick="viewCertificate('${certificate._id}')" title="View"><i class="fas fa-eye"></i></button>
+                <button class="btn-icon" onclick="downloadCertificate('${certificate._id}')" title="Download"><i class="fas fa-download"></i></button>
+                <button class="btn-icon danger" onclick="confirmRevokeCertificate('${certificate._id}')" title="Revoke"><i class="fas fa-ban"></i></button>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+// ================= DASHBOARD FUNCTIONS =================
+async function loadDashboard() {
+    try {
+        const response = await fetch('/api/admin/dashboard');
+        const data = await response.json();
+        document.getElementById('totalMembers').textContent = data.totalMembers || 0;
+        document.getElementById('totalCertificates').textContent = data.totalCertificates || 0;
+        document.getElementById('newThisMonth').textContent = data.newThisMonth || 0;
+        document.getElementById('systemUptime').textContent = data.systemUptime || '0d';
+        renderRecentActivity(data.recentActivity);
+    } catch (error) {
+        console.error('Error loading dashboard:', error);
+        showMessage('Failed to load dashboard data', 'error');
+    }
+}
+
+function renderRecentActivity(activities) {
+    const container = document.getElementById('recentActivity');
+    container.innerHTML = '';
+    if (!activities || activities.length === 0) {
+        container.innerHTML = '<div class="no-data">No recent activity</div>';
+        return;
+    }
+    activities.forEach(activity => {
+        const activityEl = document.createElement('div');
+        activityEl.className = 'activity-item';
+        const icon = activity.type === 'member' ? 'fa-user' : activity.type === 'certificate' ? 'fa-certificate' : 'fa-info-circle';
+        activityEl.innerHTML = `
+            <div class="activity-icon"><i class="fas ${icon}"></i></div>
+            <div class="activity-details">
+                <div class="activity-title">${activity.title}</div>
+                <div class="activity-description">${activity.description}</div>
+                <div class="activity-timestamp">${new Date(activity.timestamp).toLocaleString()}</div>
+            </div>
+        `;
+        container.appendChild(activityEl);
+    });
+}
+
+
+function renderRecentActivity(activities) {
+    const container = document.getElementById('recentActivity');
+    container.innerHTML = '';
+    if (!activities || activities.length === 0) {
+        container.innerHTML = '<div class="no-data">No recent activity</div>';
+        return;
+    }
+    activities.forEach(activity => {
+        const activityEl = document.createElement('div');
+        activityEl.className = 'activity-item';
+        const icon = activity.type === 'member' ? 'fa-user' : activity.type === 'certificate' ? 'fa-certificate' : 'fa-info-circle';
+        activityEl.innerHTML = `
+            <div class="activity-icon"><i class="fas ${icon}"></i></div>
+            <div class="activity-details">
+                <div class="activity-title">${activity.title}</div>
+                <div class="activity-description">${activity.description}</div>
+                <div class="activity-timestamp">${new Date(activity.timestamp).toLocaleString()}</div>
+            </div>
+        `;
+        container.appendChild(activityEl);
+    });
+}
 
 
 // Load dashboard data
-async function loadDashboard() {
+//sync function loadDashboard() {
     const DASHBOARD_TIMEOUT = 10000; // 10 seconds timeout
     let timeoutController;
     
@@ -633,11 +852,11 @@ async function loadDashboard() {
             el.style.display = 'none';
         });
     }
-}
+//}
 
 // Helper functions needed for the dashboard to work:
 
-async function getMembers(signal) {
+//async function getMembers(signal) {
     try {
         const response = await fetch(`${backendUrl}/api/getUsers`, {
             method: 'GET',
@@ -668,9 +887,9 @@ async function getMembers(signal) {
         console.error('getMembers failed:', error);
         throw error;
     }
-}
+//}
 
-async function getCertificates(signal) {
+//async function getCertificates(signal) {
     try {
         const response = await fetch(`${backendUrl}/api/certificates`, {
             method: 'GET',
@@ -701,10 +920,10 @@ async function getCertificates(signal) {
         console.error('getCertificates failed:', error);
         throw error;
     }
-}
+//}
 
 // Recent activity function
-function loadRecentActivity(members = [], certificates = []) {
+//function loadRecentActivity(members = [], certificates = []) {
     try {
         const activityDiv = document.getElementById('recentActivity');
         if (!activityDiv) {
@@ -890,7 +1109,7 @@ function loadRecentActivity(members = [], certificates = []) {
         
         showMessage('Failed to load recent activity: ' + error.message, 'error');
     }
-}
+//}
 
 
 // Helper function to format time ago
