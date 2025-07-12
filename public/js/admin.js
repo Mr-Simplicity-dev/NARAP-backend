@@ -429,6 +429,98 @@ function logout() {
     }
 }
 
+// ===== SIDEBAR TOGGLE FUNCTIONALITY =====
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    
+    sidebar.classList.toggle('mobile-open');
+    
+    // Toggle overlay if it exists
+    if (overlay) {
+        overlay.classList.toggle('active');
+    }
+    
+    // Prevent scrolling when sidebar is open
+    if (sidebar.classList.contains('mobile-open')) {
+        document.body.style.overflow = 'hidden';
+    } else {
+        document.body.style.overflow = '';
+    }
+}
+
+// ===== CREATE OVERLAY ELEMENT =====
+function createSidebarOverlay() {
+    const overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    overlay.onclick = toggleSidebar;
+    document.body.appendChild(overlay);
+    
+    // Add some basic styling to the overlay
+    const style = document.createElement('style');
+    style.textContent = `
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+            display: none;
+        }
+        .sidebar-overlay.active {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// ===== CLOSE SIDEBAR WHEN CLICKING OUTSIDE =====
+document.addEventListener('click', function(event) {
+    const sidebar = document.querySelector('.sidebar');
+    const hamburger = document.querySelector('.hamburger-btn');
+    
+    if (sidebar.classList.contains('mobile-open') && 
+        !sidebar.contains(event.target) && 
+        event.target !== hamburger) {
+        toggleSidebar();
+    }
+});
+
+// ===== CLOSE SIDEBAR WHEN RESIZING TO DESKTOP =====
+window.addEventListener('resize', function() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    
+    if (window.innerWidth >= 769 && sidebar.classList.contains('mobile-open')) {
+        sidebar.classList.remove('mobile-open');
+        if (overlay) overlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+});
+
+// ===== INITIALIZE ON PAGE LOAD =====
+document.addEventListener('DOMContentLoaded', function() {
+    // Create the overlay element
+    createSidebarOverlay();
+    
+    // Add click event to all nav items to close sidebar on mobile
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => {
+        item.addEventListener('click', function() {
+            if (window.innerWidth <= 768) {
+                toggleSidebar();
+            }
+        });
+    });
+});
+
 // Tab switching functionality
 
 
