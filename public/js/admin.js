@@ -433,10 +433,19 @@ function logout() {
 
 
 function switchTab(tabName) {
-    if (!tabName || typeof tabName !== 'string') {
-        console.warn('switchTab called without valid tabName:', tabName);
-        return;
+    // Hide all panels
+    document.querySelectorAll('.panel').forEach(panel => {
+        panel.style.display = 'none';
+    });
+
+    // Show selected panel
+    const activePanel = document.getElementById(`panel-${tabName}`);
+    if (activePanel) {
+        activePanel.style.display = 'block';
+    } else {
+        console.error(`Panel not found for tab: ${tabName}`);
     }
+
 
     // Hide all content sections
     document.querySelectorAll('.content-section').forEach(panel => {
@@ -448,9 +457,7 @@ function switchTab(tabName) {
         item.classList.remove('active');
     });
 
-    // Show the selected content section
-    const activePanel = document.getElementById(`${tabName}-content`);
-    if (activePanel) activePanel.style.display = 'block';
+   
 
     // Add active class to the clicked nav item
     const activeTab = document.getElementById(`${tabName}-tab`);
@@ -479,7 +486,6 @@ function switchTab(tabName) {
             break;
     }
 }
-
 
 
 // Load dashboard data
