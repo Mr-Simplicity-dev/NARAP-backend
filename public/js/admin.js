@@ -4030,7 +4030,7 @@ async function verifyCertificate(certificateNumber) {
     }
 }
 
-// Event listeners and initialization
+
 // Event listeners and initialization
 document.addEventListener('DOMContentLoaded', function() {
     try {
