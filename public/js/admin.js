@@ -2689,30 +2689,121 @@ function searchMembers(searchTerm) {
 }
 
 function filterMembers() {
-    const positionFilter = document.getElementById('positionFilter').value;
-    const stateFilter = document.getElementById('stateFilter').value;
+    const searchValue = document.getElementById('memberSearch')?.value?.toLowerCase().trim() || '';
+    const positionFilter = document.getElementById('positionFilter')?.value || '';
+    const stateFilter = document.getElementById('stateFilter')?.value || '';
     const rows = document.querySelectorAll('#membersTableBody tr');
+    
+    let visibleCount = 0;
+    let totalCount = 0;
     
     rows.forEach(row => {
         const cells = row.querySelectorAll('td');
-        if (cells.length < 6) return;
         
-        const position = cells[4].textContent;
-        const state = cells[5].textContent;
+        // Skip if it's a loading row or doesn't have enough cells
+        if (cells.length < 6) {
+            return;
+        }
+        
+        totalCount++;
+        
+        // Get text content from cells (removing extra whitespace and HTML tags)
+        const name = cells[1].textContent.trim();
+        const email = cells[2].textContent.trim();
+        const code = cells[3].textContent.trim();
+        const position = cells[4].textContent.trim();
+        const state = cells[5].textContent.trim();
         
         let showRow = true;
         
+        // Search filter (check name, email, and code)
+        if (searchValue) {
+            const matchesSearch = 
+                name.toLowerCase().includes(searchValue) ||
+                email.toLowerCase().includes(searchValue) ||
+                code.toLowerCase().includes(searchValue);
+            
+            if (!matchesSearch) {
+                showRow = false;
+            }
+        }
+        
+        // Position filter
         if (positionFilter && position !== positionFilter) {
             showRow = false;
         }
         
+        // State filter
         if (stateFilter && state !== stateFilter) {
             showRow = false;
         }
         
+        // Show/hide the row
         row.style.display = showRow ? '' : 'none';
+        
+        if (showRow) {
+            visibleCount++;
+        }
     });
+    
+    // Show filter results message
+    if (searchValue || positionFilter || stateFilter) {
+        showMessage(`Showing ${visibleCount} of ${totalCount} members`, 'info');
+    }
+    
+    // Handle empty results
+    if (visibleCount === 0 && totalCount > 0) {
+        // Check if there's already a "no results" row
+        const existingNoResults = document.querySelector('#membersTableBody .no-results-row');
+        if (!existingNoResults) {
+            const noResultsRow = document.createElement('tr');
+            noResultsRow.className = 'no-results-row';
+            noResultsRow.innerHTML = `
+                <td colspan="7" style="text-align: center; padding: 40px; color: #666;">
+                    <i class="fas fa-search" style="font-size: 48px; margin-bottom: 15px; opacity: 0.3;"></i>
+                    <div>No members found matching your criteria</div>
+                    <div style="font-size: 14px; margin-top: 10px;">Try adjusting your search or filter options</div>
+                </td>
+            `;
+            document.getElementById('membersTableBody').appendChild(noResultsRow);
+        }
+    } else {
+        // Remove "no results" row if it exists
+        const existingNoResults = document.querySelector('#membersTableBody .no-results-row');
+        if (existingNoResults) {
+            existingNoResults.remove();
+        }
+    }
 }
+
+// Enhanced search function that works with your existing filter
+function searchMembers(searchValue) {
+    const searchInput = document.getElementById('memberSearch');
+    if (searchInput) {
+        searchInput.value = searchValue;
+    }
+    filterMembers();
+}
+
+// Clear all filters function
+function clearMemberFilters() {
+    const searchInput = document.getElementById('memberSearch');
+    const positionFilter = document.getElementById('positionFilter');
+    const stateFilter = document.getElementById('stateFilter');
+    
+    if (searchInput) searchInput.value = '';
+    if (positionFilter) positionFilter.value = '';
+    if (stateFilter) stateFilter.value = '';
+    
+    filterMembers();
+    showMessage('All filters cleared', 'info');
+}
+
+// Make functions globally accessible
+window.filterMembers = filterMembers;
+window.searchMembers = searchMembers;
+window.clearMemberFilters = clearMemberFilters;
+
 
 function searchCertificates(searchTerm) {
     const rows = document.querySelectorAll('#certificatesTableBody tr');
