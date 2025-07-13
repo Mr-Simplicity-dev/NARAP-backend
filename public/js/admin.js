@@ -4031,6 +4031,7 @@ async function verifyCertificate(certificateNumber) {
 }
 
 // Event listeners and initialization
+// Event listeners and initialization
 document.addEventListener('DOMContentLoaded', function() {
     try {
         console.log('NARAP Admin Panel initializing...');
@@ -4069,37 +4070,70 @@ document.addEventListener('DOMContentLoaded', function() {
         // Make toggleSidebar a GLOBAL function so HTML onclick can access it
         window.toggleSidebar = function() {
             console.log('Toggle sidebar called'); // Debug log
+            
             if (sidebar) {
                 sidebar.classList.toggle('mobile-open');
-                console.log('Sidebar classes:', sidebar.className); // Debug log
+                console.log('Sidebar classes after toggle:', sidebar.className); // Debug log
             }
+            
             if (overlay) {
                 overlay.classList.toggle('active');
+                console.log('Overlay classes after toggle:', overlay.className); // Debug log
             }
-            document.body.style.overflow = sidebar && sidebar.classList.contains('mobile-open') ? 'hidden' : '';
+            
+            // Prevent body scrolling when sidebar is open
+            if (sidebar && sidebar.classList.contains('mobile-open')) {
+                document.body.classList.add('sidebar-open');
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.classList.remove('sidebar-open');
+                document.body.style.overflow = '';
+            }
         };
         
         // Also add event listeners for hamburger buttons (backup method)
         const hamburgerBtns = document.querySelectorAll('.hamburger-btn');
-        hamburgerBtns.forEach(btn => {
+        console.log('Found hamburger buttons:', hamburgerBtns.length); // Debug log
+        
+        hamburgerBtns.forEach((btn, index) => {
+            console.log('Adding listener to hamburger button', index); // Debug log
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Hamburger button clicked'); // Debug log
+                console.log('Hamburger button clicked via event listener'); // Debug log
+                window.toggleSidebar();
+            });
+            
+            // Also add touch event for mobile
+            btn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Hamburger button touched'); // Debug log
                 window.toggleSidebar();
             });
         });
         
-        // Overlay click
+               // Overlay click to close sidebar
         if (overlay) {
-            overlay.addEventListener('click', window.toggleSidebar);
+            overlay.addEventListener('click', function(e) {
+                console.log('Overlay clicked'); // Debug log
+                window.toggleSidebar();
+            });
+            
+            overlay.addEventListener('touchstart', function(e) {
+                console.log('Overlay touched'); // Debug log
+                window.toggleSidebar();
+            });
         }
         
         // Close sidebar when clicking nav items on mobile
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', function() {
                 if (window.innerWidth <= 768) {
-                    window.toggleSidebar();
+                    console.log('Nav item clicked on mobile, closing sidebar'); // Debug log
+                    setTimeout(() => {
+                        window.toggleSidebar();
+                    }, 100); // Small delay to allow tab switch
                 }
             });
         });
@@ -4107,8 +4141,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Close sidebar when resizing to desktop
         window.addEventListener('resize', function() {
             if (window.innerWidth >= 769) {
+                console.log('Resized to desktop, closing sidebar'); // Debug log
                 if (sidebar) sidebar.classList.remove('mobile-open');
                 if (overlay) overlay.classList.remove('active');
+                document.body.classList.remove('sidebar-open');
                 document.body.style.overflow = '';
             }
         });
@@ -4123,10 +4159,132 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
         
+        // Additional mobile-specific improvements
+        if (window.innerWidth <= 768) {
+            // Improve touch responsiveness
+            document.addEventListener('touchstart', function() {}, { passive: true });
+            
+            // Prevent double-tap zoom on buttons
+            document.querySelectorAll('.btn, .hamburger-btn, .nav-item').forEach(element => {
+                element.addEventListener('touchend', function(e) {
+                    e.preventDefault();
+                });
+            });
+        }
+        
+        console.log('NARAP Admin Panel initialized successfully');
+        
     } catch (error) {
         console.error('Error initializing admin panel:', error);
     }
 });
+
+// Additional global functions that might be needed
+
+// Function to check if device is mobile
+window.isMobile = function() {
+    return window.innerWidth <= 768;
+};
+
+// Function to close sidebar (can be called from anywhere)
+window.closeSidebar = function() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    
+    if (sidebar) sidebar.classList.remove('mobile-open');
+    if (overlay) overlay.classList.remove('active');
+    document.body.classList.remove('sidebar-open');
+    document.body.style.overflow = '';
+};
+
+// Function to open sidebar (can be called from anywhere)
+window.openSidebar = function() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    
+    if (sidebar) sidebar.classList.add('mobile-open');
+    if (overlay) overlay.classList.add('active');
+    document.body.classList.add('sidebar-open');
+    document.body.style.overflow = 'hidden';
+};
+
+// Enhanced toggle function with better error handling
+window.toggleSidebarEnhanced = function() {
+    try {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.querySelector('.sidebar-overlay');
+        
+        if (!sidebar) {
+            console.error('Sidebar element not found');
+            return;
+        }
+        
+        const isOpen = sidebar.classList.contains('mobile-open');
+        
+        if (isOpen) {
+            window.closeSidebar();
+            console.log('Sidebar closed');
+        } else {
+            window.openSidebar();
+            console.log('Sidebar opened');
+        }
+        
+    } catch (error) {
+        console.error('Error in toggleSidebarEnhanced:', error);
+    }
+};
+
+// Fallback for older browsers or if main function fails
+window.addEventListener('load', function() {
+    // Double-check that toggle function exists
+    if (typeof window.toggleSidebar !== 'function') {
+        console.warn('Main toggleSidebar function not found, creating fallback');
+        window.toggleSidebar = window.toggleSidebarEnhanced;
+    }
+    
+    // Ensure hamburger buttons work even if main script fails
+    setTimeout(() => {
+        const hamburgerBtns = document.querySelectorAll('.hamburger-btn');
+        hamburgerBtns.forEach(btn => {
+            if (!btn.hasAttribute('data-listener-added')) {
+                btn.setAttribute('data-listener-added', 'true');
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (typeof window.toggleSidebar === 'function') {
+                        window.toggleSidebar();
+                    }
+                });
+            }
+        });
+    }, 1000);
+});
+
+// Debug function to check sidebar state
+window.debugSidebar = function() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    const hamburgerBtns = document.querySelectorAll('.hamburger-btn');
+    
+    console.log('=== SIDEBAR DEBUG INFO ===');
+    console.log('Sidebar element:', sidebar);
+    console.log('Sidebar classes:', sidebar ? sidebar.className : 'Not found');
+    console.log('Overlay element:', overlay);
+    console.log('Overlay classes:', overlay ? overlay.className : 'Not found');
+    console.log('Hamburger buttons found:', hamburgerBtns.length);
+    console.log('Window width:', window.innerWidth);
+    console.log('Is mobile:', window.innerWidth <= 768);
+    console.log('toggleSidebar function exists:', typeof window.toggleSidebar === 'function');
+    console.log('========================');
+};
+
+// Call debug function in development (remove in production)
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    setTimeout(() => {
+        window.debugSidebar();
+    }, 2000);
+}
+
 
 
 
