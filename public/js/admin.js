@@ -420,6 +420,19 @@ function logout() {
     }
 }
 
+// Add this to ensure everything is properly initialized
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize certificates when switching to certificates tab
+    const certificatesTab = document.getElementById('btn-certificates');
+    if (certificatesTab) {
+        certificatesTab.addEventListener('click', function() {
+            setTimeout(() => {
+                loadCertificates();
+            }, 100);
+        });
+    }
+});
+
 // Tab switching functionality
 function switchTab(tabName) {
     // Hide all panels
@@ -457,6 +470,9 @@ function switchTab(tabName) {
     // Close sidebar on mobile after tab switch
     if (window.innerWidth <= 768) {
         closeSidebar();
+    }
+       if (tabName === 'certificates') {
+        loadCertificates();
     }
 }
 
@@ -1141,126 +1157,79 @@ async function getCertificates() {
 
 // Load certificates tab - FIXED
 async function loadCertificates() {
-    const tableBody = document.getElementById('certificatesTableBody');
-    
-    if (!tableBody) {
-        console.error('Certificates table body not found');
-        return;
-    }
+    console.log('Loading certificates...');
     
     try {
-        console.log('Loading certificates...');
-        tableBody.innerHTML = '<tr><td colspan="7" class="loading">Loading certificates...</td></tr>';
-        
-        const certificates = await getCertificates();
-        
-        // Clear the table
-        tableBody.innerHTML = '';
-        
-        if (!certificates || certificates.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666; padding: 20px;">No certificates found</td></tr>';
-            showMessage('No certificates found', 'info');
-            return;
+        // Show loading state
+        const tableBody = document.getElementById('certificatesTableBody');
+        if (tableBody) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="loading">Loading certificates...</td>
+                </tr>
+            `;
         }
         
-        // Create table rows
-        certificates.forEach((certificate, index) => {
-            const row = document.createElement('tr');
-            
-            // Add visual indicator for local vs backend data
-            const localIndicator = certificate.isFromBackend ? '' : '<span style="background: #fff3cd; color: #856404; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin-left: 5px;">LOCAL</span>';
-            
-            // Enhanced status display with revocation info
-            let statusDisplay = '';
-            if (certificate.status === 'revoked') {
-                statusDisplay = `
-                    <div style="display: flex; flex-direction: column; gap: 2px;">
-                        <span class="status-badge status-revoked" style="
-                            padding: 4px 8px; 
-                            border-radius: 12px; 
-                            font-size: 11px; 
-                            font-weight: 500;
-                            text-transform: uppercase;
-                            background: #f8d7da; 
-                            color: #721c24; 
-                            border: 1px solid #f5c6cb;
-                        ">
-                            REVOKED
-                        </span>
-                        ${certificate.revokedAt ? `
-                            <small style="font-size: 10px; color: #666;">
-                                ${formatDate(certificate.revokedAt)}
-                            </small>
-                        ` : ''}
-                        ${certificate.revokedReason ? `
-                            <small style="font-size: 10px; color: #721c24; font-style: italic;" title="${escapeHtml(certificate.revokedReason)}">
-                                ${certificate.revokedReason.length > 30 ? certificate.revokedReason.substring(0, 30) + '...' : certificate.revokedReason}
-                            </small>
-                        ` : ''}
-                    </div>
-                `;
-            } else {
-                statusDisplay = `
-                    <span class="status-badge status-${certificate.status || 'active'}" style="
-                        padding: 4px 8px; 
-                        border-radius: 12px; 
-                        font-size: 11px; 
-                        font-weight: 500;
-                        text-transform: uppercase;
-                        ${getStatusColor(certificate.status || 'active')}
-                    ">
-                        ${certificate.status || 'active'}
-                    </span>
-                `;
+        let allCertificates = [];
+        
+        // Load from backend if online
+        if (navigator.onLine) {
+            try {
+                const response = await fetch(`${backendUrl}/api/certificates`, {
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const backendCertificates = await response.json();
+                    allCertificates = backendCertificates.map(cert => ({
+                        ...cert,
+                        isFromBackend: true
+                    }));
+                    console.log('Loaded certificates from backend:', allCertificates.length);
+                }
+            } catch (error) {
+                console.warn('Failed to load from backend:', error);
             }
-            
-            row.innerHTML = `
-                <td><strong>${escapeHtml(certificate.number || 'N/A')}</strong>${localIndicator}</td>
-                <td>${escapeHtml(certificate.recipient || 'N/A')}</td>
-                <td>${escapeHtml(certificate.title || 'N/A')}</td>
-                <td>${formatDate(certificate.issueDate || certificate.createdAt)}</td>
-                <td>${statusDisplay}</td>
-                <td>
-                    ${certificate.revokedBy ? `
-                        <small style="font-size: 11px; color: #666;">
-                            Revoked by: ${escapeHtml(certificate.revokedBy)}
-                        </small>
-                    ` : ''}
-                </td>
-                <td>
-                    <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-                        <button onclick="viewCertificate('${certificate._id || certificate.id}')" class="btn btn-info btn-sm" title="View Certificate" style="padding: 5px 8px; font-size: 12px;">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                        <button onclick="downloadCertificateById('${certificate._id || certificate.id}')" class="btn btn-success btn-sm" title="Download" style="padding: 5px 8px; font-size: 12px;">
-                            <i class="fas fa-download"></i>
-                        </button>
-                        ${certificate.status === 'active' || !certificate.status ? `
-                            <button onclick="revokeCertificate('${certificate._id || certificate.id}')" class="btn btn-warning btn-sm" title="Revoke Certificate" style="padding: 5px 8px; font-size: 12px;">
-                                <i class="fas fa-ban"></i>
-                            </button>
-                        ` : certificate.status === 'revoked' ? `
-                            <button onclick="viewRevocationDetails('${certificate._id || certificate.id}')" class="btn btn-secondary btn-sm" title="View Revocation Details" style="padding: 5px 8px; font-size: 12px;">
-                                <i class="fas fa-info-circle"></i>
-                            </button>
-                        ` : ''}
-                        <button onclick="deleteCertificate('${certificate._id || certificate.id}')" class="btn btn-danger btn-sm" title="Delete" style="padding: 5px 8px; font-size: 12px;">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </td>
-            `;
-            tableBody.appendChild(row);
+        }
+        
+        // Load from local storage
+        const localCertificates = getLocalCertificates();
+        
+        // Merge certificates (avoid duplicates)
+        const mergedCertificates = [...allCertificates];
+        localCertificates.forEach(localCert => {
+            const exists = allCertificates.find(cert => 
+                (cert._id || cert.id) === (localCert._id || localCert.id)
+            );
+            if (!exists) {
+                mergedCertificates.push(localCert);
+            }
         });
         
-        showMessage(`Loaded ${certificates.length} certificate${certificates.length > 1 ? 's' : ''}`, 'success');
+        // Update global variable
+        currentCertificates = mergedCertificates;
+        
+        // Display certificates using the new function
+        displayCertificates(currentCertificates);
+        
+        console.log('Total certificates loaded:', currentCertificates.length);
         
     } catch (error) {
-        console.error('Load certificates error:', error);
-        tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red; padding: 20px;">Failed to load certificates: ' + error.message + '</td></tr>';
-        showMessage('Failed to load certificates: ' + error.message, 'error');
+        console.error('Error loading certificates:', error);
+        showMessage('Error loading certificates: ' + error.message, 'error');
+        
+        // Fallback to local certificates only
+        currentCertificates = getLocalCertificates();
+        displayCertificates(currentCertificates);
     }
 }
+
+// Make sure loadCertificates is globally accessible
+window.loadCertificates = loadCertificates;
+
 
 
 // Add this alias function for loadDashboard compatibility
@@ -1306,40 +1275,321 @@ async function getCertificates() {
 }
 
 
-// ✅ Add this function if it doesn't exist
+// Function to display certificates in the table (update your existing one)
+// Enhanced displayCertificates function with state information
 function displayCertificates(certificates) {
-    const certificatesTableBody = document.getElementById('certificatesTableBody');
-    if (!certificatesTableBody) {
-        console.log('Certificates table body not found');
+    const tableBody = document.getElementById('certificatesTableBody');
+    if (!tableBody) {
+        console.error('Certificates table body not found');
         return;
     }
     
-    if (!certificates || certificates.length === 0) {
-        certificatesTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No certificates found</td></tr>';
+    if (certificates.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 40px; color: #666;">
+                    <i class="fas fa-certificate" style="font-size: 48px; margin-bottom: 15px; opacity: 0.3;"></i>
+                    <div>No certificates found</div>
+                    <div style="font-size: 14px; margin-top: 10px;">Issue your first certificate to get started</div>
+                </td>
+            </tr>
+        `;
         return;
     }
     
-    certificatesTableBody.innerHTML = certificates.map(cert => `
-        <tr>
-            <td>${cert.number || 'N/A'}</td>
-            <td>${cert.recipient || 'N/A'}</td>
-            <td>${cert.title || 'N/A'}</td>
-            <td>${cert.type || 'N/A'}</td>
-            <td><span class="badge ${cert.status === 'active' ? 'badge-success' : cert.status === 'revoked' ? 'badge-danger' : 'badge-warning'}">${cert.status || 'N/A'}</span></td>
-            <td>${cert.issueDate ? new Date(cert.issueDate).toLocaleDateString() : (cert.createdAt ? new Date(cert.createdAt).toLocaleDateString() : 'N/A')}</td>
-            <td>
-                <button onclick="viewCertificate('${cert._id}')" class="btn btn-sm btn-info">View</button>
-                ${cert.status === 'active' ? 
-                    `<button onclick="revokeCertificate('${cert._id}')" class="btn btn-sm btn-warning">Revoke</button>` : 
-                    cert.status === 'revoked' ? 
-                    `<button onclick="activateCertificate('${cert._id}')" class="btn btn-sm btn-success">Activate</button>` : 
-                    ''
-                }
-                <button onclick="deleteCertificate('${cert._id}')" class="btn btn-sm btn-danger">Delete</button>
-            </td>
-        </tr>
-    `).join('');
+    tableBody.innerHTML = certificates.map(certificate => {
+        const issueDate = certificate.issueDate ? 
+            new Date(certificate.issueDate).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            }) : 'N/A';
+            
+        const statusColor = {
+            'active': '#28a745',
+            'revoked': '#dc3545',
+            'expired': '#ffc107'
+        }[certificate.status] || '#6c757d';
+        
+        // Get certificate type for display
+        const typeDisplay = {
+            'membership': 'Membership',
+            'achievement': 'Achievement',
+            'training': 'Training',
+            'recognition': 'Recognition',
+            'service': 'Service'
+        }[certificate.type] || 'Certificate';
+        
+        return `
+            <tr>
+                <td>
+                    <span style="background: #667eea; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600;">
+                        ${certificate.number || 'N/A'}
+                    </span>
+                </td>
+                <td>
+                    <div style="font-weight: 600;">${certificate.recipient || 'N/A'}</div>
+                    <div style="font-size: 12px; color: #666;">
+                        ${certificate.email || 'N/A'}
+                        ${certificate.state ? ` • ${certificate.state}` : ''}
+                    </div>
+                </td>
+                <td>
+                    <div style="font-weight: 500;">${certificate.title || 'N/A'}</div>
+                    <div style="font-size: 12px; color: #666;">${typeDisplay}</div>
+                </td>
+                <td>${issueDate}</td>
+                <td>
+                    <span style="background: ${statusColor}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">
+                        ${(certificate.status || 'active').toUpperCase()}
+                    </span>
+                </td>
+                <td>
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                        <button onclick="viewCertificateDetails('${certificate._id || certificate.id}')" 
+                                class="btn btn-sm" 
+                                style="background: #17a2b8; color: white; padding: 4px 8px; font-size: 12px;" 
+                                title="View Certificate">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button onclick="downloadCertificateById('${certificate._id || certificate.id}')" 
+                                class="btn btn-sm" 
+                                style="background: #28a745; color: white; padding: 4px 8px; font-size: 12px;" 
+                                title="Download JPG">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        ${certificate.status === 'active' ? `
+                            <button onclick="showRevokeCertificateModal('${certificate._id || certificate.id}')" 
+                                    class="btn btn-sm" 
+                                    style="background: #ffc107; color: #212529; padding: 4px 8px; font-size: 12px;" 
+                                    title="Revoke Certificate">
+                                <i class="fas fa-ban"></i>
+                            </button>
+                        ` : ''}
+                        <button onclick="deleteCertificate('${certificate._id || certificate.id}')" 
+                                class="btn btn-sm" 
+                                style="background: #dc3545; color: white; padding: 4px 8px; font-size: 12px;" 
+                                title="Delete Certificate">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
 }
+
+
+// Function to show revoke certificate modal
+window.showRevokeCertificateModal = function(certificateId) {
+    const certificate = currentCertificates.find(c => (c._id || c.id) === certificateId);
+    if (!certificate) {
+        showMessage('Certificate not found', 'error');
+        return;
+    }
+    
+    // Create revoke modal HTML
+    const modalHTML = `
+        <div class="modal active" style="display: flex;">
+            <div class="modal-backdrop" onclick="closeRevokeCertificateModal()"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title">Revoke Certificate</h2>
+                    <button class="close-btn" onclick="closeRevokeCertificateModal()">&times;</button>
+                </div>
+                <div style="padding: 20px;">
+                    <div class="certificate-info" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4>Certificate Details:</h4>
+                        <p><strong>Number:</strong> ${certificate.number}</p>
+                        <p><strong>Recipient:</strong> ${certificate.recipient}</p>
+                        <p><strong>Title:</strong> ${certificate.title}</p>
+                        <p><strong>Issue Date:</strong> ${new Date(certificate.issueDate).toLocaleDateString()}</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="revocationReason">Reason for Revocation *</label>
+                        <select id="revocationReason" class="form-control" onchange="toggleCustomReason()">
+                            <option value="">Select a reason</option>
+                            <option value="Fraudulent Information">Fraudulent Information</option>
+                            <option value="Duplicate Certificate">Duplicate Certificate</option>
+                            <option value="Administrative Error">Administrative Error</option>
+                            <option value="Member Misconduct">Member Misconduct</option>
+                            <option value="Expired Membership">Expired Membership</option>
+                            <option value="Other">Other (specify)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="customReasonGroup" style="display: none;">
+                        <label for="customReason">Custom Reason *</label>
+                        <textarea id="customReason" class="form-control" rows="3" placeholder="Please specify the reason for revocation"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="revokedBy">Revoked By</label>
+                        <input type="text" id="revokedBy" class="form-control" value="Admin" placeholder="Name of person revoking">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="confirmRevocation"> 
+                            I confirm that I want to revoke this certificate. This action cannot be undone.
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="form-buttons">
+                    <button onclick="confirmRevocation('${certificateId}')" class="btn btn-danger">
+                        <i class="fas fa-ban"></i>
+                        Revoke Certificate
+                    </button>
+                    <button onclick="closeRevokeCertificateModal()" class="btn btn-secondary">
+                        <i class="fas fa-times"></i>
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+};
+
+// Function to close revoke modal
+window.closeRevokeCertificateModal = function() {
+    const modal = document.querySelector('.modal');
+    if (modal) {
+        modal.remove();
+    }
+};
+
+// Function to toggle custom reason field
+window.toggleCustomReason = function() {
+    const reasonSelect = document.getElementById('revocationReason');
+    const customReasonGroup = document.getElementById('customReasonGroup');
+    
+    if (reasonSelect && customReasonGroup) {
+        if (reasonSelect.value === 'Other') {
+            customReasonGroup.style.display = 'block';
+        } else {
+            customReasonGroup.style.display = 'none';
+        }
+    }
+};
+
+// Function to view certificate details
+window.viewCertificateDetails = function(certificateId) {
+    const certificate = currentCertificates.find(c => (c._id || c.id) === certificateId);
+    if (!certificate) {
+        showMessage('Certificate not found', 'error');
+        return;
+    }
+    
+    // Generate certificate preview
+    const certificateHTML = generateCertificateHTML(certificate);
+    
+    // Create view modal
+    const modalHTML = `
+        <div class="modal active" style="display: flex;">
+            <div class="modal-backdrop" onclick="closeViewCertificateModal()"></div>
+            <div class="modal-content" style="max-width: 800px;">
+                <div class="modal-header">
+                    <h2 class="modal-title">Certificate Details</h2>
+                    <button class="close-btn" onclick="closeViewCertificateModal()">&times;</button>
+                </div>
+                <div style="padding: 20px;">
+                    ${certificateHTML}
+                </div>
+                <div class="form-buttons">
+                    <button onclick="downloadCertificateById('${certificateId}')" class="btn btn-success">
+                        <i class="fas fa-download"></i>
+                        Download JPG
+                    </button>
+                    <button onclick="closeViewCertificateModal()" class="btn btn-secondary">
+                        <i class="fas fa-times"></i>
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+};
+
+// Function to close view certificate modal
+window.closeViewCertificateModal = function() {
+    const modal = document.querySelector('.modal');
+    if (modal) {
+        modal.remove();
+    }
+};
+
+// Helper function to generate certificate HTML
+function generateCertificateHTML(certificate) {
+    const issueDate = certificate.issueDate ? 
+        new Date(certificate.issueDate).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        }) : 'N/A';
+        
+    const validUntil = certificate.validUntil ? 
+        new Date(certificate.validUntil).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        }) : 'Indefinite';
+    
+    return `
+        <div class="certificate" style="border: 8px solid #667eea; padding: 40px; background: white; text-align: center;">
+            <div class="certificate-header">
+                <h1 style="color: #667eea; font-size: 24px; margin-bottom: 10px;">NIGERIAN ASSOCIATION OF REFRIGERATION<br>AND AIR CONDITIONING PRACTITIONERS</h1>
+                <h2 style="color: #764ba2; font-size: 18px; margin-bottom: 20px;">CERTIFICATE OF ${(certificate.type || 'membership').toUpperCase()}</h2>
+            </div>
+            
+            <div class="certificate-body">
+                <h3 style="color: #333; font-size: 20px; margin-bottom: 20px;">${certificate.title}</h3>
+                <p style="font-size: 16px; margin-bottom: 10px;">This is to certify that</p>
+                <h2 style="color: #667eea; font-size: 28px; margin: 20px 0; text-decoration: underline;">${certificate.recipient}</h2>
+                <p style="margin: 10px 0;"><strong>Email:</strong> ${certificate.email}</p>
+                ${certificate.code ? `<p style="margin: 10px 0;"><strong>NARAP Code:</strong> ${certificate.code}</p>` : ''}
+                ${certificate.position ? `<p style="margin: 10px 0;"><strong>Position:</strong> ${certificate.position}</p>` : ''}
+                ${certificate.state ? `<p style="margin: 10px 0;"><strong>State:</strong> ${certificate.state}</p>` : ''}
+                ${certificate.description ? `<p style="margin: 20px 0; font-style: italic;">${certificate.description}</p>` : ''}
+                
+                <div style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
+                    <p><strong>Certificate Number:</strong> ${certificate.number}</p>
+                    ${certificate.serialNumber ? `<p><strong>Serial Number:</strong> ${certificate.serialNumber}</p>` : ''}
+                    <p><strong>Issue Date:</strong> ${issueDate}</p>
+                    <p><strong>Valid Until:</strong> ${validUntil}</p>
+                    <p><strong>Status:</strong> <span style="color: ${certificate.status === 'active' ? '#28a745' : '#dc3545'};">${(certificate.status || 'active').toUpperCase()}</span></p>
+                </div>
+                
+                ${certificate.status === 'revoked' ? `
+                    <div style="margin-top: 20px; padding: 15px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px;">
+                        <h4 style="color: #721c24; margin-bottom: 10px;">REVOCATION DETAILS</h4>
+                        <p><strong>Revoked Date:</strong> ${new Date(certificate.revokedAt).toLocaleDateString()}</p>
+                        <p><strong>Revoked By:</strong> ${certificate.revokedBy}</p>
+                        <p><strong>Reason:</strong> ${certificate.revokedReason}</p>
+                    </div>
+                ` : ''}
+                        </div>
+            
+            <div class="certificate-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd;">
+                <div class="signature-section">
+                    <div style="width: 200px; border-bottom: 1px solid #333; margin-bottom: 5px;"></div>
+                    <p style="font-size: 14px;">President, NARAP</p>
+                </div>
+                <div class="seal-section">
+                    <div style="width: 80px; height: 80px; border: 2px solid #667eea; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #667eea; text-align: center;">OFFICIAL<br>SEAL</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+
 
 
 // Helper function to get status colors
@@ -2804,41 +3054,220 @@ window.filterMembers = filterMembers;
 window.searchMembers = searchMembers;
 window.clearMemberFilters = clearMemberFilters;
 
-
-function searchCertificates(searchTerm) {
-    const rows = document.querySelectorAll('#certificatesTableBody tr');
-    const term = searchTerm.toLowerCase();
+// Enhanced filter function with visual feedback
+function filterCertificates() {
+    const searchInput = document.getElementById('certificateSearch');
+    const statusFilter = document.getElementById('certificateStatusFilter');
+    const typeFilter = document.getElementById('certificateTypeFilter');
+    const stateFilter = document.getElementById('certificateStateFilter');
     
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        if (text.includes(term)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
+    const searchValue = searchInput?.value?.toLowerCase().trim() || '';
+    const statusValue = statusFilter?.value?.toLowerCase() || '';
+    const typeValue = typeFilter?.value?.toLowerCase() || '';
+    const stateValue = stateFilter?.value || '';
+    
+    // Add visual feedback for active filters
+    [searchInput, statusFilter, typeFilter, stateFilter].forEach(element => {
+        if (element) {
+            if (element.value) {
+                element.classList.add('filter-active');
+            } else {
+                element.classList.remove('filter-active');
+            }
         }
     });
-}
-
-function filterCertificates() {
-    const statusFilter = document.getElementById('certificateStatusFilter').value;
+    
     const rows = document.querySelectorAll('#certificatesTableBody tr');
+    let visibleCount = 0;
+    let totalCount = 0;
     
     rows.forEach(row => {
         const cells = row.querySelectorAll('td');
-        if (cells.length < 5) return;
         
-        const status = cells[4].textContent.toLowerCase();
+        // Skip if it's a loading row or doesn't have enough cells
+        if (cells.length < 6) {
+            return;
+        }
         
-        if (!statusFilter || status.includes(statusFilter)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
+        totalCount++;
+        
+        // Get text content from cells
+        const certificateNumber = cells[0].textContent.trim();
+        const recipientCell = cells[1];
+        const recipient = recipientCell.textContent.trim();
+        const title = cells[2].textContent.trim();
+        const issueDate = cells[3].textContent.trim();
+        const status = cells[4].textContent.trim().toLowerCase();
+        
+        // Extract state from recipient info
+        let recipientState = '';
+        const recipientHTML = recipientCell.innerHTML;
+        const stateMatch = recipientHTML.match(/•\s*([^<]+)/);
+        if (stateMatch) {
+            recipientState = stateMatch[1].trim();
+        }
+        
+        // Extract type from title
+        let certificateType = '';
+        const titleLower = title.toLowerCase();
+        if (titleLower.includes('membership')) certificateType = 'membership';
+        else if (titleLower.includes('achievement')) certificateType = 'achievement';
+        else if (titleLower.includes('training')) certificateType = 'training';
+        else if (titleLower.includes('recognition')) certificateType = 'recognition';
+        else if (titleLower.includes('service')) certificateType = 'service';
+        
+        let showRow = true;
+        
+        // Search filter
+        if (searchValue) {
+            const matchesSearch = 
+                certificateNumber.toLowerCase().includes(searchValue) ||
+                recipient.toLowerCase().includes(searchValue) ||
+                title.toLowerCase().includes(searchValue);
+            
+            if (!matchesSearch) {
+                showRow = false;
+            }
+        }
+        
+        // Status filter
+        if (statusValue && !status.includes(statusValue)) {
+            showRow = false;
+        }
+        
+        // Type filter
+        if (typeValue && certificateType !== typeValue) {
+            showRow = false;
+        }
+        
+        // State filter
+        if (stateValue && recipientState !== stateValue) {
+            showRow = false;
+        }
+        
+        // Show/hide the row
+        row.style.display = showRow ? '' : 'none';
+        
+        if (showRow) {
+            visibleCount++;
         }
     });
+    
+    // Update filter results counter
+    updateFilterCounter(visibleCount, totalCount, searchValue, statusValue, typeValue, stateValue);
+    
+    // Handle empty results
+    handleEmptyResults(visibleCount, totalCount, 'certificatesTableBody');
 }
 
+// Function to update filter counter with more details
+function updateFilterCounter(visibleCount, totalCount, searchValue, statusValue, typeValue, stateValue) {
+    const activeFilters = [];
+    if (searchValue) activeFilters.push(`search: "${searchValue}"`);
+    if (statusValue) activeFilters.push(`status: ${statusValue}`);
+    if (typeValue) activeFilters.push(`type: ${typeValue}`);
+    if (stateValue) activeFilters.push(`state: ${stateValue}`);
+    
+    if (activeFilters.length > 0) {
+        const filterText = activeFilters.join(', ');
+        showMessage(`Showing ${visibleCount} of ${totalCount} certificates (${filterText})`, 'info');
+    }
+}
+
+// Enhanced clear filters with animation
+function clearCertificateFilters() {
+    const elements = [
+        document.getElementById('certificateSearch'),
+        document.getElementById('certificateStatusFilter'),
+        document.getElementById('certificateTypeFilter'),
+        document.getElementById('certificateStateFilter')
+    ];
+    
+    elements.forEach(element => {
+        if (element) {
+            element.value = '';
+            element.classList.remove('filter-active');
+            
+            // Add a subtle animation
+            element.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                element.style.transform = 'scale(1)';
+            }, 150);
+        }
+    });
+    
+    filterCertificates();
+    showMessage('All certificate filters cleared', 'success');
+}
+
+
+// Enhanced search function (for backward compatibility)
+function searchCertificates(searchTerm) {
+    const searchInput = document.getElementById('certificateSearch');
+    if (searchInput) {
+        searchInput.value = searchTerm;
+    }
+    filterCertificates();
+}
+
+// Clear all certificate filters function
+function clearCertificateFilters() {
+    const searchInput = document.getElementById('certificateSearch');
+    const statusFilter = document.getElementById('certificateStatusFilter');
+    const typeFilter = document.getElementById('certificateTypeFilter');
+    const stateFilter = document.getElementById('certificateStateFilter');
+    
+    if (searchInput) searchInput.value = '';
+    if (statusFilter) statusFilter.value = '';
+    if (typeFilter) typeFilter.value = '';
+    if (stateFilter) stateFilter.value = '';
+    
+    filterCertificates();
+    showMessage('All certificate filters cleared', 'info');
+}
+
+// Helper function to handle empty results
+function handleEmptyResults(visibleCount, totalCount, tableBodyId) {
+    const tableBody = document.getElementById(tableBodyId);
+    if (!tableBody) return;
+    
+    // Remove existing "no results" row
+    const existingNoResults = tableBody.querySelector('.no-results-row');
+    if (existingNoResults) {
+        existingNoResults.remove();
+    }
+    
+    // Add "no results" row if needed
+    if (visibleCount === 0 && totalCount > 0) {
+        const noResultsRow = document.createElement('tr');
+        noResultsRow.className = 'no-results-row';
+        noResultsRow.innerHTML = `
+            <td colspan="6" style="text-align: center; padding: 40px; color: #666;">
+                <i class="fas fa-search" style="font-size: 48px; margin-bottom: 15px; opacity: 0.3;"></i>
+                <div>No certificates found matching your criteria</div>
+                <div style="font-size: 14px; margin-top: 10px;">Try adjusting your search or filter options</div>
+            </td>
+        `;
+        tableBody.appendChild(noResultsRow);
+    }
+}
+
+// Make functions globally accessible
+window.filterCertificates = filterCertificates;
+window.searchCertificates = searchCertificates;
+window.clearCertificateFilters = clearCertificateFilters;
+
+
+// Make functions globally accessible
+window.confirmRevocation = confirmRevocation;
+window.deleteCertificate = deleteCertificate;
+window.downloadCertificateById = downloadCertificateById;
+window.revokeCertificate = revokeCertificate; // If you have this function
+window.viewCertificate = viewCertificate; // If you have this function
+
+
 // Enhanced issue certificate function
-// Updated issueCertificate function with manual serial number input
+
 async function issueCertificate(event) {
     event.preventDefault();
     
