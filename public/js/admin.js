@@ -2469,32 +2469,100 @@ function closeConfirmModal() {
 // Member management functions
 async function addMember(event) {
     event.preventDefault();
-    
-    const formData = new FormData(event.target);
-    const memberData = Object.fromEntries(formData.entries());
-    
-    // Validation
-    if (!memberData.name || !memberData.email || !memberData.password || !memberData.code || !memberData.state || !memberData.zone) {
-        showMessage('Please fill in all required fields', 'error');
-        return;
-    }
+    console.log('Add member function called');
     
     try {
+        // Get form values using getElementById instead of FormData
+        const memberName = document.getElementById('memberName')?.value?.trim();
+        const memberEmail = document.getElementById('memberEmail')?.value?.trim();
+        const memberPassword = document.getElementById('memberPassword')?.value?.trim();
+        const memberCode = document.getElementById('memberCode')?.value?.trim();
+        const memberPosition = document.getElementById('memberPosition')?.value?.trim();
+        const memberState = document.getElementById('memberState')?.value?.trim();
+        const memberZone = document.getElementById('memberZone')?.value?.trim();
+        
+        console.log('Form values:', {
+            memberName,
+            memberEmail,
+            memberPassword,
+            memberCode,
+            memberPosition,
+            memberState,
+            memberZone
+        });
+        
+        // Create memberData object with correct property names
+        const memberData = {
+            name: memberName,
+            email: memberEmail,
+            password: memberPassword,
+            code: memberCode,
+            position: memberPosition,
+            state: memberState,
+            zone: memberZone
+        };
+        
+        // Validation
+        if (!memberData.name || !memberData.email || !memberData.password || !memberData.code || !memberData.position || !memberData.state || !memberData.zone) {
+            const missingFields = [];
+            if (!memberData.name) missingFields.push('Full Name');
+            if (!memberData.email) missingFields.push('Email');
+            if (!memberData.password) missingFields.push('Password');
+            if (!memberData.code) missingFields.push('NARAP Code');
+            if (!memberData.position) missingFields.push('Position');
+            if (!memberData.state) missingFields.push('State');
+            if (!memberData.zone) missingFields.push('Zone');
+            
+            showMessage(`Please fill in all required fields: ${missingFields.join(', ')}`, 'error');
+            return;
+        }
+        
+        // Email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(memberData.email)) {
+            showMessage('Please enter a valid email address', 'error');
+            return;
+        }
+        
         showMessage('Adding member...', 'info');
+        
+        // Make sure backendUrl is defined
+        const backendUrl = window.backendUrl || (window.location.origin.includes('localhost') 
+            ? 'http://localhost:3000' 
+            : window.location.origin);
         
         const res = await fetch(`${backendUrl}/api/addUser`, {
             method: 'POST',
-            headers: getAuthHeaders(),
+            headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders()
+            },
             body: JSON.stringify(memberData),
             credentials: 'include'
-        }, 15000); // 15 second timeout
+        });
         
         const data = await res.json();
         
         if (res.ok) {
             showMessage('Member added successfully!', 'success');
-            event.target.reset();
-            await loadDashboard(); // Refresh the dashboard
+            
+            // Reset the form
+            const form = document.getElementById('addMemberForm');
+            if (form) form.reset();
+            
+            // Close the modal
+            closeAddMemberModal();
+            
+            // Refresh the dashboard
+            if (typeof loadDashboard === 'function') {
+                await loadDashboard();
+            }
+            
+            // Refresh members table
+            if (typeof refreshMembers === 'function') {
+                refreshMembers();
+            }
+            
         } else {
             showMessage(data.message || 'Failed to add member', 'error');
         }
@@ -2510,6 +2578,9 @@ async function addMember(event) {
         showMessage(errorMessage, 'error');
     }
 }
+
+// Make sure the function is globally accessible
+window.addMember = addMember;
 
 
 async function editMember(memberId) {
