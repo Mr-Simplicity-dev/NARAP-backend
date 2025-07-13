@@ -2747,118 +2747,193 @@ function filterCertificates() {
 }
 
 // Enhanced issue certificate function
-async function issueCertificate(event) {
-    event.preventDefault();
-    
-    const formData = {
-        number: document.getElementById('certificateNumber').value.trim(),
-        email: document.getElementById('certificateEmail').value.trim(),
-        title: document.getElementById('certificateTitle').value.trim(),
-        type: document.getElementById('certificateType').value,
-        issueDate: document.getElementById('certificateIssueDate').value,
-        validUntil: document.getElementById('certificateValidUntil').value || null,
-        description: document.getElementById('certificateDescription').value.trim()
-    };
-    
-    // Get recipient name from email by finding the member
-    const members = JSON.parse(localStorage.getItem('narap_members') || '[]');
-    const member = members.find(m => m.email.toLowerCase() === formData.email.toLowerCase());
-    
-    if (!member) {
-        showMessage('Member not found with this email address', 'error');
-        return;
+window.findMemberByEmail = function(email) {
+    try {
+        const members = JSON.parse(localStorage.getItem('narap_members') || '[]');
+        console.log('Looking for email:', email);
+        console.log('Available members:', members.map(m => ({ name: m.name, email: m.email })));
+        
+        if (!email || !email.trim()) {
+            console.log('No email provided');
+            return null;
+        }
+        
+        const searchEmail = email.trim().toLowerCase();
+        
+        // Try exact match first
+        let member = members.find(m => m.email && m.email.trim().toLowerCase() === searchEmail);
+        
+        if (!member) {
+            // Try partial match
+            member = members.find(m => m.email && m.email.trim().toLowerCase().includes(searchEmail));
+        }
+        
+        if (!member) {
+            // Try reverse partial match
+            member = members.find(m => m.email && searchEmail.includes(m.email.trim().toLowerCase()));
+        }
+        
+        console.log('Found member:', member);
+        return member;
+    } catch (error) {
+        console.error('Error finding member:', error);
+        return null;
     }
-    
-    // Add recipient name from member data
-    formData.recipient = member.name;
-    
-    // Validation
-    if (!formData.number || !formData.recipient || !formData.email || !formData.title || !formData.type) {
-        showMessage('Please fill in all required fields', 'error');
-        return;
-    }
-    
-    // Email validation
-    if (!validateEmail(formData.email)) {
-        showMessage('Please enter a valid email address', 'error');
-        return;
-    }
+};
+
+// Enhanced certificate preview function
+window.generateCertificatePreview = function() {
+    console.log('Generate certificate preview called');
     
     try {
-        showMessage('Issuing certificate...', 'info'); // Changed from 'success' to 'info'
+        // Get form values
+        const certificateNumber = document.getElementById('certificateNumber')?.value?.trim();
+        const certificateEmail = document.getElementById('certificateEmail')?.value?.trim();
+        const certificateTitle = document.getElementById('certificateTitle')?.value?.trim();
+        const certificateType = document.getElementById('certificateType')?.value?.trim();
+        const certificateIssueDate = document.getElementById('certificateIssueDate')?.value;
+        const certificateValidUntil = document.getElementById('certificateValidUntil')?.value;
+        const certificateDescription = document.getElementById('certificateDescription')?.value?.trim();
         
-        // Add additional fields
-        const certificateData = {
-            ...formData,
-            status: 'active',
-            createdAt: new Date().toISOString(),
-            serialNumber: generateSerialNumber(),
-            id: generateCertificateId(),
-            recipientCode: member.code,
-            recipientPosition: member.position,
-            recipientState: member.state
-        };
-        
-        // Try to save to backend first
-        let backendSuccess = false;
-        if (navigator.onLine && window.backendUrl) {
-            try {
-                const res = await fetch(`${window.backendUrl}/api/certificates`, {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        ...getAuthHeaders() // Add auth headers if available
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify(certificateData)
-                });
-                
-                if (res.ok) {
-                    const result = await res.json();
-                    certificateData._id = result._id || result.id;
-                    certificateData.isFromBackend = true;
-                    backendSuccess = true;
-                } else {
-                    console.warn('Backend save failed, saving locally');
-                }
-            } catch (error) {
-                console.warn('Backend request failed, saving locally:', error);
-            }
-        }
-        
-        // Save to local storage
-        const localCertificates = getLocalCertificates();
-        localCertificates.push({
-            ...certificateData,
-            isFromBackend: backendSuccess
+        console.log('Form values:', {
+            certificateNumber,
+            certificateEmail,
+            certificateTitle,
+            certificateType,
+            certificateIssueDate
         });
-        saveLocalCertificates(localCertificates);
         
-        // Add to pending sync if backend failed
-        if (!backendSuccess) {
-            const pendingSync = getPendingSync();
-            if (!pendingSync.certificateCreations) {
-                pendingSync.certificateCreations = [];
+        // Validate required fields
+        if (!certificateNumber || !certificateEmail || !certificateTitle || !certificateType || !certificateIssueDate) {
+            const missingFields = [];
+            if (!certificateNumber) missingFields.push('Certificate Number');
+            if (!certificateEmail) missingFields.push('Recipient Email');
+            if (!certificateTitle) missingFields.push('Certificate Title');
+            if (!certificateType) missingFields.push('Certificate Type');
+            if (!certificateIssueDate) missingFields.push('Issue Date');
+            
+            showMessage(`Please fill in all required fields: ${missingFields.join(', ')}`, 'error');
+            return;
+        }
+        
+        // Find member by email
+        const member = findMemberByEmail(certificateEmail);
+        
+        if (!member) {
+            // Show available members for debugging
+            const members = JSON.parse(localStorage.getItem('narap_members') || '[]');
+            console.log('Available member emails:', members.map(m => m.email));
+            
+            showMessage(`Member not found with email "${certificateEmail}". Please check the email address or add the member first.`, 'error');
+            
+            // Suggest similar emails if any
+            const similarEmails = members
+                .filter(m => m.email && m.email.toLowerCase().includes(certificateEmail.toLowerCase().split('@')[0]))
+                .map(m => m.email);
+            
+            if (similarEmails.length > 0) {
+                showMessage(`Did you mean one of these emails? ${similarEmails.join(', ')}`, 'info');
             }
-            pendingSync.certificateCreations.push(certificateData);
-            savePendingSync(pendingSync);
+            
+            return;
         }
         
-        showMessage('Certificate issued successfully!', 'success');
-        closeIssueCertificateModal();
+        // Format dates
+        const issueDate = new Date(certificateIssueDate).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
         
-        if (typeof loadCertificates === 'function') {
-            await loadCertificates();
-        }
-        if (typeof loadDashboard === 'function') {
-            await loadDashboard();
+        const validUntilFormatted = certificateValidUntil ? 
+            new Date(certificateValidUntil).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            }) : 'Indefinite';
+        
+        // Generate certificate HTML
+        const certificateHTML = `
+            <div class="certificate">
+                <div class="certificate-header">
+                    <h1 style="color: #667eea; font-size: 24px; margin-bottom: 10px; text-align: center;">NIGERIAN ASSOCIATION OF REFRIGERATION<br>AND AIR CONDITIONING PRACTITIONERS</h1>
+                    <h2 style="color: #764ba2; font-size: 18px; margin-bottom: 20px; text-align: center;">CERTIFICATE OF ${certificateType.toUpperCase()}</h2>
+                </div>
+                
+                <div class="certificate-body" style="text-align: center; padding: 20px;">
+                    <div class="certificate-title">
+                        <h3 style="color: #333; font-size: 20px; margin-bottom: 20px;">${certificateTitle}</h3>
+                    </div>
+                    
+                    <div class="certificate-content">
+                        <p style="font-size: 16px; margin-bottom: 10px;">This is to certify that</p>
+                        <h2 class="recipient-name" style="color: #667eea; font-size: 28px; margin: 20px 0; text-decoration: underline;">${member.name}</h2>
+                        <p style="margin: 10px 0;"><strong>NARAP Code:</strong> ${member.code}</p>
+                        <p style="margin: 10px 0;"><strong>Position:</strong> ${member.position}</p>
+                        <p style="margin: 10px 0;"><strong>State:</strong> ${member.state}</p>
+                        <p style="margin: 10px 0;"><strong>Zone:</strong> ${member.zone}</p>
+                        
+                        ${certificateDescription ? `<p class="description" style="margin: 20px 0; font-style: italic;">${certificateDescription}</p>` : ''}
+                        
+                        <div class="certificate-details" style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
+                            <p style="margin: 5px 0;"><strong>Certificate Number:</strong> ${certificateNumber}</p>
+                            <p style="margin: 5px 0;"><strong>Issue Date:</strong> ${issueDate}</p>
+                            <p style="margin: 5px 0;"><strong>Valid Until:</strong> ${validUntilFormatted}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="certificate-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd;">
+                    <div class="signature-section">
+                        <div class="signature-line" style="width: 200px; border-bottom: 1px solid #333; margin-bottom: 5px;"></div>
+                        <p style="font-size: 14px;">President, NARAP</p>
+                    </div>
+                    <div class="seal-section">
+                        <div class="official-seal" style="width: 80px; height: 80px; border: 2px solid #667eea; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #667eea; text-align: center;">OFFICIAL<br>SEAL</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Show preview
+        const previewContainer = document.getElementById('certificatePreview');
+        const generatedCertificate = document.getElementById('generatedCertificate');
+        
+        if (previewContainer && generatedCertificate) {
+            generatedCertificate.innerHTML = certificateHTML;
+            previewContainer.classList.remove('hidden');
+            showMessage('Certificate preview generated successfully', 'success');
+        } else {
+            console.error('Preview containers not found');
+            showMessage('Error: Preview containers not found', 'error');
         }
         
     } catch (error) {
-        console.error('Issue certificate error:', error);
-        showMessage('Network error while issuing certificate', 'error');
+        console.error('Error generating certificate preview:', error);
+        showMessage('Error generating certificate preview: ' + error.message, 'error');
     }
-}
+};
+
+// Debugging helper functions
+window.listAllMembers = function() {
+    const members = JSON.parse(localStorage.getItem('narap_members') || '[]');
+    console.log('All members in database:');
+    members.forEach((member, index) => {
+        console.log(`${index + 1}. Name: ${member.name}, Email: ${member.email}, Code: ${member.code}`);
+    });
+    return members;
+};
+
+window.suggestMemberEmails = function(partialEmail) {
+    const members = JSON.parse(localStorage.getItem('narap_members') || '[]');
+    const suggestions = members
+        .filter(m => m.email && m.email.toLowerCase().includes(partialEmail.toLowerCase()))
+        .map(m => ({ name: m.name, email: m.email }));
+    
+    console.log('Email suggestions for "' + partialEmail + '":', suggestions);
+    return suggestions;
+};
+
 
 // Add the missing generateCertificatePreview function
 window.generateCertificatePreview = function() {
