@@ -195,18 +195,31 @@
         </div>
         
         <!-- Search and Filter -->
-        <div class="search-filter-bar">
-            <input type="text" class="form-group input search-input" id="memberSearch" placeholder="Search members..." oninput="searchMembers(this.value)">
-            <select class="form-group select" id="positionFilter" onchange="filterMembers()">
-                <option value="">All Positions</option>
-                <option value="PRESIDENT">President</option>
-                <option value="VICE PRESIDENT">Vice President</option>
-                <option value="SECRETARY">Secretary</option>
-                <option value="TREASURER">Treasurer</option>
-                <option value="MEMBER">Member</option>
-            </select>
-            <select class="form-group select" id="stateFilter" onchange="filterMembers()">
-               <option value="">All States</option>
+            <div class="search-filter-bar">
+                <input type="text" class="form-group input search-input" id="memberSearch" placeholder="Search members..." oninput="filterMembers()">
+                <select class="form-group select" id="positionFilter" onchange="filterMembers()">
+                    <option value="">All Positions</option>
+                    <option value="PRESIDENT">President</option>
+                    <option value="DEPUTY PRESIDENT">Deputy President</option>
+                    <option value="VICE PRESIDENT (North Central)">Vice President (North Central)</option>
+                    <option value="VICE PRESIDENT (North East)">Vice President (North East)</option>
+                    <option value="VICE PRESIDENT (North West)">Vice President (North West)</option>
+                    <option value="VICE PRESIDENT (South East)">Vice President (South East)</option>
+                    <option value="VICE PRESIDENT (South South)">Vice President (South South)</option>
+                    <option value="VICE PRESIDENT (South West)">Vice President (South West)</option>
+                    <option value="SECRETARY">Secretary</option>
+                    <option value="ASSISTANT SECRETARY">Assistant Secretary</option>
+                    <option value="FINANCIAL SECRETARY">Financial Secretary</option>
+                    <option value="ASSISTANT FINANCIAL SECRETARY">Assistant Financial Secretary</option>
+                    <option value="TREASURER">Treasurer</option>
+                    <option value="PUBLIC RELATION OFFICE">Public Relation Officer (PRO)</option>
+                    <option value="PROVOST MARSHAL 1">Provost Marshal 1</option>
+                    <option value="PROVOST MARSHAL 2">Provost Marshal 2</option>
+                    <option value="STATE WELFARE COORDINATOR">State Welfare Coordinator</option>
+                    <option value="MEMBER">Member</option>
+                </select>
+                <select class="form-group select" id="stateFilter" onchange="filterMembers()">
+                    <option value="">All States</option>
                     <option value="Abia">Abia</option>
                     <option value="Adamawa">Adamawa</option>
                     <option value="Akwa Ibom">Akwa Ibom</option>
@@ -244,8 +257,9 @@
                     <option value="Yobe">Yobe</option>
                     <option value="Zamfara">Zamfara</option>
                     <option value="FCT">Federal Capital Territory</option>
-            </select>
-        </div>
+                </select>
+            </div>
+
         
         <!-- Members Table -->
         <div class="data-table-container">
