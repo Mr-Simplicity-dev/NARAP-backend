@@ -4278,15 +4278,6 @@ window.debugSidebar = function() {
     console.log('========================');
 };
 
-// Call debug function in development (remove in production)
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    setTimeout(() => {
-        window.debugSidebar();
-    }, 2000);
-}
-
-
-
 
 // Keyboard shortcuts
 document.addEventListener('keydown', function(e) {
