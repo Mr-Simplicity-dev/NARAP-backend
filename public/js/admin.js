@@ -4064,34 +4064,42 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Sidebar functionality
         const sidebar = document.querySelector('.sidebar');
-        const hamburgerBtn = document.getElementById('hamburgerButton');
         const overlay = document.querySelector('.sidebar-overlay');
         
-        // Toggle sidebar function
-        function toggleSidebar() {
-            if (sidebar) sidebar.classList.toggle('mobile-open');
-            if (overlay) overlay.classList.toggle('active');
+        // Make toggleSidebar a GLOBAL function so HTML onclick can access it
+        window.toggleSidebar = function() {
+            console.log('Toggle sidebar called'); // Debug log
+            if (sidebar) {
+                sidebar.classList.toggle('mobile-open');
+                console.log('Sidebar classes:', sidebar.className); // Debug log
+            }
+            if (overlay) {
+                overlay.classList.toggle('active');
+            }
             document.body.style.overflow = sidebar && sidebar.classList.contains('mobile-open') ? 'hidden' : '';
-        }
+        };
         
-        // Hamburger button click
-        if (hamburgerBtn) {
-            hamburgerBtn.addEventListener('click', function(e) {
+        // Also add event listeners for hamburger buttons (backup method)
+        const hamburgerBtns = document.querySelectorAll('.hamburger-btn');
+        hamburgerBtns.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
                 e.stopPropagation();
-                toggleSidebar();
+                console.log('Hamburger button clicked'); // Debug log
+                window.toggleSidebar();
             });
-        }
+        });
         
         // Overlay click
         if (overlay) {
-            overlay.addEventListener('click', toggleSidebar);
+            overlay.addEventListener('click', window.toggleSidebar);
         }
         
         // Close sidebar when clicking nav items on mobile
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', function() {
                 if (window.innerWidth <= 768) {
-                    toggleSidebar();
+                    window.toggleSidebar();
                 }
             });
         });
@@ -4115,69 +4123,11 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
         
-        // Global modal triggers (consolidated - removed duplicates)
-        document.addEventListener('click', (e) => {
-            // Add Member button
-            if (e.target.closest('#addMemberBtn')) {
-                e.preventDefault();
-                if (window.memberModal) window.memberModal.show();
-            }
-            // Add Certificate button
-            if (e.target.closest('#addCertBtn')) {
-                e.preventDefault();
-                if (window.certModal) window.certModal.show();
-            }
-        });
-        
-        // Set up connection status monitoring
-        if (typeof updateConnectionStatus === 'function') {
-            updateConnectionStatus();
-            window.addEventListener('online', updateConnectionStatus);
-            window.addEventListener('offline', updateConnectionStatus);
-        }
-        
-        // Add Enter key support for login
-        const passwordField = document.getElementById('password');
-        if (passwordField) {
-            passwordField.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    if (typeof login === 'function') login();
-                }
-            });
-        }
-        
-        const usernameField = document.getElementById('username');
-        if (usernameField) {
-            usernameField.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    if (typeof login === 'function') login();
-                }
-            });
-        }
-        
-        // Populate state filter dropdown
-        if (typeof populateStateFilter === 'function') populateStateFilter();
-        
-        // Set up periodic health checks
-        if (typeof checkSystemHealth === 'function') {
-            setInterval(checkSystemHealth, 60000); // Check every minute
-        }
-        
-        // Small delay to ensure all elements are rendered
-        setTimeout(function() {
-            if (typeof finalizeInitialization === 'function') finalizeInitialization();
-        }, 100);
-        
-        console.log('NARAP Admin Panel initialized successfully');
-        
     } catch (error) {
-        console.error('Error during initialization:', error);
-        console.error('Initialization error details:', error.message, error.stack);
-        if (typeof notifyAdmin === 'function') {
-            notifyAdmin('Error occurred during initialization: ' + error.message);
-        }
+        console.error('Error initializing admin panel:', error);
     }
 });
+
 
 
 // Keyboard shortcuts
