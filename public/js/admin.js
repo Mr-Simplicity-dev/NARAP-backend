@@ -3073,25 +3073,154 @@ window.generateCertificatePreview = function() {
 };
 
 // Updated issue certificate function - works without requiring pre-registered members
+// Updated certificate preview function with manual inputs
+window.generateCertificatePreview = function() {
+    console.log('Generate certificate preview called');
+    
+    try {
+        // Get form values
+        const certificateNumber = document.getElementById('certificateNumber')?.value?.trim();
+        const certificateRecipient = document.getElementById('certificateRecipient')?.value?.trim();
+        const certificateEmail = document.getElementById('certificateEmail')?.value?.trim();
+        const certificateTitle = document.getElementById('certificateTitle')?.value?.trim();
+        const certificateType = document.getElementById('certificateType')?.value?.trim();
+        const certificateIssueDate = document.getElementById('certificateIssueDate')?.value;
+        const certificateValidUntil = document.getElementById('certificateValidUntil')?.value;
+        const certificateDescription = document.getElementById('certificateDescription')?.value?.trim();
+        const certificatePosition = document.getElementById('certificatePosition')?.value?.trim();
+        const certificateCode = document.getElementById('certificateCode')?.value?.trim();
+        const certificateState = document.getElementById('certificateState')?.value?.trim();
+        
+        console.log('Form values:', {
+            certificateNumber,
+            certificateRecipient,
+            certificateEmail,
+            certificateTitle,
+            certificateType,
+            certificateIssueDate
+        });
+        
+        // Validate required fields
+        if (!certificateNumber || !certificateRecipient || !certificateEmail || !certificateTitle || !certificateType || !certificateIssueDate) {
+            const missingFields = [];
+            if (!certificateNumber) missingFields.push('Certificate Number');
+            if (!certificateRecipient) missingFields.push('Recipient Name');
+            if (!certificateEmail) missingFields.push('Recipient Email');
+            if (!certificateTitle) missingFields.push('Certificate Title');
+            if (!certificateType) missingFields.push('Certificate Type');
+            if (!certificateIssueDate) missingFields.push('Issue Date');
+            
+            showMessage(`Please fill in all required fields: ${missingFields.join(', ')}`, 'error');
+            return;
+        }
+        
+        // Validate email format
+        if (!validateEmail(certificateEmail)) {
+            showMessage('Please enter a valid email address', 'error');
+            return;
+        }
+        
+        // Format dates
+        const issueDate = new Date(certificateIssueDate).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        
+        const validUntilFormatted = certificateValidUntil ? 
+            new Date(certificateValidUntil).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            }) : 'Indefinite';
+        
+        // Generate certificate HTML
+        const certificateHTML = `
+            <div class="certificate">
+                <div class="certificate-header">
+                    <h1 style="color: #667eea; font-size: 24px; margin-bottom: 10px; text-align: center;">NIGERIAN ASSOCIATION OF REFRIGERATION<br>AND AIR CONDITIONING PRACTITIONERS</h1>
+                    <h2 style="color: #764ba2; font-size: 18px; margin-bottom: 20px; text-align: center;">CERTIFICATE OF ${certificateType.toUpperCase()}</h2>
+                </div>
+                
+                <div class="certificate-body" style="text-align: center; padding: 20px;">
+                    <div class="certificate-title">
+                        <h3 style="color: #333; font-size: 20px; margin-bottom: 20px;">${certificateTitle}</h3>
+                    </div>
+                    
+                    <div class="certificate-content">
+                        <p style="font-size: 16px; margin-bottom: 10px;">This is to certify that</p>
+                        <h2 class="recipient-name" style="color: #667eea; font-size: 28px; margin: 20px 0; text-decoration: underline;">${certificateRecipient}</h2>
+                        <p style="margin: 10px 0;"><strong>Email:</strong> ${certificateEmail}</p>
+                        ${certificateCode ? `<p style="margin: 10px 0;"><strong>NARAP Code:</strong> ${certificateCode}</p>` : ''}
+                        ${certificatePosition ? `<p style="margin: 10px 0;"><strong>Position:</strong> ${certificatePosition}</p>` : ''}
+                        ${certificateState ? `<p style="margin: 10px 0;"><strong>State:</strong> ${certificateState}</p>` : ''}
+                        
+                        ${certificateDescription ? `<p class="description" style="margin: 20px 0; font-style: italic;">${certificateDescription}</p>` : ''}
+                        
+                        <div class="certificate-details" style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
+                            <p style="margin: 5px 0;"><strong>Certificate Number:</strong> ${certificateNumber}</p>
+                            <p style="margin: 5px 0;"><strong>Issue Date:</strong> ${issueDate}</p>
+                            <p style="margin: 5px 0;"><strong>Valid Until:</strong> ${validUntilFormatted}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="certificate-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd;">
+                    <div class="signature-section">
+                        <div class="signature-line" style="width: 200px; border-bottom: 1px solid #333; margin-bottom: 5px;"></div>
+                        <p style="font-size: 14px;">President, NARAP</p>
+                    </div>
+                    <div class="seal-section">
+                        <div class="official-seal" style="width: 80px; height: 80px; border: 2px solid #667eea; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #667eea; text-align: center;">OFFICIAL<br>SEAL</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Show preview
+        const previewContainer = document.getElementById('certificatePreview');
+        const generatedCertificate = document.getElementById('generatedCertificate');
+        
+        if (previewContainer && generatedCertificate) {
+            generatedCertificate.innerHTML = certificateHTML;
+            previewContainer.classList.remove('hidden');
+            showMessage('Certificate preview generated successfully', 'success');
+        } else {
+            console.error('Preview containers not found');
+            showMessage('Error: Preview containers not found', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Error generating certificate preview:', error);
+        showMessage('Error generating certificate preview: ' + error.message, 'error');
+    }
+};
+
+// Updated issue certificate function with manual inputs
 async function issueCertificate(event) {
     event.preventDefault();
     
     const formData = {
         number: document.getElementById('certificateNumber').value.trim(),
+        recipient: document.getElementById('certificateRecipient').value.trim(),
         email: document.getElementById('certificateEmail').value.trim(),
         title: document.getElementById('certificateTitle').value.trim(),
         type: document.getElementById('certificateType').value,
         issueDate: document.getElementById('certificateIssueDate').value,
         validUntil: document.getElementById('certificateValidUntil').value || null,
-        description: document.getElementById('certificateDescription').value.trim()
+        description: document.getElementById('certificateDescription').value.trim(),
+        position: document.getElementById('certificatePosition').value.trim(),
+        code: document.getElementById('certificateCode').value.trim(),
+        state: document.getElementById('certificateState').value.trim()
     };
     
     console.log('Issue certificate form data:', formData);
     
     // Validation
-    if (!formData.number || !formData.email || !formData.title || !formData.type || !formData.issueDate) {
+    if (!formData.number || !formData.recipient || !formData.email || !formData.title || !formData.type || !formData.issueDate) {
         const missingFields = [];
         if (!formData.number) missingFields.push('Certificate Number');
+        if (!formData.recipient) missingFields.push('Recipient Name');
         if (!formData.email) missingFields.push('Recipient Email');
         if (!formData.title) missingFields.push('Certificate Title');
         if (!formData.type) missingFields.push('Certificate Type');
@@ -3110,34 +3239,6 @@ async function issueCertificate(event) {
     try {
         showMessage('Issuing certificate...', 'info');
         
-        // Try to find member by email, but don't require it
-        const members = JSON.parse(localStorage.getItem('narap_members') || '[]');
-        const member = members.find(m => m.email && m.email.toLowerCase() === formData.email.toLowerCase());
-        
-        // Use member data if found, otherwise create basic recipient info
-        let recipientData;
-        if (member) {
-            recipientData = {
-                name: member.name,
-                code: member.code,
-                position: member.position,
-                state: member.state,
-                zone: member.zone
-            };
-        } else {
-            // Extract name from email or use email as name
-            recipientData = {
-                name: formData.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-                code: 'N/A',
-                position: 'Member',
-                state: 'N/A',
-                zone: 'N/A'
-            };
-        }
-        
-        // Add recipient name to form data
-        formData.recipient = recipientData.name;
-        
         // Create certificate data
         const certificateData = {
             ...formData,
@@ -3145,11 +3246,9 @@ async function issueCertificate(event) {
             createdAt: new Date().toISOString(),
             serialNumber: generateSerialNumber(),
             id: generateCertificateId(),
-            recipientCode: recipientData.code,
-            recipientPosition: recipientData.position,
-            recipientState: recipientData.state,
-            recipientZone: recipientData.zone,
-            isFromMember: !!member // Track if this was from a registered member
+            recipientCode: formData.code || 'N/A',
+            recipientPosition: formData.position || 'Member',
+            recipientState: formData.state || 'N/A'
         };
         
         console.log('Certificate data to save:', certificateData);
@@ -3203,6 +3302,22 @@ async function issueCertificate(event) {
         showMessage('Certificate issued successfully!', 'success');
         closeIssueCertificateModal();
         
+               // Clear form
+        document.getElementById('issueCertificateForm').reset();
+        document.getElementById('certificatePreview').classList.add('hidden');
+        
+        // Set new certificate number for next use
+        const certificateNumberField = document.getElementById('certificateNumber');
+        if (certificateNumberField) {
+            certificateNumberField.value = generateCertificateNumber();
+        }
+        
+        // Set default issue date to today
+        const issueDateField = document.getElementById('certificateIssueDate');
+        if (issueDateField) {
+            issueDateField.value = new Date().toISOString().split('T')[0];
+        }
+        
         if (typeof loadCertificates === 'function') {
             await loadCertificates();
         }
@@ -3221,6 +3336,7 @@ async function issueCertificate(event) {
 
 // Make sure functions are globally accessible
 window.issueCertificate = issueCertificate;
+
 
 
 // Debugging helper functions
