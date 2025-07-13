@@ -4043,7 +4043,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (typeof fillAdminCredentials === 'function') fillAdminCredentials();
         
         // Initialize dashboard as default tab
-        switchTab('dashboard');
+        if (typeof switchTab === 'function') switchTab('dashboard');
         
         // Initialize all modals
         window.initModals = function() {
@@ -4058,7 +4058,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (el) window[key] = new bootstrap.Modal(el);
             });
         };
-        initModals(); // Initialize on first load
+        if (typeof initModals === 'function') initModals();
         
         // Setup preview listeners
         if (typeof setupPreviewListeners === 'function') setupPreviewListeners();
@@ -4069,16 +4069,16 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Make toggleSidebar a GLOBAL function so HTML onclick can access it
         window.toggleSidebar = function() {
-            console.log('Toggle sidebar called'); // Debug log
+            console.log('Toggle sidebar called');
             
             if (sidebar) {
                 sidebar.classList.toggle('mobile-open');
-                console.log('Sidebar classes after toggle:', sidebar.className); // Debug log
+                console.log('Sidebar classes after toggle:', sidebar.className);
             }
             
             if (overlay) {
                 overlay.classList.toggle('active');
-                console.log('Overlay classes after toggle:', overlay.className); // Debug log
+                console.log('Overlay classes after toggle:', overlay.className);
             }
             
             // Prevent body scrolling when sidebar is open
@@ -4091,37 +4091,32 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         };
         
-        // Also add event listeners for hamburger buttons (backup method)
+        // Add event listeners for hamburger buttons (backup method)
         const hamburgerBtns = document.querySelectorAll('.hamburger-btn');
-        console.log('Found hamburger buttons:', hamburgerBtns.length); // Debug log
+        console.log('Found hamburger buttons:', hamburgerBtns.length);
         
         hamburgerBtns.forEach((btn, index) => {
-            console.log('Adding listener to hamburger button', index); // Debug log
+            console.log('Adding listener to hamburger button', index);
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Hamburger button clicked via event listener'); // Debug log
+                console.log('Hamburger button clicked via event listener');
                 window.toggleSidebar();
             });
             
-            // Also add touch event for mobile
+            // Add touch event for mobile (only for hamburger buttons)
             btn.addEventListener('touchstart', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Hamburger button touched'); // Debug log
+                console.log('Hamburger button touched');
                 window.toggleSidebar();
-            });
+            }, { passive: false });
         });
         
-               // Overlay click to close sidebar
+        // Overlay click to close sidebar
         if (overlay) {
             overlay.addEventListener('click', function(e) {
-                console.log('Overlay clicked'); // Debug log
-                window.toggleSidebar();
-            });
-            
-            overlay.addEventListener('touchstart', function(e) {
-                console.log('Overlay touched'); // Debug log
+                console.log('Overlay clicked');
                 window.toggleSidebar();
             });
         }
@@ -4130,10 +4125,10 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', function() {
                 if (window.innerWidth <= 768) {
-                    console.log('Nav item clicked on mobile, closing sidebar'); // Debug log
+                    console.log('Nav item clicked on mobile, closing sidebar');
                     setTimeout(() => {
                         window.toggleSidebar();
-                    }, 100); // Small delay to allow tab switch
+                    }, 100);
                 }
             });
         });
@@ -4141,7 +4136,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Close sidebar when resizing to desktop
         window.addEventListener('resize', function() {
             if (window.innerWidth >= 769) {
-                console.log('Resized to desktop, closing sidebar'); // Debug log
+                console.log('Resized to desktop, closing sidebar');
                 if (sidebar) sidebar.classList.remove('mobile-open');
                 if (overlay) overlay.classList.remove('active');
                 document.body.classList.remove('sidebar-open');
@@ -4159,25 +4154,175 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
         
-        // Additional mobile-specific improvements
-        if (window.innerWidth <= 768) {
-            // Improve touch responsiveness
-            document.addEventListener('touchstart', function() {}, { passive: true });
-            
-            // Prevent double-tap zoom on buttons
-            document.querySelectorAll('.btn, .hamburger-btn, .nav-item').forEach(element => {
-                element.addEventListener('touchend', function(e) {
-                    e.preventDefault();
-                });
-            });
-        }
-        
         console.log('NARAP Admin Panel initialized successfully');
         
     } catch (error) {
         console.error('Error initializing admin panel:', error);
     }
 });
+
+// Login form functions (make sure these are global)
+window.login = function(event) {
+    event.preventDefault();
+    console.log('Login function called');
+    
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    
+    // Add your login logic here
+    console.log('Login attempt:', username);
+    
+    // Example login logic (replace with your actual logic)
+    if (username && password) {
+        // Hide login section and show admin section
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('adminSection').classList.add('active');
+        console.log('Login successful');
+    } else {
+        console.log('Login failed - missing credentials');
+        // Show error message
+        const errorDiv = document.getElementById('loginError');
+        if (errorDiv) {
+            errorDiv.innerHTML = '<div class="error">Please enter both username and password</div>';
+        }
+    }
+};
+
+window.fillAdminCredentials = function() {
+    console.log('Fill admin credentials called');
+    
+    const usernameField = document.getElementById('username');
+    const passwordField = document.getElementById('password');
+    
+    if (usernameField && passwordField) {
+        usernameField.value = 'admin@narap.org'; // Replace with your admin email
+        passwordField.value = 'admin123'; // Replace with your admin password
+        console.log('Admin credentials filled');
+    } else {
+        console.error('Username or password field not found');
+    }
+};
+
+window.clearLoginForm = function() {
+    console.log('Clear login form called');
+    
+    const usernameField = document.getElementById('username');
+    const passwordField = document.getElementById('password');
+    const errorDiv = document.getElementById('loginError');
+    
+    if (usernameField) usernameField.value = '';
+    if (passwordField) passwordField.value = '';
+    if (errorDiv) errorDiv.innerHTML = '';
+    
+    console.log('Login form cleared');
+};
+
+// Tab switching function
+window.switchTab = function(tabName) {
+    console.log('Switching to tab:', tabName);
+    
+    // Hide all panels
+    const panels = document.querySelectorAll('.panel');
+    panels.forEach(panel => {
+        panel.classList.remove('active');
+    });
+    
+    // Remove active class from all nav items
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    // Show selected panel
+    const selectedPanel = document.getElementById('panel-' + tabName);
+    if (selectedPanel) {
+        selectedPanel.classList.add('active');
+    }
+    
+    // Add active class to selected nav item
+    const selectedNavItem = document.getElementById('btn-' + tabName);
+    if (selectedNavItem) {
+        selectedNavItem.classList.add('active');
+    }
+    
+    // Update header title
+    const headerTitle = document.getElementById('headerTitle');
+    if (headerTitle) {
+        headerTitle.textContent = tabName.charAt(0).toUpperCase() + tabName.slice(1);
+    }
+    
+    console.log('Tab switched to:', tabName);
+};
+
+// Logout function
+window.logout = function() {
+    console.log('Logout called');
+    
+    // Hide admin section and show login section
+    document.getElementById('adminSection').classList.remove('active');
+    document.getElementById('loginSection').style.display = 'flex';
+    
+    // Clear login form
+    clearLoginForm();
+    
+    console.log('Logged out successfully');
+};
+
+// Additional utility functions
+window.closeSidebar = function() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    
+    if (sidebar) sidebar.classList.remove('mobile-open');
+    if (overlay) overlay.classList.remove('active');
+    document.body.classList.remove('sidebar-open');
+    document.body.style.overflow = '';
+};
+
+window.openSidebar = function() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    
+    if (sidebar) sidebar.classList.add('mobile-open');
+    if (overlay) overlay.classList.add('active');
+    document.body.classList.add('sidebar-open');
+    document.body.style.overflow = 'hidden';
+};
+
+// Debug function
+window.debugSidebar = function() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    const hamburgerBtns = document.querySelectorAll('.hamburger-btn');
+    
+    console.log('=== SIDEBAR DEBUG INFO ===');
+    console.log('Sidebar element:', sidebar);
+    console.log('Sidebar classes:', sidebar ? sidebar.className : 'Not found');
+    console.log('Overlay element:', overlay);
+    console.log('Overlay classes:', overlay ? overlay.className : 'Not found');
+    console.log('Hamburger buttons found:', hamburgerBtns.length);
+    console.log('Window width:', window.innerWidth);
+    console.log('Is mobile:', window.innerWidth <= 768);
+    console.log('toggleSidebar function exists:', typeof window.toggleSidebar === 'function');
+    console.log('========================');
+};
+
+// Ensure functions are available immediately
+window.addEventListener('load', function() {
+    console.log('Window loaded, ensuring all functions are available');
+    
+    // Double-check that all functions exist
+    const requiredFunctions = ['login', 'fillAdminCredentials', 'clearLoginForm', 'toggleSidebar', 'switchTab', 'logout'];
+    
+    requiredFunctions.forEach(funcName => {
+        if (typeof window[funcName] !== 'function') {
+            console.error(`Function ${funcName} is not available`);
+        } else {
+            console.log(`Function ${funcName} is available`);
+        }
+    });
+});
+
 
 // Additional global functions that might be needed
 
@@ -4277,6 +4422,15 @@ window.debugSidebar = function() {
     console.log('toggleSidebar function exists:', typeof window.toggleSidebar === 'function');
     console.log('========================');
 };
+
+// Call debug function in development (remove in production)
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    setTimeout(() => {
+        window.debugSidebar();
+    }, 2000);
+}
+
+
 
 
 // Keyboard shortcuts
