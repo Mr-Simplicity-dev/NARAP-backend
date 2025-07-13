@@ -3197,11 +3197,13 @@ window.generateCertificatePreview = function() {
 };
 
 // Updated issue certificate function with manual inputs
+// Updated issueCertificate function with manual serial number input
 async function issueCertificate(event) {
     event.preventDefault();
     
     const formData = {
         number: document.getElementById('certificateNumber').value.trim(),
+        serialNumber: document.getElementById('certificateSerialNumber').value.trim(), // Manual serial number
         recipient: document.getElementById('certificateRecipient').value.trim(),
         email: document.getElementById('certificateEmail').value.trim(),
         title: document.getElementById('certificateTitle').value.trim(),
@@ -3216,10 +3218,11 @@ async function issueCertificate(event) {
     
     console.log('Issue certificate form data:', formData);
     
-    // Validation
-    if (!formData.number || !formData.recipient || !formData.email || !formData.title || !formData.type || !formData.issueDate) {
+    // Validation - now includes serial number
+    if (!formData.number || !formData.serialNumber || !formData.recipient || !formData.email || !formData.title || !formData.type || !formData.issueDate) {
         const missingFields = [];
         if (!formData.number) missingFields.push('Certificate Number');
+        if (!formData.serialNumber) missingFields.push('Serial Number');
         if (!formData.recipient) missingFields.push('Recipient Name');
         if (!formData.email) missingFields.push('Recipient Email');
         if (!formData.title) missingFields.push('Certificate Title');
@@ -3239,12 +3242,11 @@ async function issueCertificate(event) {
     try {
         showMessage('Issuing certificate...', 'info');
         
-        // Create certificate data
+        // Create certificate data - use manual serial number instead of generating
         const certificateData = {
             ...formData,
             status: 'active',
             createdAt: new Date().toISOString(),
-            serialNumber: generateSerialNumber(),
             id: generateCertificateId(),
             recipientCode: formData.code || 'N/A',
             recipientPosition: formData.position || 'Member',
@@ -3259,7 +3261,7 @@ async function issueCertificate(event) {
             try {
                 const res = await fetch(`${window.backendUrl}/api/certificates`, {
                     method: 'POST',
-                    headers: { 
+                    headers: {
                         'Content-Type': 'application/json',
                         ...getAuthHeaders()
                     },
@@ -3302,17 +3304,11 @@ async function issueCertificate(event) {
         showMessage('Certificate issued successfully!', 'success');
         closeIssueCertificateModal();
         
-               // Clear form
+        // Clear form
         document.getElementById('issueCertificateForm').reset();
         document.getElementById('certificatePreview').classList.add('hidden');
         
-        // Set new certificate number for next use
-        const certificateNumberField = document.getElementById('certificateNumber');
-        if (certificateNumberField) {
-            certificateNumberField.value = generateCertificateNumber();
-        }
-        
-        // Set default issue date to today
+        // Set default issue date to today for next use
         const issueDateField = document.getElementById('certificateIssueDate');
         if (issueDateField) {
             issueDateField.value = new Date().toISOString().split('T')[0];
@@ -3334,8 +3330,9 @@ async function issueCertificate(event) {
     }
 }
 
-// Make sure functions are globally accessible
+// Make sure it's globally accessible
 window.issueCertificate = issueCertificate;
+
 
 
 

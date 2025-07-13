@@ -647,66 +647,90 @@
                 <h2 class="modal-title">Issue Certificate</h2>
                 <button class="close-btn" onclick="closeIssueCertificateModal()">&times;</button>
             </div>
-            <form id="issueCertificateForm" onsubmit="issueCertificate(event)">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="certificateNumber">Certificate Number *</label>
-                        <input type="text" id="certificateNumber" required readonly>
-                    </div>
-                                        <div class="form-group">
-                        <label for="certificateEmail">Recipient Email *</label>
-                        <input type="email" id="certificateEmail" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="certificateTitle">Certificate Title *</label>
-                        <input type="text" id="certificateTitle" required placeholder="e.g., Certificate of Membership">
-                    </div>
-                    <div class="form-group">
-                        <label for="certificateType">Certificate Type *</label>
-                        <select id="certificateType" required>
-                            <option value="">Select Type</option>
-                            <option value="membership">Membership Certificate</option>
-                            <option value="achievement">Achievement Certificate</option>
-                            <option value="training">Training Certificate</option>
-                            <option value="recognition">Recognition Certificate</option>
-                            <option value="service">Service Certificate</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="certificateIssueDate">Issue Date *</label>
-                        <input type="date" id="certificateIssueDate" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="certificateValidUntil">Valid Until</label>
-                        <input type="date" id="certificateValidUntil">
-                    </div>
-                    <div class="form-group" style="grid-column: 1 / -1;">
-                        <label for="certificateDescription">Description</label>
-                        <textarea id="certificateDescription" rows="3" placeholder="Certificate description or achievement details"></textarea>
-                    </div>
-                </div>
-                
-                <!-- Certificate Preview -->
-                <div id="certificatePreview" class="hidden">
-                    <h3>Certificate Preview</h3>
-                    <div id="generatedCertificate"></div>
-                </div>
-                
-                <div class="form-buttons">
-                    <button type="button" onclick="generateCertificatePreview()" class="btn btn-info">
-                        <i class="fas fa-eye"></i>
-                        Preview Certificate
-                    </button>
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-certificate"></i>
-                        Issue Certificate
-                    </button>
-                    <button type="button" onclick="closeIssueCertificateModal()" class="btn btn-secondary">
-                        <i class="fas fa-times"></i>
-                        Cancel
-                    </button>
-                </div>
-            </form>
+            
+            <!-- Update the certificate form in your issueCertificateModal -->
+<form id="issueCertificateForm" onsubmit="issueCertificate(event)">
+    <div class="form-grid">
+        <div class="form-group">
+            <label for="certificateNumber">Certificate Number *</label>
+            <input type="text" id="certificateNumber" required placeholder="Enter certificate number manually">
+        </div>
+        <div class="form-group">
+            <label for="certificateSerialNumber">Serial Number *</label>
+            <input type="text" id="certificateSerialNumber" required placeholder="Enter serial number manually">
+        </div>
+        <div class="form-group">
+            <label for="certificateRecipient">Recipient Name *</label>
+            <input type="text" id="certificateRecipient" required placeholder="Full name of certificate recipient">
+        </div>
+        <div class="form-group">
+            <label for="certificateEmail">Recipient Email *</label>
+            <input type="email" id="certificateEmail" required onblur="autoFillCertificateFields()">
+            <small style="color: #666; font-size: 12px;">If email matches existing member, other fields will be auto-filled</small>
+        </div>
+        <div class="form-group">
+            <label for="certificateTitle">Certificate Title *</label>
+            <input type="text" id="certificateTitle" required placeholder="e.g., Certificate of Membership">
+        </div>
+        <div class="form-group">
+            <label for="certificateType">Certificate Type *</label>
+            <select id="certificateType" required>
+                <option value="">Select Type</option>
+                <option value="membership">Membership Certificate</option>
+                <option value="achievement">Achievement Certificate</option>
+                <option value="training">Training Certificate</option>
+                <option value="recognition">Recognition Certificate</option>
+                <option value="service">Service Certificate</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="certificateIssueDate">Issue Date *</label>
+            <input type="date" id="certificateIssueDate" required>
+        </div>
+        <div class="form-group">
+            <label for="certificateValidUntil">Valid Until</label>
+            <input type="date" id="certificateValidUntil">
+        </div>
+        <div class="form-group">
+            <label for="certificatePosition">Position/Title</label>
+            <input type="text" id="certificatePosition" placeholder="e.g., Member, President, etc.">
+        </div>
+        <div class="form-group">
+            <label for="certificateCode">NARAP Code</label>
+            <input type="text" id="certificateCode" placeholder="Optional NARAP member code">
+        </div>
+        <div class="form-group">
+            <label for="certificateState">State</label>
+            <input type="text" id="certificateState" placeholder="State/Region">
+        </div>
+        <div class="form-group" style="grid-column: 1 / -1;">
+            <label for="certificateDescription">Description</label>
+            <textarea id="certificateDescription" rows="3" placeholder="Certificate description or achievement details"></textarea>
+        </div>
+    </div>
+    
+    <!-- Certificate Preview -->
+    <div id="certificatePreview" class="hidden">
+        <h3>Certificate Preview</h3>
+        <div id="generatedCertificate"></div>
+    </div>
+    
+    <div class="form-buttons">
+        <button type="button" onclick="generateCertificatePreview()" class="btn btn-info">
+            <i class="fas fa-eye"></i>
+            Preview Certificate
+        </button>
+        <button type="submit" class="btn btn-success">
+            <i class="fas fa-certificate"></i>
+            Issue Certificate
+        </button>
+        <button type="button" onclick="closeIssueCertificateModal()" class="btn btn-secondary">
+            <i class="fas fa-times"></i>
+            Cancel
+        </button>
+    </div>
+</form>
+
         </div>
     </div>
     
