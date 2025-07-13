@@ -3994,7 +3994,6 @@ async function checkSystemHealth() {
         }
     }
 }
-// ─────────────────────────────────────────────────────────────────────────────
 
 // Certificate verification function
 async function verifyCertificate(certificateNumber) {
