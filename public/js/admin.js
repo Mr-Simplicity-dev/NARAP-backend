@@ -2752,7 +2752,6 @@ async function issueCertificate(event) {
     
     const formData = {
         number: document.getElementById('certificateNumber').value.trim(),
-        recipient: document.getElementById('certificateRecipient').value.trim(),
         email: document.getElementById('certificateEmail').value.trim(),
         title: document.getElementById('certificateTitle').value.trim(),
         type: document.getElementById('certificateType').value,
@@ -2760,6 +2759,18 @@ async function issueCertificate(event) {
         validUntil: document.getElementById('certificateValidUntil').value || null,
         description: document.getElementById('certificateDescription').value.trim()
     };
+    
+    // Get recipient name from email by finding the member
+    const members = JSON.parse(localStorage.getItem('narap_members') || '[]');
+    const member = members.find(m => m.email.toLowerCase() === formData.email.toLowerCase());
+    
+    if (!member) {
+        showMessage('Member not found with this email address', 'error');
+        return;
+    }
+    
+    // Add recipient name from member data
+    formData.recipient = member.name;
     
     // Validation
     if (!formData.number || !formData.recipient || !formData.email || !formData.title || !formData.type) {
@@ -2774,7 +2785,7 @@ async function issueCertificate(event) {
     }
     
     try {
-        showMessage('Issuing certificate...', 'success');
+        showMessage('Issuing certificate...', 'info'); // Changed from 'success' to 'info'
         
         // Add additional fields
         const certificateData = {
@@ -2782,16 +2793,22 @@ async function issueCertificate(event) {
             status: 'active',
             createdAt: new Date().toISOString(),
             serialNumber: generateSerialNumber(),
-            id: generateCertificateId()
+            id: generateCertificateId(),
+            recipientCode: member.code,
+            recipientPosition: member.position,
+            recipientState: member.state
         };
         
         // Try to save to backend first
         let backendSuccess = false;
-        if (navigator.onLine) {
+        if (navigator.onLine && window.backendUrl) {
             try {
-                const res = await fetch(`${backendUrl}/api/certificates`, {
+                const res = await fetch(`${window.backendUrl}/api/certificates`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders() // Add auth headers if available
+                    },
                     credentials: 'include',
                     body: JSON.stringify(certificateData)
                 });
@@ -2820,20 +2837,188 @@ async function issueCertificate(event) {
         // Add to pending sync if backend failed
         if (!backendSuccess) {
             const pendingSync = getPendingSync();
+            if (!pendingSync.certificateCreations) {
+                pendingSync.certificateCreations = [];
+            }
             pendingSync.certificateCreations.push(certificateData);
             savePendingSync(pendingSync);
         }
         
         showMessage('Certificate issued successfully!', 'success');
         closeIssueCertificateModal();
-        await loadCertificates();
-        await loadDashboard();
+        
+        if (typeof loadCertificates === 'function') {
+            await loadCertificates();
+        }
+        if (typeof loadDashboard === 'function') {
+            await loadDashboard();
+        }
         
     } catch (error) {
         console.error('Issue certificate error:', error);
         showMessage('Network error while issuing certificate', 'error');
     }
 }
+
+// Add the missing generateCertificatePreview function
+window.generateCertificatePreview = function() {
+    console.log('Generate certificate preview called');
+    
+    try {
+        // Get form values
+        const certificateNumber = document.getElementById('certificateNumber')?.value?.trim();
+        const certificateEmail = document.getElementById('certificateEmail')?.value?.trim();
+        const certificateTitle = document.getElementById('certificateTitle')?.value?.trim();
+        const certificateType = document.getElementById('certificateType')?.value?.trim();
+        const certificateIssueDate = document.getElementById('certificateIssueDate')?.value;
+        const certificateValidUntil = document.getElementById('certificateValidUntil')?.value;
+        const certificateDescription = document.getElementById('certificateDescription')?.value?.trim();
+        
+        // Validate required fields
+        if (!certificateNumber || !certificateEmail || !certificateTitle || !certificateType || !certificateIssueDate) {
+            showMessage('Please fill in all required fields before generating preview', 'error');
+            return;
+        }
+        
+        // Find member by email
+        const members = JSON.parse(localStorage.getItem('narap_members') || '[]');
+        const member = members.find(m => m.email.toLowerCase() === certificateEmail.toLowerCase());
+        
+        if (!member) {
+            showMessage('Member not found with this email address', 'error');
+            return;
+        }
+        
+        // Format dates
+        const issueDate = new Date(certificateIssueDate).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        
+        const validUntilFormatted = certificateValidUntil ? 
+            new Date(certificateValidUntil).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            }) : 'Indefinite';
+        
+        // Generate certificate HTML
+        const certificateHTML = `
+            <div class="certificate">
+                <div class="certificate-header">
+                    <h1 style="color: #667eea; font-size: 24px; margin-bottom: 10px;">NIGERIAN ASSOCIATION OF REFRIGERATION<br>AND AIR CONDITIONING PRACTITIONERS</h1>
+                    <h2 style="color: #764ba2; font-size: 18px; margin-bottom: 20px;">CERTIFICATE OF ${certificateType.toUpperCase()}</h2>
+                </div>
+                
+                <div class="certificate-body" style="text-align: center; padding: 20px;">
+                    <div class="certificate-title">
+                        <h3 style="color: #333; font-size: 20px; margin-bottom: 20px;">${certificateTitle}</h3>
+                    </div>
+                    
+                    <div class="certificate-content">
+                        <p style="font-size: 16px; margin-bottom: 10px;">This is to certify that</p>
+                        <h2 class="recipient-name" style="color: #667eea; font-size: 28px; margin: 20px 0; text-decoration: underline;">${member.name}</h2>
+                        <p style="margin: 10px 0;"><strong>NARAP Code:</strong> ${member.code}</p>
+                        <p style="margin: 10px 0;"><strong>Position:</strong> ${member.position}</p>
+                        <p style="margin: 10px 0;"><strong>State:</strong> ${member.state}</p>
+                        
+                        ${certificateDescription ? `<p class="description" style="margin: 20px 0; font-style: italic;">${certificateDescription}</p>` : ''}
+                        
+                        <div class="certificate-details" style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
+                            <p style="margin: 5px 0;"><strong>Certificate Number:</strong> ${certificateNumber}</p>
+                            <p style="margin: 5px 0;"><strong>Issue Date:</strong> ${issueDate}</p>
+                            <p style="margin: 5px 0;"><strong>Valid Until:</strong> ${validUntilFormatted}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="certificate-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd;">
+                    <div class="signature-section">
+                        <div class="signature-line" style="width: 200px; border-bottom: 1px solid #333; margin-bottom: 5px;"></div>
+                        <p style="font-size: 14px;">President, NARAP</p>
+                    </div>
+                    <div class="seal-section">
+                        <div class="official-seal" style="width: 80px; height: 80px; border: 2px solid #667eea; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #667eea;">OFFICIAL<br>SEAL</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Show preview
+        const previewContainer = document.getElementById('certificatePreview');
+        const generatedCertificate = document.getElementById('generatedCertificate');
+        
+        if (previewContainer && generatedCertificate) {
+            generatedCertificate.innerHTML = certificateHTML;
+            previewContainer.classList.remove('hidden');
+            showMessage('Certificate preview generated successfully', 'success');
+        } else {
+            console.error('Preview containers not found');
+            showMessage('Error: Preview containers not found', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Error generating certificate preview:', error);
+        showMessage('Error generating certificate preview: ' + error.message, 'error');
+    }
+};
+
+// Add missing utility functions if they don't exist
+if (typeof validateEmail !== 'function') {
+    window.validateEmail = function(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    };
+}
+
+if (typeof generateSerialNumber !== 'function') {
+    window.generateSerialNumber = function() {
+        return 'SN' + Date.now() + Math.floor(Math.random() * 1000);
+    };
+}
+
+if (typeof generateCertificateId !== 'function') {
+    window.generateCertificateId = function() {
+        return 'cert_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+    };
+}
+
+if (typeof getLocalCertificates !== 'function') {
+    window.getLocalCertificates = function() {
+        return JSON.parse(localStorage.getItem('narap_certificates') || '[]');
+    };
+}
+
+if (typeof saveLocalCertificates !== 'function') {
+    window.saveLocalCertificates = function(certificates) {
+        localStorage.setItem('narap_certificates', JSON.stringify(certificates));
+    };
+}
+
+if (typeof getPendingSync !== 'function') {
+    window.getPendingSync = function() {
+        return JSON.parse(localStorage.getItem('narap_pending_sync') || '{"certificateCreations": [], "memberCreations": []}');
+    };
+}
+
+if (typeof savePendingSync !== 'function') {
+    window.savePendingSync = function(pendingSync) {
+        localStorage.setItem('narap_pending_sync', JSON.stringify(pendingSync));
+    };
+}
+
+if (typeof getAuthHeaders !== 'function') {
+    window.getAuthHeaders = function() {
+        // Return empty object if no auth headers needed
+        // You can modify this based on your authentication system
+        return {};
+    };
+}
+
+// Make sure the functions are globally accessible
+window.issueCertificate = issueCertificate;
+
 
 // Helper functions for certificate management
 function generateSerialNumber() {
