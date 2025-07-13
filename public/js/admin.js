@@ -56,7 +56,6 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-
 let selectedMembers = new Set();
 let currentMembers = [];
 let currentCertificates = [];
@@ -317,8 +316,6 @@ function getMessageStyle(type) {
     }
 }
 
-
-
 // Update your getAuthHeaders function
 function getAuthHeaders() {
     const token = localStorage.getItem('authToken');
@@ -413,8 +410,6 @@ async function login(event) {
 }
 
 
-
-
 // Logout function
 function logout() {
     if (confirm('Are you sure you want to logout?')) {
@@ -426,7 +421,6 @@ function logout() {
 }
 
 // Tab switching functionality
-
 function switchTab(tabName) {
     // Hide all panels
     const panels = document.querySelectorAll('.panel');
@@ -471,7 +465,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Ensure only dashboard is visible initially
     switchTab('dashboard');
 });
-
 
 
 // Load dashboard data
@@ -3276,7 +3269,6 @@ function checkPasswordStrength(password) {
 
 
 // Add touch-friendly features for mobile devices
-// Add this safer version at the end of admin.js
 function addMobileSupport() {
     try {
         // Larger touch targets for mobile
@@ -3455,8 +3447,6 @@ function generateIdCardPreview() {
     });
     }
 
- 
-
     // Debug function to check file inputs
     function debugFileInputs() {
     console.log('=== DEBUG FILE INPUTS ===');
@@ -3489,11 +3479,6 @@ function generateIdCardPreview() {
 }
 
 
-
-
-
-
-
 // Optional: Add event listeners to auto-update preview when images are selected
 function setupPreviewListeners() {
     const passportInput = document.getElementById('passportPhoto');
@@ -3521,9 +3506,6 @@ function setupPreviewListeners() {
         });
     }
 }
-
-
-
 
 
 function generateCertificatePreview() {
@@ -4428,9 +4410,6 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
         window.debugSidebar();
     }, 2000);
 }
-
-
-
 
 // Keyboard shortcuts
 document.addEventListener('keydown', function(e) {
