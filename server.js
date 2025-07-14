@@ -338,6 +338,50 @@ app.get('/api/getUsers', withDB(async (req, res) => {
   }
 }));
 
+// Add this endpoint to handle /api/members calls
+app.get('/api/members', withDB(async (req, res) => {
+  try {
+    console.log('📊 Fetching members from /api/members endpoint...');
+    
+    const users = await User.find().select('-password').sort({ dateAdded: -1 }).lean();
+    
+    console.log(`✅ Found ${users.length} members`);
+    
+    const formattedUsers = users.map(user => ({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      code: user.code,
+      position: user.position,
+      state: user.state,
+      zone: user.zone,
+      passportPhoto: user.passportPhoto || user.passport,
+      passport: user.passport || user.passportPhoto,
+      signature: user.signature,
+      dateAdded: user.dateAdded || user.createdAt,
+      isActive: user.isActive !== false,
+      cardGenerated: user.cardGenerated,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    }));
+    
+    // Return same format as /api/getUsers
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json(formattedUsers);
+    
+  } catch (error) {
+    console.error('❌ Get members error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        success: false,
+        message: 'Server error while fetching members',
+        error: error.message 
+      });
+    }
+  }
+}));
+
+
 app.post('/api/addUser', withDB(async (req, res) => {
   try {
     const {
