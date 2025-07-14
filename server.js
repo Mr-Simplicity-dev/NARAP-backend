@@ -20,20 +20,7 @@ const allowedOrigins = [
   /\.vercel\.app$/,
   /\.onrender\.com$/,
 ];
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    const isAllowed = allowedOrigins.some(o =>
-      typeof o === 'string' ? o === origin : o.test(origin)
-    );
-    return isAllowed
-      ? callback(null, true)
-      : callback(new Error(`Not allowed by CORS: ${origin}`));
-  },
-  credentials: true,
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
-};
+
 app.use(cors({
   origin: allowedOrigins,
   credentials: true,
@@ -46,12 +33,13 @@ app.options('*', cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Request logging middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-// --- STATIC FILES SECTION FOR RENDER ---
+// --- STATIC FILES SECTION ---
 const publicPath = path.join(__dirname, 'public');
 app.use(express.static(publicPath));
 
@@ -82,7 +70,6 @@ const uploadPassport = multer({
         fileSize: 5 * 1024 * 1024 // 5MB limit
     },
     fileFilter: function (req, file, cb) {
-        // Check file type
         if (file.mimetype.startsWith('image/')) {
             cb(null, true);
         } else {
@@ -91,26 +78,14 @@ const uploadPassport = multer({
     }
 });
 
-// Serve admin.html for root route
-app.get('/', (req, res) => {
-  res.sendFile(path.join(publicPath, 'admin.html'));
-});
-
-// Serve admin.html for /admin route
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(publicPath, 'admin.html'));
-});
-
-// ✅ FIXED Database Connection - Updated for Mongoose 6+
+// ✅ Database Connection
 const connectDB = async () => {
   try {
-    // Check if already connected
     if (mongoose.connection.readyState === 1) {
       console.log('✅ MongoDB already connected');
       return mongoose.connection;
     }
     
-    // Don't wait for pending connections, create new one
     if (mongoose.connection.readyState === 2) {
       console.log('⚠️ Closing pending connection...');
       await mongoose.connection.close();
@@ -123,19 +98,13 @@ const connectDB = async () => {
     
     console.log('🔄 Connecting to MongoDB...');
     
-    // Updated connection options (remove unsupported bufferMaxEntries)
     await mongoose.connect(uri, {
       serverSelectionTimeoutMS: 3000,
       connectTimeoutMS: 3000,
       socketTimeoutMS: 3000,
       maxPoolSize: 1,
-      bufferCommands: false  // Keep this, but remove bufferMaxEntries
+      bufferCommands: false
     });
-    
-    // Optional: Add event listeners for debugging
-    mongoose.connection.on('connecting', () => console.log('Connecting to MongoDB...'));
-    mongoose.connection.on('connected', () => console.log('MongoDB connected!'));
-    mongoose.connection.on('error', (err) => console.error('MongoDB error:', err));
     
     console.log('✅ MongoDB connected successfully');
     return mongoose.connection;
@@ -146,7 +115,7 @@ const connectDB = async () => {
   }
 };
 
-// Database Models (keep your existing schemas)
+// Database Models
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
@@ -169,28 +138,23 @@ const userSchema = new mongoose.Schema({
   zone: { type: String, required: true },
   passportPhoto: { type: String },
   signature: { type: String },
-  passport: { type: String }, // Added for backward compatibility
+  passport: { type: String },
   isActive: { type: Boolean, default: true },
   lastLogin: { type: Date },
   cardGenerated: { type: Boolean, default: false },
   dateAdded: { type: Date, default: Date.now }
 }, { timestamps: true });
 
-userSchema.index({ state: 1 });
-userSchema.index({ position: 1 });
-
 const certificateSchema = new mongoose.Schema({
-  number: { type: String, required: [true, 'Certificate number is required'], unique: true, uppercase: true, trim: true },
-  recipient: { type: String, required: [true, 'Recipient name is required'], trim: true },
-  email: { type: String, required: [true, 'Email is required'], lowercase: true, trim: true,
-    validate: { validator: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), message: 'Please enter a valid email address' }
-  },
-  title: { type: String, required: [true, 'Certificate title is required'], trim: true },
-  type: { type: String, required: true, enum: { values: ['membership', 'training', 'achievement', 'recognition', 'service'], message: 'Invalid certificate type' }, default: 'membership' },
+  number: { type: String, required: true, unique: true, uppercase: true, trim: true },
+  recipient: { type: String, required: true, trim: true },
+  email: { type: String, required: true, lowercase: true, trim: true },
+  title: { type: String, required: true, trim: true },
+  type: { type: String, required: true, enum: ['membership', 'training', 'achievement', 'recognition', 'service'], default: 'membership' },
   description: { type: String, trim: true },
-  issueDate: { type: Date, required: [true, 'Issue date is required'], default: Date.now },
-  validUntil: { type: Date, validate: { validator: function(v) { return !v || v > this.issueDate; }, message: 'Valid until date must be after issue date'}},
-  status: { type: String, enum: { values: ['active', 'revoked', 'expired'], message: 'Invalid certificate status' }, default: 'active' },
+  issueDate: { type: Date, required: true, default: Date.now },
+  validUntil: { type: Date },
+  status: { type: String, enum: ['active', 'revoked', 'expired'], default: 'active' },
   revokedAt: { type: Date },
   revokedBy: { type: String },
   revokedReason: { type: String },
@@ -206,15 +170,10 @@ certificateSchema.pre('save', function(next) {
   next();
 });
 
-certificateSchema.index({ email: 1 });
-certificateSchema.index({ status: 1 });
-certificateSchema.index({ recipient: 1 });
-
 const User = mongoose.model('User', userSchema);
 const Certificate = mongoose.model('Certificate', certificateSchema);
 
-// ✅ Add this helper function instead:
-// Replace the entire withDB function with:
+// Database wrapper
 const withDB = (handler) => {
   return async (req, res) => {
     try {
@@ -227,7 +186,6 @@ const withDB = (handler) => {
         });
       }
       
-      // Add timeout handling
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Request timeout')), 10000)
       );
@@ -250,22 +208,44 @@ const withDB = (handler) => {
   };
 };
 
-// Request logging
-app.use((req, res, next) => {
-  console.log(`📨 ${req.method} ${req.path} - ${new Date().toISOString()}`);
-  next();
+// ==================== API ROUTES (MUST COME BEFORE CATCH-ALL) ====================
+
+// Health check endpoints
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    message: 'Server is running'
+  });
 });
 
-// ==================== ROUTES ====================
-
-// HTML Routes
-app.get('/', (req, res) => {
-  res.sendFile(path.join(publicPath, 'admin.html'));
+app.get('/api/db-health', async (req, res) => {
+  try {
+    const conn = await connectDB();
+    if (!conn) {
+      return res.status(503).json({ 
+        status: 'down', 
+        message: 'Database connection failed' 
+      });
+    }
+    
+    const userCount = await User.countDocuments();
+    
+    res.json({
+      status: 'healthy',
+      userCount,
+      readyState: mongoose.connection.readyState,
+      dbName: mongoose.connection.name
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message
+    });
+  }
 });
 
-// ==================== AUTHENTICATION ENDPOINTS - FIXED ====================
-
-// ✅ Wrap login with database connection
+// Authentication endpoints
 app.post('/api/login', async (req, res) => {
   try {
     console.log('🔐 Login attempt received');
@@ -280,7 +260,6 @@ app.post('/api/login', async (req, res) => {
       });
     }
 
-    // Hardcoded admin login (no DB needed)
     if (email.toLowerCase().trim() === "admin@gmail.com" && password === "Password") {
       console.log('✅ Admin login successful');
       
@@ -317,237 +296,14 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// Health check endpoint - Add this for debugging
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    message: 'Server is running'
-  });
-});
-
-// Add after your /api/health route
-app.get('/api/db-health', async (req, res) => {
-  try {
-    const conn = await connectDB();
-    if (!conn) {
-      return res.status(503).json({ 
-        status: 'down', 
-        message: 'Database connection failed' 
-      });
-    }
-    
-    // Test a simple query
-    const userCount = await User.countDocuments();
-    
-    res.json({
-      status: 'healthy',
-      userCount,
-      readyState: mongoose.connection.readyState,
-      dbName: mongoose.connection.name
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: 'error',
-      message: error.message
-    });
-  }
-});
-
-// Authentication Middleware
-const authenticate = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ message: 'Authentication required' });
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    
-    if (decoded.userId === 'admin') {
-      req.user = { _id: 'admin', email: decoded.email, role: 'admin' };
-    } else {
-      req.user = await User.findById(decoded.userId).select('-password');
-    }
-    
-    next();
-  } catch (err) {
-    console.error('Authentication error:', err);
-    res.status(401).json({ message: 'Invalid or expired token' });
-  }
-};
-
-// ==================== PASSPORT UPLOAD ENDPOINTS ====================
-
-// API endpoint for passport upload
-app.post('/api/upload-passport', uploadPassport.single('passport'), withDB(async (req, res) => {
-    try {
-        const { memberId } = req.body;
-        const file = req.file;
-        
-        if (!file) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'No file uploaded' 
-            });
-        }
-        
-        if (!memberId) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Member ID is required' 
-            });
-        }
-
-        // Validate ObjectId
-        if (!mongoose.Types.ObjectId.isValid(memberId)) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Invalid member ID' 
-            });
-        }
-        
-                const passportPath = `uploads/passports/${file.filename}`;
-        
-        // Get the current member to delete old passport file
-        const currentMember = await User.findById(memberId);
-        
-        if (!currentMember) {
-            // Delete uploaded file if member not found
-            fs.unlinkSync(path.join(__dirname, passportPath));
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Member not found' 
-            });
-        }
-        
-        // Delete old passport file if it exists
-        if (currentMember.passport && 
-            currentMember.passport !== 'images/default-avatar.png' &&
-            !currentMember.passport.startsWith('data:') &&
-            !currentMember.passport.startsWith('http')) {
-            const oldFilePath = path.join(__dirname, currentMember.passport);
-            if (fs.existsSync(oldFilePath)) {
-                try {
-                    fs.unlinkSync(oldFilePath);
-                    console.log(`Deleted old passport: ${oldFilePath}`);
-                } catch (fileError) {
-                    console.error('Error deleting old passport:', fileError);
-                }
-            }
-        }
-        
-        // Update member record with new passport path
-        const updatedUser = await User.findByIdAndUpdate(
-            memberId,
-            { 
-                passport: passportPath,
-                passportPhoto: passportPath, // For backward compatibility
-                updatedAt: new Date(),
-                cardGenerated: true // Mark as having passport
-            },
-            { new: true }
-        );
-        
-        res.json({ 
-            success: true, 
-            message: 'Passport uploaded successfully',
-            passportPath: passportPath,
-            user: updatedUser
-        });
-        
-    } catch (error) {
-        console.error('Passport upload error:', error);
-        
-        // Delete uploaded file if there was an error
-        if (req.file) {
-            const filePath = path.join(__dirname, 'uploads/passports', req.file.filename);
-            if (fs.existsSync(filePath)) {
-                try {
-                    fs.unlinkSync(filePath);
-                } catch (cleanupError) {
-                    console.error('Error cleaning up uploaded file:', cleanupError);
-                }
-            }
-        }
-        
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to upload passport: ' + error.message 
-        });
-    }
-}));
-
-// API endpoint to delete passport
-app.delete('/api/delete-passport/:memberId', withDB(async (req, res) => {
-    try {
-        const { memberId } = req.params;
-        
-        if (!mongoose.Types.ObjectId.isValid(memberId)) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Invalid member ID' 
-            });
-        }
-        
-        // Get current member
-        const member = await User.findById(memberId);
-        
-        if (!member) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Member not found' 
-            });
-        }
-        
-        // Delete passport file if it exists
-        if (member.passport && 
-            member.passport !== 'images/default-avatar.png' &&
-            !member.passport.startsWith('data:') &&
-            !member.passport.startsWith('http')) {
-            const filePath = path.join(__dirname, member.passport);
-            if (fs.existsSync(filePath)) {
-                try {
-                    fs.unlinkSync(filePath);
-                    console.log(`Deleted passport file: ${filePath}`);
-                } catch (fileError) {
-                    console.error('Error deleting passport file:', fileError);
-                }
-            }
-        }
-        
-        // Update member record
-        await User.findByIdAndUpdate(
-            memberId,
-            { 
-                $unset: { passport: "", passportPhoto: "" },
-                $set: { updatedAt: new Date(), cardGenerated: false }
-            }
-        );
-        
-        res.json({ 
-            success: true, 
-            message: 'Passport deleted successfully' 
-        });
-        
-    } catch (error) {
-        console.error('Delete passport error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to delete passport: ' + error.message 
-        });
-    }
-}));
-
-// ==================== KEEP ALL YOUR EXISTING ENDPOINTS ====================
-
-// ✅ Use wrapper for database-dependent routes
-// Replace the entire /api/getUsers route with:
+// User management endpoints
 app.get('/api/getUsers', withDB(async (req, res) => {
   try {
-    console.log('Fetching users...'); // Debug log
+    console.log('📊 Fetching users from database...');
     
     const users = await User.find().select('-password').sort({ dateAdded: -1 }).lean();
     
-    console.log(`Found ${users.length} users`); // Debug log
+    console.log(`✅ Found ${users.length} users`);
     
     const formattedUsers = users.map(user => ({
       _id: user._id,
@@ -558,7 +314,7 @@ app.get('/api/getUsers', withDB(async (req, res) => {
       state: user.state,
       zone: user.zone,
       passportPhoto: user.passportPhoto || user.passport,
-      passport: user.passport || user.passportPhoto, // For backward compatibility
+      passport: user.passport || user.passportPhoto,
       signature: user.signature,
       dateAdded: user.dateAdded || user.createdAt,
       isActive: user.isActive,
@@ -567,14 +323,14 @@ app.get('/api/getUsers', withDB(async (req, res) => {
       updatedAt: user.updatedAt
     }));
     
-    // Explicitly set content type
     res.setHeader('Content-Type', 'application/json');
-    res.json(formattedUsers);
+    res.status(200).json(formattedUsers);
     
   } catch (error) {
-    console.error('Get users error:', error);
+    console.error('❌ Get users error:', error);
     if (!res.headersSent) {
       res.status(500).json({ 
+        success: false,
         message: 'Server error while fetching users',
         error: error.message 
       });
@@ -582,7 +338,6 @@ app.get('/api/getUsers', withDB(async (req, res) => {
   }
 }));
 
-// Add user (admin panel expects this endpoint)
 app.post('/api/addUser', withDB(async (req, res) => {
   try {
     const {
@@ -597,26 +352,29 @@ app.post('/api/addUser', withDB(async (req, res) => {
       signature
     } = req.body;
     
-    // Validation
     if (!name || !email || !password || !code || !state || !zone) {
       return res.status(400).json({
+        success: false,
         message: 'All required fields must be provided'
       });
     }
     
-    // Check if code already exists
     const existingCode = await User.findOne({ code: code.toUpperCase() });
     if (existingCode) {
-      return res.status(400).json({ message: 'Code already exists' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Code already exists' 
+      });
     }
     
-    // Check if email already exists
     const existingEmail = await User.findOne({ email: email.toLowerCase() });
     if (existingEmail) {
-      return res.status(400).json({ message: 'Email already exists' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email already exists' 
+      });
     }
     
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     
     const userData = {
@@ -631,10 +389,9 @@ app.post('/api/addUser', withDB(async (req, res) => {
       cardGenerated: !!(passportPhoto && signature)
     };
     
-    // Add images if provided
     if (passportPhoto) {
       userData.passportPhoto = passportPhoto;
-      userData.passport = passportPhoto; // For backward compatibility
+      userData.passport = passportPhoto;
     }
     
     if (signature) {
@@ -644,40 +401,62 @@ app.post('/api/addUser', withDB(async (req, res) => {
     const user = new User(userData);
     await user.save();
     
-    res.json({ message: 'User added successfully' });
+    res.status(201).json({ 
+      success: true,
+      message: 'User added successfully' 
+    });
   } catch (error) {
     console.error('Add user error:', error);
     if (error.code === 11000) {
       if (error.keyPattern.email) {
-        res.status(400).json({ message: 'Email already exists' });
+        res.status(400).json({ 
+          success: false,
+          message: 'Email already exists' 
+        });
       } else if (error.keyPattern.code) {
-        res.status(400).json({ message: 'Code already exists' });
+        res.status(400).json({ 
+          success: false,
+          message: 'Code already exists' 
+        });
       } else {
-        res.status(400).json({ message: 'Duplicate entry found' });
+        res.status(400).json({ 
+          success: false,
+          message: 'Duplicate entry found' 
+        });
       }
     } else if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(err => err.message);
-      res.status(400).json({ message: messages.join(', ') });
+      const messages = Object.values(error.errors).map(err => err.message
+      );
+      res.status(400).json({ 
+        success: false,
+        message: messages.join(', ') 
+      });
     } else {
-      res.status(500).json({ message: 'Server error while adding user' });
+      res.status(500).json({ 
+        success: false,
+        message: 'Server error while adding user' 
+      });
     }
   }
 }));
 
-// Delete single user (admin panel expects this endpoint) - UPDATED WITH PASSPORT CLEANUP
 app.delete('/api/deleteUser/:id', withDB(async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Invalid user ID format' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid user ID format' 
+      });
     }
     
-    // Get user data first to delete passport file
     const user = await User.findById(id);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      });
     }
     
     // Delete passport file if it exists
@@ -693,28 +472,27 @@ app.delete('/api/deleteUser/:id', withDB(async (req, res) => {
                 console.log(`Deleted passport file: ${filePath}`);
             } catch (fileError) {
                 console.error('Error deleting passport file:', fileError);
-                // Continue with user deletion even if file deletion fails
             }
         }
     }
     
-    // Delete user from database
     await User.findByIdAndDelete(id);
     
     res.json({ 
         success: true,
-        message: 'User and associated files deleted successfully' 
+        message: 'User deleted successfully' 
     });
   } catch (error) {
     console.error('Delete user error:', error);
-    res.status(500).json({ message: 'Server error while deleting user' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error while deleting user' 
+    });
   }
 }));
 
-// Delete all users (admin panel expects this endpoint) - UPDATED WITH PASSPORT CLEANUP
 app.delete('/api/deleteAllUsers', withDB(async (req, res) => {
   try {
-    // Get all users first to clean up their passport files
     const users = await User.find({});
     
     // Delete all passport files
@@ -739,33 +517,37 @@ app.delete('/api/deleteAllUsers', withDB(async (req, res) => {
     const result = await User.deleteMany({});
     
     res.json({ 
+      success: true,
       message: `All users deleted successfully. ${result.deletedCount} users removed.`,
       deletedCount: result.deletedCount
     });
   } catch (error) {
     console.error('Delete all users error:', error);
-    res.status(500).json({ message: 'Server error while deleting all users' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error while deleting all users' 
+    });
   }
 }));
 
-// Update user (admin panel expects this endpoint)
 app.put('/api/updateUser/:id', withDB(async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
     
-    // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Invalid user ID format' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid user ID format' 
+      });
     }
     
-    // Remove sensitive fields that shouldn't be updated directly
+    // Remove sensitive fields
     delete updateData.password;
     delete updateData._id;
     delete updateData.createdAt;
     delete updateData.updatedAt;
     
-    // If code is being updated, make sure it's uppercase and unique
     if (updateData.code) {
       updateData.code = updateData.code.toUpperCase().trim();
       const existingCode = await User.findOne({
@@ -773,18 +555,19 @@ app.put('/api/updateUser/:id', withDB(async (req, res) => {
         _id: { $ne: id }
       });
       if (existingCode) {
-        return res.status(400).json({ message: 'Code already exists' });
+        return res.status(400).json({ 
+          success: false,
+          message: 'Code already exists' 
+        });
       }
     }
     
-    // Update cardGenerated status if images are provided
     if (updateData.passportPhoto && updateData.signature) {
       updateData.cardGenerated = true;
     }
     
-    // Handle passport photo updates
     if (updateData.passportPhoto) {
-        updateData.passport = updateData.passportPhoto; // For backward compatibility
+        updateData.passport = updateData.passportPhoto;
     }
     
     const user = await User.findByIdAndUpdate(
@@ -794,26 +577,182 @@ app.put('/api/updateUser/:id', withDB(async (req, res) => {
     ).select('-password');
     
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      });
     }
     
-    res.json({ message: 'User updated successfully', user });
+    res.json({ 
+      success: true,
+      message: 'User updated successfully', 
+      user 
+    });
   } catch (error) {
     console.error('Update user error:', error);
     if (error.code === 11000) {
-      res.status(400).json({ message: 'Duplicate entry found' });
+      res.status(400).json({ 
+        success: false,
+        message: 'Duplicate entry found' 
+      });
     } else if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(err => err.message);
-      res.status(400).json({ message: messages.join(', ') });
+      res.status(400).json({ 
+        success: false,
+        message: messages.join(', ') 
+      });
     } else {
-      res.status(500).json({ message: 'Server error while updating user' });
+      res.status(500).json({ 
+        success: false,
+        message: 'Server error while updating user' 
+      });
     }
   }
 }));
 
-// ==================== FRONTEND VERIFICATION ENDPOINTS ====================
+// File upload endpoints
+app.post('/api/upload-passport', uploadPassport.single('passport'), withDB(async (req, res) => {
+    try {
+        const { memberId } = req.body;
+        
+        if (!req.file) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'No file uploaded' 
+            });
+        }
+        
+        if (!memberId || !mongoose.Types.ObjectId.isValid(memberId)) {
+            // Delete uploaded file if invalid member ID
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Valid member ID is required' 
+            });
+        }
+        
+        const passportPath = `uploads/passports/${req.file.filename}`;
+        
+        const currentMember = await User.findById(memberId);
+        
+        if (!currentMember) {
+            fs.unlinkSync(req.file.path);
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Member not found' 
+            });
+        }
+        
+        // Delete old passport file if it exists
+        if (currentMember.passport && 
+            currentMember.passport !== 'images/default-avatar.png' &&
+            !currentMember.passport.startsWith('data:') &&
+            !currentMember.passport.startsWith('http')) {
+            const oldFilePath = path.join(__dirname, currentMember.passport);
+            if (fs.existsSync(oldFilePath)) {
+                try {
+                    fs.unlinkSync(oldFilePath);
+                    console.log(`Deleted old passport: ${oldFilePath}`);
+                } catch (fileError) {
+                    console.error('Error deleting old passport:', fileError);
+                }
+            }
+        }
+        
+        const updatedUser = await User.findByIdAndUpdate(
+            memberId,
+            { 
+                passport: passportPath,
+                passportPhoto: passportPath,
+                updatedAt: new Date(),
+                cardGenerated: true
+            },
+            { new: true }
+        );
+        
+        res.json({ 
+            success: true, 
+            message: 'Passport uploaded successfully',
+            passportPath: passportPath,
+            user: updatedUser
+        });
+        
+    } catch (error) {
+        console.error('Passport upload error:', error);
+        
+        if (req.file && fs.existsSync(req.file.path)) {
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (cleanupError) {
+                console.error('Error cleaning up uploaded file:', cleanupError);
+            }
+        }
+        
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to upload passport: ' + error.message 
+        });
+    }
+}));
 
-// Member verification endpoint for public frontend
+app.delete('/api/delete-passport/:memberId', withDB(async (req, res) => {
+    try {
+        const { memberId } = req.params;
+        
+        if (!mongoose.Types.ObjectId.isValid(memberId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid member ID' 
+            });
+        }
+        
+        const member = await User.findById(memberId);
+        
+        if (!member) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Member not found' 
+            });
+        }
+        
+        if (member.passport && 
+            member.passport !== 'images/default-avatar.png' &&
+            !member.passport.startsWith('data:') &&
+            !member.passport.startsWith('http')) {
+            const filePath = path.join(__dirname, member.passport);
+            if (fs.existsSync(filePath)) {
+                try {
+                    fs.unlinkSync(filePath);
+                    console.log(`Deleted passport file: ${filePath}`);
+                } catch (fileError) {
+                    console.error('Error deleting passport file:', fileError);
+                }
+            }
+        }
+        
+        await User.findByIdAndUpdate(
+            memberId,
+            { 
+                $unset: { passport: "", passportPhoto: "" },
+                $set: { updatedAt: new Date(), cardGenerated: false }
+            }
+        );
+        
+        res.json({ 
+            success: true, 
+            message: 'Passport deleted successfully' 
+        });
+        
+    } catch (error) {
+        console.error('Delete passport error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to delete passport: ' + error.message 
+        });
+    }
+}));
+
+// Member verification endpoints
 app.post('/api/members/verify', withDB(async (req, res) => {
   try {
     const { code } = req.body;
@@ -827,7 +766,6 @@ app.post('/api/members/verify', withDB(async (req, res) => {
       });
     }
     
-    // Search for member by code (case insensitive)
     const member = await User.findOne({ 
       code: { $regex: new RegExp(`^${code}$`, 'i') },
       isActive: { $ne: false }
@@ -843,14 +781,14 @@ app.post('/api/members/verify', withDB(async (req, res) => {
     
     console.log('✅ Member found:', member.name, member.code);
     
-    // Update last verification time
     member.lastVerification = new Date();
     await member.save();
     
     res.json({
       success: true,
       message: 'Member found successfully',
-      member: {         _id: member._id,
+      member: {
+        _id: member._id,
         name: member.name,
         email: member.email,
         code: member.code,
@@ -858,7 +796,7 @@ app.post('/api/members/verify', withDB(async (req, res) => {
         state: member.state,
         zone: member.zone,
         passportPhoto: member.passportPhoto || member.passport,
-        passport: member.passport || member.passportPhoto, // For backward compatibility
+        passport: member.passport || member.passportPhoto,
         signature: member.signature,
         dateAdded: member.dateAdded || member.createdAt,
         isActive: member.isActive !== false
@@ -873,7 +811,147 @@ app.post('/api/members/verify', withDB(async (req, res) => {
   }
 }));
 
-// Certificate verification endpoint for public frontend
+app.post('/api/searchUser', withDB(async (req, res) => {
+  try {
+    const { code } = req.body;
+    
+    console.log('🔍 Legacy searchUser request for code:', code);
+    
+    if (!code) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Code is required' 
+      });
+    }
+    
+    const user = await User.findOne({ 
+      code: { $regex: new RegExp(`^${code}$`, 'i') },
+      isActive: { $ne: false }
+    }).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        code: user.code,
+        position: user.position || 'MEMBER',
+        state: user.state,
+        zone: user.zone,
+        passportPhoto: user.passportPhoto || user.passport,
+        passport: user.passport || user.passportPhoto,
+        signature: user.signature,
+        dateAdded: user.dateAdded || user.createdAt,
+        createdAt: user.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Legacy searchUser error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error' 
+    });
+  }
+}));
+
+// Certificate endpoints
+app.get('/api/certificates', withDB(async (req, res) => {
+  try {
+    const certificates = await Certificate.find()
+      .populate('userId', 'name email code')
+      .sort({ createdAt: -1 });
+    
+    res.json(certificates);
+  } catch (error) {
+    console.error('Get certificates error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error while fetching certificates' 
+    });
+  }
+}));
+
+app.post('/api/certificates', withDB(async (req, res) => {
+  try {
+    const {
+      number,
+      recipient,
+      email,
+      title,
+      type = 'membership',
+      description,
+      issueDate,
+      validUntil,
+      userId
+    } = req.body;
+    
+    if (!number || !recipient || !email || !title) {
+      return res.status(400).json({
+        success: false,
+        message: 'Certificate number, recipient, email, and title are required'
+      });
+    }
+    
+    const existingCert = await Certificate.findOne({ 
+      number: number.toUpperCase() 
+    });
+    if (existingCert) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Certificate number already exists' 
+      });
+    }
+    
+    const certificateData = {
+      number: number.toUpperCase().trim(),
+      recipient: recipient.trim(),
+      email: email.toLowerCase().trim(),
+      title: title.trim(),
+      type,
+      description: description?.trim(),
+      issueDate: issueDate ? new Date(issueDate) :      new Date(),
+      validUntil: validUntil ? new Date(validUntil) : null,
+      userId: userId || null
+    };
+    
+    const certificate = new Certificate(certificateData);
+    await certificate.save();
+    
+    res.status(201).json({
+      success: true,
+      message: 'Certificate issued successfully',
+      certificate
+    });
+  } catch (error) {
+    console.error('Issue certificate error:', error);
+    if (error.code === 11000) {
+      res.status(400).json({ 
+        success: false,
+        message: 'Certificate number already exists' 
+      });
+    } else if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      res.status(400).json({ 
+        success: false,
+        message: messages.join(', ') 
+      });
+    } else {
+      res.status(500).json({ 
+        success: false,
+        message: 'Server error while issuing certificate' 
+      });
+    }
+  }
+}));
+
 app.post('/api/certificates/verify', withDB(async (req, res) => {
   try {
     const { certificateNumber } = req.body;
@@ -887,7 +965,6 @@ app.post('/api/certificates/verify', withDB(async (req, res) => {
       });
     }
     
-    // Search for certificate by number (case insensitive)
     const certificate = await Certificate.findOne({ 
       number: { $regex: new RegExp(`^${certificateNumber}$`, 'i') }
     }).populate('userId', 'name email code');
@@ -900,7 +977,6 @@ app.post('/api/certificates/verify', withDB(async (req, res) => {
       });
     }
     
-    // Check if certificate is expired
     let status = certificate.status;
     if (certificate.validUntil && new Date() > certificate.validUntil && status === 'active') {
       status = 'expired';
@@ -937,129 +1013,6 @@ app.post('/api/certificates/verify', withDB(async (req, res) => {
   }
 }));
 
-// Legacy searchUser endpoint for backward compatibility
-app.post('/api/searchUser', withDB(async (req, res) => {
-  try {
-    const { code } = req.body;
-    
-    console.log('🔍 Legacy searchUser request for code:', code);
-    
-    if (!code) {
-      return res.status(400).json({ message: 'Code is required' });
-    }
-    
-    const user = await User.findOne({ 
-      code: { $regex: new RegExp(`^${code}$`, 'i') },
-      isActive: { $ne: false }
-    }).select('-password');
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    res.json({
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        code: user.code,
-        position: user.position || 'MEMBER',
-        state: user.state,
-        zone: user.zone,
-        passportPhoto: user.passportPhoto || user.passport,
-        passport: user.passport || user.passportPhoto, // For backward compatibility
-        signature: user.signature,
-        dateAdded: user.dateAdded || user.createdAt,
-        createdAt: user.createdAt
-      }
-    });
-  } catch (error) {
-    console.error('Legacy searchUser error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-}));
-
-// ==================== CERTIFICATE MANAGEMENT ENDPOINTS ====================
-
-// Get all certificates
-app.get('/api/certificates', withDB(async (req, res) => {
-  try {
-    const certificates = await Certificate.find()
-      .populate('userId', 'name email code')
-      .sort({ createdAt: -1 });
-    
-    res.json(certificates);
-  } catch (error) {
-    console.error('Get certificates error:', error);
-    res.status(500).json({ message: 'Server error while fetching certificates' });
-  }
-}));
-
-// Issue new certificate
-app.post('/api/certificates', withDB(async (req, res) => {
-  try {
-    const {
-      number,
-      recipient,
-      email,
-      title,
-      type = 'membership',
-      description,
-      issueDate,
-      validUntil,
-      userId
-    } = req.body;
-    
-    // Validation
-    if (!number || !recipient || !email || !title) {
-      return res.status(400).json({
-        message: 'Certificate number, recipient, email, and title are required'
-      });
-    }
-    
-    // Check if certificate number already exists
-    const existingCert = await Certificate.findOne({ 
-      number: number.toUpperCase() 
-    });
-    if (existingCert) {
-      return res.status(400).json({ 
-        message: 'Certificate number already exists' 
-      });
-    }
-    
-    const certificateData = {
-      number: number.toUpperCase().trim(),
-      recipient: recipient.trim(),
-      email: email.toLowerCase().trim(),
-      title: title.trim(),
-      type,
-      description: description?.trim(),
-      issueDate: issueDate ? new Date(issueDate) : new Date(),
-      validUntil: validUntil ? new Date(validUntil) : null,
-      userId: userId || null
-    };
-    
-    const certificate = new Certificate(certificateData);
-    await certificate.save();
-    
-    res.status(201).json({
-      message: 'Certificate issued successfully',
-      certificate
-    });
-  } catch (error) {
-    console.error('Issue certificate error:', error);
-    if (error.code === 11000) {
-      res.status(400).json({ message: 'Certificate number already exists' });
-    } else if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(err => err.message);
-      res.status(400).json({ message: messages.join(', ') });
-    } else {
-      res.status(500).json({ message: 'Server error while issuing certificate' });
-    }
-  }
-}));
-
-// Revoke certificate endpoint
 app.put('/api/certificates/:id/revoke', withDB(async (req, res) => {
   try {
     const { id } = req.params;
@@ -1068,20 +1021,32 @@ app.put('/api/certificates/:id/revoke', withDB(async (req, res) => {
     console.log(`🚫 Revoking certificate ${id} with reason: ${reason}`);
     
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Invalid certificate ID format' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid certificate ID format' 
+      });
     }
     
     if (!reason || reason.trim() === '') {
-      return res.status(400).json({ message: 'Revocation reason is required' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Revocation reason is required' 
+      });
     }
     
     const certificate = await Certificate.findById(id);
     if (!certificate) {
-      return res.status(404).json({ message: 'Certificate not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Certificate not found' 
+      });
     }
     
     if (certificate.status === 'revoked') {
-      return res.status(400).json({ message: 'Certificate is already revoked' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Certificate is already revoked' 
+      });
     }
     
     const updatedCertificate = await Certificate.findByIdAndUpdate(
@@ -1111,7 +1076,6 @@ app.put('/api/certificates/:id/revoke', withDB(async (req, res) => {
   }
 }));
 
-// Delete certificate endpoint
 app.delete('/api/certificates/:id', withDB(async (req, res) => {
   try {
     const { id } = req.params;
@@ -1119,15 +1083,20 @@ app.delete('/api/certificates/:id', withDB(async (req, res) => {
     console.log(`🗑️ Deleting certificate ${id}`);
     
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Invalid certificate ID format' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid certificate ID format' 
+      });
     }
     
     const certificate = await Certificate.findById(id);
     if (!certificate) {
-      return res.status(404).json({ message: 'Certificate not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Certificate not found' 
+      });
     }
     
-    // Store certificate info before deletion for logging
     const certificateInfo = {
       number: certificate.number,
       recipient: certificate.recipient,
@@ -1152,9 +1121,7 @@ app.delete('/api/certificates/:id', withDB(async (req, res) => {
   }
 }));
 
-// ==================== ANALYTICS ENDPOINTS ====================
-
-// Get dashboard statistics
+// Analytics endpoint
 app.get('/api/analytics/dashboard', withDB(async (req, res) => {
   try {
     const totalMembers = await User.countDocuments();
@@ -1162,7 +1129,6 @@ app.get('/api/analytics/dashboard', withDB(async (req, res) => {
     const activeCertificates = await Certificate.countDocuments({ status: 'active' });
     const revokedCertificates = await Certificate.countDocuments({ status: 'revoked' });
     
-    // Members added this month
     const thisMonth = new Date();
     thisMonth.setDate(1);
     thisMonth.setHours(0, 0, 0, 0);
@@ -1171,20 +1137,19 @@ app.get('/api/analytics/dashboard', withDB(async (req, res) => {
       createdAt: { $gte: thisMonth }
     });
     
-    // Members by state
     const membersByState = await User.aggregate([
       { $group: { _id: '$state', count: { $sum: 1 } } },
       { $sort: { count: -1 } },
       { $limit: 10 }
     ]);
     
-    // Members by position
     const membersByPosition = await User.aggregate([
       { $group: { _id: '$position', count: { $sum: 1 } } },
       { $sort: { count: -1 } }
     ]);
     
     res.json({
+      success: true,
       totalMembers,
       totalCertificates,
       activeCertificates,
@@ -1195,33 +1160,35 @@ app.get('/api/analytics/dashboard', withDB(async (req, res) => {
     });
   } catch (error) {
     console.error('Analytics error:', error);
-    res.status(500).json({ message: 'Server error while fetching analytics' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error while fetching analytics' 
+    });
   }
 }));
 
-// ==================== BULK OPERATIONS ====================
-
-// Bulk delete users
+// Bulk operations
 app.post('/api/users/bulk-delete', withDB(async (req, res) => {
   try {
     const { userIds } = req.body;
     
     if (!Array.isArray(userIds) || userIds.length === 0) {
-      return res.status(400).json({ message: 'User IDs array is required' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'User IDs array is required' 
+      });
     }
     
-    // Validate all IDs
     const invalidIds = userIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
     if (invalidIds.length > 0) {
       return res.status(400).json({ 
+        success: false,
         message: `Invalid user IDs: ${invalidIds.join(', ')}` 
       });
     }
     
-    // Get users first to clean up passport files
     const users = await User.find({ _id: { $in: userIds } });
     
-    // Delete passport files
     users.forEach(user => {
         if (user.passport && 
             user.passport !== 'images/default-avatar.png' &&
@@ -1245,28 +1212,34 @@ app.post('/api/users/bulk-delete', withDB(async (req, res) => {
     });
     
     res.json({
+      success: true,
       message: `Successfully deleted ${result.deletedCount} users`,
       deletedCount: result.deletedCount
     });
   } catch (error) {
     console.error('Bulk delete error:', error);
-    res.status(500).json({ message: 'Server error while deleting users' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error while deleting users' 
+    });
   }
 }));
 
-// Bulk delete certificates
 app.post('/api/certificates/bulk-delete', withDB(async (req, res) => {
   try {
     const { certificateIds } = req.body;
     
     if (!Array.isArray(certificateIds) || certificateIds.length === 0) {
-      return res.status(400).json({ message: 'Certificate IDs array is required' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Certificate IDs array is required' 
+      });
     }
     
-    // Validate all IDs
     const invalidIds = certificateIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
     if (invalidIds.length > 0) {
       return res.status(400).json({ 
+        success: false,
         message: `Invalid certificate IDs: ${invalidIds.join(', ')}` 
       });
     }
@@ -1276,54 +1249,26 @@ app.post('/api/certificates/bulk-delete', withDB(async (req, res) => {
     });
     
     res.json({
+      success: true,
       message: `Successfully deleted ${result.deletedCount} certificates`,
       deletedCount: result.deletedCount
     });
   } catch (error) {
     console.error('Bulk delete certificates error:', error);
-    res.status(500).json({ message: 'Server error while deleting certificates' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error while deleting certificates' 
+    });
   }
 }));
 
-// ==================== FILE UPLOAD ENDPOINTS ====================
-
-// Handle image uploads (for passport photos and signatures)
-app.post('/api/upload/image', async (req, res) => {
-  try {
-    const { imageData, type } = req.body;
-    
-    if (!imageData || !type) {
-      return res.status(400).json({ message: 'Image data and type are required' });
-    }
-    
-    // Validate image type
-    if (!['passport', 'signature'].includes(type)) {
-      return res.status(400).json({ message: 'Invalid image type' });
-    }
-    
-    // Here you could add image processing, validation, etc.
-    // For now, we'll just return the data as-is
-    
-    res.json({
-      message: 'Image uploaded successfully',
-      imageUrl: imageData // In production, you'd save to cloud storage and return URL
-    });
-  } catch (error) {
-    console.error('Image upload error:', error);
-    res.status(500).json({ message: 'Server error while uploading image' });
-  }
-});
-
-// ==================== SEARCH AND FILTER ENDPOINTS ====================
-
-// Advanced search for users
+// Search endpoints
 app.post('/api/users/search', withDB(async (req, res) => {
   try {
     const { query, filters = {} } = req.body;
     
     let searchCriteria = {};
     
-    // Text search across multiple fields
     if (query && query.trim()) {
       const searchRegex = new RegExp(query.trim(), 'i');
       searchCriteria.$or = [
@@ -1335,7 +1280,6 @@ app.post('/api/users/search', withDB(async (req, res) => {
       ];
     }
     
-    // Apply filters
     if (filters.state) {
       searchCriteria.state = new RegExp(filters.state, 'i');
     }
@@ -1355,9 +1299,10 @@ app.post('/api/users/search', withDB(async (req, res) => {
     const users = await User.find(searchCriteria)
       .select('-password')
       .sort({ dateAdded: -1 })
-      .limit(100); // Limit results
+      .limit(100);
     
     res.json({
+      success: true,
       users,
       count: users.length,
       query,
@@ -1365,18 +1310,19 @@ app.post('/api/users/search', withDB(async (req, res) => {
     });
   } catch (error) {
     console.error('User search error:', error);
-    res.status(500).json({ message: 'Server error while searching users' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error while searching users' 
+    });
   }
 }));
 
-// Advanced search for certificates
 app.post('/api/certificates/search', withDB(async (req, res) => {
   try {
     const { query, filters = {} } = req.body;
     
     let searchCriteria = {};
     
-    // Text search across multiple fields
     if (query && query.trim()) {
       const searchRegex = new RegExp(query.trim(), 'i');
       searchCriteria.$or = [
@@ -1388,7 +1334,6 @@ app.post('/api/certificates/search', withDB(async (req, res) => {
       ];
     }
     
-    // Apply filters
     if (filters.status) {
       searchCriteria.status = filters.status;
     }
@@ -1412,9 +1357,10 @@ app.post('/api/certificates/search', withDB(async (req, res) => {
     const certificates = await Certificate.find(searchCriteria)
       .populate('userId', 'name email code')
       .sort({ createdAt: -1 })
-      .limit(100); // Limit results
+      .limit(100);
     
     res.json({
+      success: true,
       certificates,
       count: certificates.length,
       query,
@@ -1422,18 +1368,18 @@ app.post('/api/certificates/search', withDB(async (req, res) => {
     });
   } catch (error) {
     console.error('Certificate search error:', error);
-    res.status(500).json({ message: 'Server error while searching certificates' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error while searching certificates' 
+    });
   }
 }));
 
-// ==================== EXPORT ENDPOINTS ====================
-
-// Export users to CSV format
+// Export endpoints
 app.get('/api/users/export', withDB(async (req, res) => {
   try {
     const users = await User.find().select('-password').sort({ dateAdded: -1 });
     
-    // Convert to CSV format
     const csvHeader = 'Name,Email,Code,Position,State,Zone,Date Added,Active,Card Generated\n';
     const csvData = users.map(user => {
       return [
@@ -1454,18 +1400,19 @@ app.get('/api/users/export', withDB(async (req, res) => {
     res.send(csvHeader + csvData);
   } catch (error) {
     console.error('Export users error:', error);
-    res.status(500).json({ message: 'Server error while exporting users' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error while exporting users' 
+    });
   }
 }));
 
-// Export certificates to CSV format
 app.get('/api/certificates/export', withDB(async (req, res) => {
   try {
     const certificates = await Certificate.find()
       .populate('userId', 'name email code')
       .sort({ createdAt: -1 });
     
-    // Convert to CSV format
     const csvHeader = 'Certificate Number,Recipient,Email,Title,Type,Status,Issue Date,Valid Until,Issued By\n';
     const csvData = certificates.map(cert => {
       return [
@@ -1486,13 +1433,169 @@ app.get('/api/certificates/export', withDB(async (req, res) => {
     res.send(csvHeader + csvData);
   } catch (error) {
     console.error('Export certificates error:', error);
-    res.status(500).json({ message: 'Server error while exporting certificates' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error while exporting certificates' 
+    });
   }
 }));
 
+// Image upload endpoint
+app.post('/api/upload/image', async (req, res) => {
+  try {
+    const { imageData, type } = req.body;
+    
+    if (!imageData || !type) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Image data and type are required' 
+      });
+    }
+    
+    if (!['passport', 'signature'].includes(type)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid image type' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Image uploaded successfully',
+      imageUrl: imageData
+    });
+  } catch (error) {
+    console.error('Image upload error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error while uploading image' 
+    });
+  }
+});
+
+// Debug endpoint
+app.get('/api/debug', async (req, res) => {
+  const start = Date.now();
+  try {
+    console.log('Debug: Starting connection test...');
+    const connection = await connectDB();
+    const duration = Date.now() - start;
+    
+    res.json({
+      success: !!connection,
+      duration: `${duration}ms`,
+      readyState: mongoose.connection.readyState,
+      host: mongoose.connection.host,
+      name: mongoose.connection.name,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    const duration = Date.now() - start;
+    res.json({
+      success: false,
+      error: error.message,
+      duration: `${duration}ms`,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// ==================== STATIC ROUTES (AFTER API ROUTES) ====================
+
+// Serve admin.html for root route
+app.get('/', (req, res) => {
+  res.sendFile(path.join(publicPath, 'admin.html'));
+});
+
+// Serve admin.html for /admin route
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(publicPath, 'admin.html'));
+});
+
+// ==================== ERROR HANDLING ====================
+
+// Multer error handling
+app.use((error, req, res, next) => {
+    if (error instanceof multer.MulterError) {
+        if (error.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({
+                success: false,
+                message: 'File size too large. Maximum size is 5MB.'
+            });
+        }
+        if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+            return res.status(400).json({
+                success: false,
+                message: 'Unexpected file field.'
+            });
+        }
+    }
+    
+    if (error.message === 'Only image files are allowed!') {
+        return res.status(400).json({
+            success: false,
+            message: 'Only image files are allowed!'
+        });
+    }
+    
+    console.error('Unhandled error:', error);
+    next(error);
+});
+
+// API 404 handler - MUST come before catch-all
+app.use('/api/*', (req, res) => {
+  console.log(`❌ API endpoint not found: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ 
+    success: false,
+    message: `API endpoint ${req.method} ${req.originalUrl} not found` 
+  });
+});
+
+// Catch-all route for SPA - MUST be last
+app.get('*', (req, res) => {
+  console.log(`📄 Serving admin.html for: ${req.originalUrl}`);
+  res.sendFile(path.join(publicPath, 'admin.html'));
+});
+
+// Global error handler
+app.use((error, req, res, next) => {
+  console.error('Global error handler:', error);
+  
+  if (res.headersSent) {
+    return next(error);
+  }
+  
+  if (error.name === 'ValidationError') {
+    const messages = Object.values(error.errors).map(err => err.message);
+    return res.status(400).json({ 
+      success: false,
+      message: messages.join(', ') 
+    });
+  }
+  
+  if (error.code === 11000) {
+    return res.status(400).json({ 
+      success: false,
+      message: 'Duplicate entry found' 
+    });
+  }
+  
+  if (error.name === 'CastError') {
+    return res.status(400).json({ 
+      success: false,
+      message: 'Invalid ID format' 
+    });
+  }
+  
+  res.status(500).json({ 
+    success: false,
+    message: 'Internal server error' 
+  });
+});
+
 // ==================== UTILITY FUNCTIONS ====================
 
-// Utility function to clean up orphaned passport files
+// Cleanup orphaned passport files
 async function cleanupOrphanedPassports() {
     try {
         const uploadsDir = path.join(__dirname, 'uploads/passports');
@@ -1528,95 +1631,11 @@ async function cleanupOrphanedPassports() {
     }
 }
 
-// Run cleanup periodically (optional) - every 24 hours
+// Run cleanup periodically - every 24 hours
 setInterval(cleanupOrphanedPassports, 24 * 60 * 60 * 1000);
 
-// ==================== DEBUG ENDPOINT ====================
+// ==================== SERVER STARTUP ====================
 
-// Add this temporary debug endpoint
-app.get('/api/debug', async (req, res) => {
-  const start = Date.now();
-  try {
-    console.log('Debug: Starting connection test...');
-    const connection = await connectDB();
-    const duration = Date.now() - start;
-    
-    res.json({
-      success: !!connection,
-      duration: `${duration}ms`,
-      readyState: mongoose.connection.readyState,
-      host: mongoose.connection.host,
-      name: mongoose.connection.name,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    const duration = Date.now() - start;
-    res.json({
-      success: false,
-      error: error.message,
-      duration: `${duration}ms`,
-      timestamp: new Date().toISOString()
-    });
-  }
-});
-
-// ==================== ERROR HANDLING ====================
-
-// Error handling middleware for multer
-app.use((error, req, res, next) => {
-    if (error instanceof multer.MulterError) {
-        if (error.code === 'LIMIT_FILE_SIZE') {
-            return res.status(400).json({
-                success: false,
-                message: 'File size too large. Maximum size is 5MB.'
-            });
-        }
-        if (error.code === 'LIMIT_UNEXPECTED_FILE') {
-            return res.status(400).json({
-                success: false,
-                message: 'Unexpected file field.'
-            });
-        }
-    }
-    
-    if (error.message === 'Only image files are allowed!') {
-        return res.status(400).json({
-            success: false,
-            message: 'Only image files are allowed!'
-        });
-    }
-    
-    console.error('Unhandled error:', error);
-    next(error);
-});
-
-// Catch-all route for SPA
-app.get('*', (req, res) => {
-  res.sendFile(path.join(publicPath, 'admin.html'));
-});
-
-// Error Handling
-app.use('/api/*', (req, res) => {
-  res.status(404).json({ message: `API endpoint ${req.method} ${req.originalUrl} not found` });
-});
-
-app.use((error, req, res, next) => {
-  console.error('Global error handler:', error);
-  if (error.name === 'ValidationError') {
-    const messages = Object.values(error.errors).map(err => err.message);
-    return res.status(400).json({ message: messages.join(', ') });
-  }
-  if (error.code === 11000) {
-    return res.status(400).json({ message: 'Duplicate entry found' });
-  }
-  if (error.name === 'CastError') {
-    return res.status(400).json({ message: 'Invalid ID format' });
-  }
-  res.status(500).json({ message: 'Internal server error' });
-});
-
-// ==================== START SERVER LOGIC ====================
-// Unified server startup for Render/local environments
 const startServer = async () => {
   try {
     const conn = await connectDB();
@@ -1627,6 +1646,7 @@ const startServer = async () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📁 Uploads directory: ${uploadsDir}`);
       console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`📊 API endpoints available at: /api/*`);
     });
   } catch (err) {
     console.error('🔥 Failed to start server:', err.message);
@@ -1646,6 +1666,4 @@ if (process.env.VERCEL) {
 } else {
   module.exports = app;
 }
-
-
 
