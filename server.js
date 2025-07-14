@@ -29,15 +29,6 @@ app.use(cors({
 }));
 app.options('*', cors());
 
-// Add CORS headers for uploaded files
-app.use('/uploads', (req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  next();
-}, express.static(path.join(__dirname, 'uploads')));
-
-
 // Body parsers
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -52,14 +43,11 @@ app.use((req, res, next) => {
 const publicPath = path.join(__dirname, 'public');
 app.use(express.static(publicPath));
 
-
 // Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, 'uploads', 'passports');
+const uploadsDir = path.join(__dirname, 'uploads/passports');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
-    console.log('Created uploads/passports directory');
 }
-
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -89,11 +77,6 @@ const uploadPassport = multer({
         }
     }
 });
-// Add this line to serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Also add this for better static file handling
-app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
 // ✅ Database Connection
