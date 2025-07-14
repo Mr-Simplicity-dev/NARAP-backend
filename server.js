@@ -5,6 +5,8 @@ const path = require('path');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
@@ -53,6 +55,42 @@ app.use((req, res, next) => {
 const publicPath = path.join(__dirname, 'public');
 app.use(express.static(publicPath));
 
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads/passports');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Configure multer for passport uploads
+const passportStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'uploads/passports');
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        cb(null, 'passport-' + uniqueSuffix + ext);
+    }
+});
+
+const uploadPassport = multer({ 
+    storage: passportStorage,
+    limits: { 
+        fileSize: 5 * 1024 * 1024 // 5MB limit
+    },
+    fileFilter: function (req, file, cb) {
+        // Check file type
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only image files are allowed!'), false);
+        }
+    }
+});
+
 // Serve admin.html for root route
 app.get('/', (req, res) => {
   res.sendFile(path.join(publicPath, 'admin.html'));
@@ -62,7 +100,6 @@ app.get('/', (req, res) => {
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(publicPath, 'admin.html'));
 });
-
 
 // ✅ FIXED Database Connection - Updated for Mongoose 6+
 const connectDB = async () => {
@@ -132,6 +169,7 @@ const userSchema = new mongoose.Schema({
   zone: { type: String, required: true },
   passportPhoto: { type: String },
   signature: { type: String },
+  passport: { type: String }, // Added for backward compatibility
   isActive: { type: Boolean, default: true },
   lastLogin: { type: Date },
   cardGenerated: { type: Boolean, default: false },
@@ -225,7 +263,6 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(publicPath, 'admin.html'));
 });
 
-
 // ==================== AUTHENTICATION ENDPOINTS - FIXED ====================
 
 // ✅ Wrap login with database connection
@@ -317,8 +354,6 @@ app.get('/api/db-health', async (req, res) => {
   }
 });
 
-
-
 // Authentication Middleware
 const authenticate = async (req, res, next) => {
   try {
@@ -340,8 +375,169 @@ const authenticate = async (req, res, next) => {
   }
 };
 
-// ==================== KEEP ALL YOUR EXISTING ENDPOINTS ====================
+// ==================== PASSPORT UPLOAD ENDPOINTS ====================
 
+// API endpoint for passport upload
+app.post('/api/upload-passport', uploadPassport.single('passport'), withDB(async (req, res) => {
+    try {
+        const { memberId } = req.body;
+        const file = req.file;
+        
+        if (!file) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'No file uploaded' 
+            });
+        }
+        
+        if (!memberId) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Member ID is required' 
+            });
+        }
+
+        // Validate ObjectId
+        if (!mongoose.Types.ObjectId.isValid(memberId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid member ID' 
+            });
+        }
+        
+                const passportPath = `uploads/passports/${file.filename}`;
+        
+        // Get the current member to delete old passport file
+        const currentMember = await User.findById(memberId);
+        
+        if (!currentMember) {
+            // Delete uploaded file if member not found
+            fs.unlinkSync(path.join(__dirname, passportPath));
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Member not found' 
+            });
+        }
+        
+        // Delete old passport file if it exists
+        if (currentMember.passport && 
+            currentMember.passport !== 'images/default-avatar.png' &&
+            !currentMember.passport.startsWith('data:') &&
+            !currentMember.passport.startsWith('http')) {
+            const oldFilePath = path.join(__dirname, currentMember.passport);
+            if (fs.existsSync(oldFilePath)) {
+                try {
+                    fs.unlinkSync(oldFilePath);
+                    console.log(`Deleted old passport: ${oldFilePath}`);
+                } catch (fileError) {
+                    console.error('Error deleting old passport:', fileError);
+                }
+            }
+        }
+        
+        // Update member record with new passport path
+        const updatedUser = await User.findByIdAndUpdate(
+            memberId,
+            { 
+                passport: passportPath,
+                passportPhoto: passportPath, // For backward compatibility
+                updatedAt: new Date(),
+                cardGenerated: true // Mark as having passport
+            },
+            { new: true }
+        );
+        
+        res.json({ 
+            success: true, 
+            message: 'Passport uploaded successfully',
+            passportPath: passportPath,
+            user: updatedUser
+        });
+        
+    } catch (error) {
+        console.error('Passport upload error:', error);
+        
+        // Delete uploaded file if there was an error
+        if (req.file) {
+            const filePath = path.join(__dirname, 'uploads/passports', req.file.filename);
+            if (fs.existsSync(filePath)) {
+                try {
+                    fs.unlinkSync(filePath);
+                } catch (cleanupError) {
+                    console.error('Error cleaning up uploaded file:', cleanupError);
+                }
+            }
+        }
+        
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to upload passport: ' + error.message 
+        });
+    }
+}));
+
+// API endpoint to delete passport
+app.delete('/api/delete-passport/:memberId', withDB(async (req, res) => {
+    try {
+        const { memberId } = req.params;
+        
+        if (!mongoose.Types.ObjectId.isValid(memberId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid member ID' 
+            });
+        }
+        
+        // Get current member
+        const member = await User.findById(memberId);
+        
+        if (!member) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Member not found' 
+            });
+        }
+        
+        // Delete passport file if it exists
+        if (member.passport && 
+            member.passport !== 'images/default-avatar.png' &&
+            !member.passport.startsWith('data:') &&
+            !member.passport.startsWith('http')) {
+            const filePath = path.join(__dirname, member.passport);
+            if (fs.existsSync(filePath)) {
+                try {
+                    fs.unlinkSync(filePath);
+                    console.log(`Deleted passport file: ${filePath}`);
+                } catch (fileError) {
+                    console.error('Error deleting passport file:', fileError);
+                }
+            }
+        }
+        
+        // Update member record
+        await User.findByIdAndUpdate(
+            memberId,
+            { 
+                $unset: { passport: "", passportPhoto: "" },
+                $set: { updatedAt: new Date(), cardGenerated: false }
+            }
+        );
+        
+        res.json({ 
+            success: true, 
+            message: 'Passport deleted successfully' 
+        });
+        
+    } catch (error) {
+        console.error('Delete passport error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to delete passport: ' + error.message 
+        });
+    }
+}));
+
+// ==================== KEEP ALL YOUR EXISTING ENDPOINTS ====================
 
 // ✅ Use wrapper for database-dependent routes
 // Replace the entire /api/getUsers route with:
@@ -361,7 +557,8 @@ app.get('/api/getUsers', withDB(async (req, res) => {
       position: user.position,
       state: user.state,
       zone: user.zone,
-      passportPhoto: user.passportPhoto,
+      passportPhoto: user.passportPhoto || user.passport,
+      passport: user.passport || user.passportPhoto, // For backward compatibility
       signature: user.signature,
       dateAdded: user.dateAdded || user.createdAt,
       isActive: user.isActive,
@@ -437,6 +634,7 @@ app.post('/api/addUser', withDB(async (req, res) => {
     // Add images if provided
     if (passportPhoto) {
       userData.passportPhoto = passportPhoto;
+      userData.passport = passportPhoto; // For backward compatibility
     }
     
     if (signature) {
@@ -466,7 +664,7 @@ app.post('/api/addUser', withDB(async (req, res) => {
   }
 }));
 
-// Delete single user (admin panel expects this endpoint)
+// Delete single user (admin panel expects this endpoint) - UPDATED WITH PASSPORT CLEANUP
 app.delete('/api/deleteUser/:id', withDB(async (req, res) => {
   try {
     const { id } = req.params;
@@ -476,21 +674,68 @@ app.delete('/api/deleteUser/:id', withDB(async (req, res) => {
       return res.status(400).json({ message: 'Invalid user ID format' });
     }
     
-    const user = await User.findByIdAndDelete(id);
+    // Get user data first to delete passport file
+    const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    res.json({ message: 'User deleted successfully' });
+    // Delete passport file if it exists
+    if (user.passport && 
+        user.passport !== 'images/default-avatar.png' &&
+        !user.passport.startsWith('data:') &&
+        !user.passport.startsWith('http')) {
+        
+        const filePath = path.join(__dirname, user.passport);
+        if (fs.existsSync(filePath)) {
+            try {
+                fs.unlinkSync(filePath);
+                console.log(`Deleted passport file: ${filePath}`);
+            } catch (fileError) {
+                console.error('Error deleting passport file:', fileError);
+                // Continue with user deletion even if file deletion fails
+            }
+        }
+    }
+    
+    // Delete user from database
+    await User.findByIdAndDelete(id);
+    
+    res.json({ 
+        success: true,
+        message: 'User and associated files deleted successfully' 
+    });
   } catch (error) {
     console.error('Delete user error:', error);
     res.status(500).json({ message: 'Server error while deleting user' });
   }
 }));
 
-// Delete all users (admin panel expects this endpoint)
+// Delete all users (admin panel expects this endpoint) - UPDATED WITH PASSPORT CLEANUP
 app.delete('/api/deleteAllUsers', withDB(async (req, res) => {
   try {
+    // Get all users first to clean up their passport files
+    const users = await User.find({});
+    
+    // Delete all passport files
+    users.forEach(user => {
+        if (user.passport && 
+            user.passport !== 'images/default-avatar.png' &&
+            !user.passport.startsWith('data:') &&
+            !user.passport.startsWith('http')) {
+            
+            const filePath = path.join(__dirname, user.passport);
+            if (fs.existsSync(filePath)) {
+                try {
+                    fs.unlinkSync(filePath);
+                    console.log(`Deleted passport file: ${filePath}`);
+                } catch (fileError) {
+                    console.error('Error deleting passport file:', fileError);
+                }
+            }
+        }
+    });
+    
     const result = await User.deleteMany({});
     
     res.json({ 
@@ -535,6 +780,11 @@ app.put('/api/updateUser/:id', withDB(async (req, res) => {
     // Update cardGenerated status if images are provided
     if (updateData.passportPhoto && updateData.signature) {
       updateData.cardGenerated = true;
+    }
+    
+    // Handle passport photo updates
+    if (updateData.passportPhoto) {
+        updateData.passport = updateData.passportPhoto; // For backward compatibility
     }
     
     const user = await User.findByIdAndUpdate(
@@ -600,15 +850,15 @@ app.post('/api/members/verify', withDB(async (req, res) => {
     res.json({
       success: true,
       message: 'Member found successfully',
-      member: {
-        _id: member._id,
+      member: {         _id: member._id,
         name: member.name,
         email: member.email,
         code: member.code,
         position: member.position || 'MEMBER',
         state: member.state,
         zone: member.zone,
-        passportPhoto: member.passportPhoto,
+        passportPhoto: member.passportPhoto || member.passport,
+        passport: member.passport || member.passportPhoto, // For backward compatibility
         signature: member.signature,
         dateAdded: member.dateAdded || member.createdAt,
         isActive: member.isActive !== false
@@ -717,6 +967,7 @@ app.post('/api/searchUser', withDB(async (req, res) => {
         state: user.state,
         zone: user.zone,
         passportPhoto: user.passportPhoto || user.passport,
+        passport: user.passport || user.passportPhoto, // For backward compatibility
         signature: user.signature,
         dateAdded: user.dateAdded || user.createdAt,
         createdAt: user.createdAt
@@ -909,7 +1160,7 @@ app.get('/api/analytics/dashboard', withDB(async (req, res) => {
     const totalMembers = await User.countDocuments();
     const totalCertificates = await Certificate.countDocuments();
     const activeCertificates = await Certificate.countDocuments({ status: 'active' });
-        const revokedCertificates = await Certificate.countDocuments({ status: 'revoked' });
+    const revokedCertificates = await Certificate.countDocuments({ status: 'revoked' });
     
     // Members added this month
     const thisMonth = new Date();
@@ -966,6 +1217,28 @@ app.post('/api/users/bulk-delete', withDB(async (req, res) => {
         message: `Invalid user IDs: ${invalidIds.join(', ')}` 
       });
     }
+    
+    // Get users first to clean up passport files
+    const users = await User.find({ _id: { $in: userIds } });
+    
+    // Delete passport files
+    users.forEach(user => {
+        if (user.passport && 
+            user.passport !== 'images/default-avatar.png' &&
+            !user.passport.startsWith('data:') &&
+            !user.passport.startsWith('http')) {
+            
+            const filePath = path.join(__dirname, user.passport);
+            if (fs.existsSync(filePath)) {
+                try {
+                    fs.unlinkSync(filePath);
+                    console.log(`Deleted passport file: ${filePath}`);
+                } catch (fileError) {
+                    console.error('Error deleting passport file:', fileError);
+                }
+            }
+        }
+    });
     
     const result = await User.deleteMany({
       _id: { $in: userIds }
@@ -1217,6 +1490,47 @@ app.get('/api/certificates/export', withDB(async (req, res) => {
   }
 }));
 
+// ==================== UTILITY FUNCTIONS ====================
+
+// Utility function to clean up orphaned passport files
+async function cleanupOrphanedPassports() {
+    try {
+        const uploadsDir = path.join(__dirname, 'uploads/passports');
+        if (!fs.existsSync(uploadsDir)) return;
+        
+        const files = fs.readdirSync(uploadsDir);
+        const users = await User.find({}).select('passport passportPhoto');
+        
+        const usedPassports = users
+            .filter(user => {
+                const passport = user.passport || user.passportPhoto;
+                return passport && passport.startsWith('uploads/passports/');
+            })
+            .map(user => {
+                const passport = user.passport || user.passportPhoto;
+                return path.basename(passport);
+            });
+        
+        files.forEach(file => {
+            if (!usedPassports.includes(file)) {
+                const filePath = path.join(uploadsDir, file);
+                try {
+                    fs.unlinkSync(filePath);
+                    console.log(`Cleaned up orphaned passport: ${file}`);
+                } catch (error) {
+                    console.error(`Error deleting orphaned file ${file}:`, error);
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error cleaning up orphaned passports:', error);
+    }
+}
+
+// Run cleanup periodically (optional) - every 24 hours
+setInterval(cleanupOrphanedPassports, 24 * 60 * 60 * 1000);
+
 // ==================== DEBUG ENDPOINT ====================
 
 // Add this temporary debug endpoint
@@ -1246,10 +1560,41 @@ app.get('/api/debug', async (req, res) => {
   }
 });
 
+// ==================== ERROR HANDLING ====================
+
+// Error handling middleware for multer
+app.use((error, req, res, next) => {
+    if (error instanceof multer.MulterError) {
+        if (error.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({
+                success: false,
+                message: 'File size too large. Maximum size is 5MB.'
+            });
+        }
+        if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+            return res.status(400).json({
+                success: false,
+                message: 'Unexpected file field.'
+            });
+        }
+    }
+    
+    if (error.message === 'Only image files are allowed!') {
+        return res.status(400).json({
+            success: false,
+            message: 'Only image files are allowed!'
+        });
+    }
+    
+    console.error('Unhandled error:', error);
+    next(error);
+});
+
 // Catch-all route for SPA
 app.get('*', (req, res) => {
   res.sendFile(path.join(publicPath, 'admin.html'));
 });
+
 // Error Handling
 app.use('/api/*', (req, res) => {
   res.status(404).json({ message: `API endpoint ${req.method} ${req.originalUrl} not found` });
@@ -1270,7 +1615,6 @@ app.use((error, req, res, next) => {
   res.status(500).json({ message: 'Internal server error' });
 });
 
-
 // ==================== START SERVER LOGIC ====================
 // Unified server startup for Render/local environments
 const startServer = async () => {
@@ -1281,6 +1625,8 @@ const startServer = async () => {
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📁 Uploads directory: ${uploadsDir}`);
+      console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
   } catch (err) {
     console.error('🔥 Failed to start server:', err.message);
@@ -1300,8 +1646,6 @@ if (process.env.VERCEL) {
 } else {
   module.exports = app;
 }
-
-
 
 
 

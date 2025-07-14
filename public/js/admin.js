@@ -1027,6 +1027,7 @@ function displayMembers(members) {
 
 
 // Load members tab
+// Load members table with proper MongoDB integration
 async function loadMembers() {
     const tableBody = document.getElementById('membersTableBody');
     
@@ -1053,13 +1054,25 @@ async function loadMembers() {
         // Create table rows
         members.forEach((member, index) => {
             const row = document.createElement('tr');
+            
+            // Get passport image path
+            const passportImage = getPassportImagePath(member.passport);
+            
             row.innerHTML = `
                 <td>
-                    <div class="member-photo" style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #f0f0f0;">
-                        <img src="${member.passport || 'images/default-avatar.png'}" 
-                             alt="Photo" 
+                    <div class="member-photo" style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #f0f0f0; position: relative;">
+                        <img src="${passportImage}"
+                             alt="Photo"
                              style="width: 100%; height: 100%; object-fit: cover;"
-                                                          onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNFNUU3RUIiLz4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4PSI4IiB5PSI4Ij4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDEyQzE0LjIwOTEgMTIgMTYgMTAuMjA5MSAxNiA4QzE2IDUuNzkwODYgMTQuMjA5MSA0IDEyIDRDOS43OTA4NiA0IDggNS43OTA4NiA4IDhDOCAxMC4yMDkxIDkuNzkwODYgMTIgMTIgMTJaIiBmaWxsPSIjOUM5Qzk3Ii8+CjxwYXRoIGQ9Ik0xMiAxNEM5LjMzIDEzLjk5IDcuMDEgMTUuNzMgNiAxOC4yNEM1Ljk5IDE4LjQ0IDYuMTEgMTguNjMgNi4yOSAxOC43MkM2LjY3IDE4Ljk2IDcuMDggMTkuMTYgNy41IDE5LjMxQzguOTIgMTkuODYgMTAuNDQgMjAgMTIgMjBDMTMuNTYgMjAgMTUuMDggMTkuODYgMTYuNSAxOS4zMUMxNi45MiAxOS4xNiAxNy4zMyAxOC45NiAxNy43MSAxOC43MkMxNy44OSAxOC42MyAxOC4wMSAxOC40NCAxOCAxOC4yNEMxNi45OSAxNS43MyAxNC42NyAxMy45OSAxMiAxNFoiIGZpbGw9IiM5QzlDOTciLz4KPC9zdmc+Cjwvc3ZnPgo8L3N2Zz4K';">
+                             onerror="handleImageError(this)"
+                             data-member-id="${member._id}">
+                        ${member.passport ? `
+                            <div class="passport-actions" style="position: absolute; top: -5px; right: -5px; display: none;">
+                                <button onclick="deletePassport('${member._id}')" class="btn btn-danger btn-xs" style="padding: 2px 4px; font-size: 10px; border-radius: 50%;" title="Delete Photo">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        ` : ''}
                     </div>
                 </td>
                 <td><strong>${escapeHtml(member.name || 'N/A')}</strong></td>
@@ -1068,14 +1081,17 @@ async function loadMembers() {
                 <td><span style="background: #f3e5f5; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${escapeHtml(member.position || 'MEMBER')}</span></td>
                 <td>${escapeHtml(member.state || 'N/A')}</td>
                 <td>
-                    <div style="display: flex; gap: 5px;">
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap;">
                         <button onclick="viewIdCard('${member._id}')" class="btn btn-info btn-sm" title="View ID Card" style="padding: 5px 8px; font-size: 12px;">
                             <i class="fas fa-id-card"></i>
                         </button>
                         <button onclick="editMember('${member._id}')" class="btn btn-warning btn-sm" title="Edit" style="padding: 5px 8px; font-size: 12px;">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button onclick="deleteMember('${member._id}')" class="btn btn-danger btn-sm" title="Delete" style="padding: 5px 8px; font-size: 12px;">
+                        <button onclick="uploadPassport('${member._id}')" class="btn btn-success btn-sm" title="Upload/Change Photo" style="padding: 5px 8px; font-size: 12px;">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                        <button onclick="deleteMember('${member._id}')" class="btn btn-danger btn-sm" title="Delete Member" style="padding: 5px 8px; font-size: 12px;">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -1083,6 +1099,9 @@ async function loadMembers() {
             `;
             tableBody.appendChild(row);
         });
+        
+        // Add hover effects for passport actions
+        addPassportHoverEffects();
         
         showMessage(`Loaded ${members.length} member${members.length > 1 ? 's' : ''}`, 'success');
         
@@ -1092,6 +1111,516 @@ async function loadMembers() {
         showMessage('Failed to load members: ' + error.message, 'error');
     }
 }
+
+// Helper function to get correct passport image path
+function getPassportImagePath(passport) {
+    if (!passport) {
+        return 'images/default-avatar.png';
+    }
+    
+    // If it's already a full URL or data URL, return as is
+    if (passport.startsWith('http') || passport.startsWith('data:')) {
+        return passport;
+    }
+    
+    // If it starts with uploads/, return as is (relative to server root)
+    if (passport.startsWith('uploads/')) {
+        return passport;
+    }
+    
+    // Default fallback
+    return 'images/default-avatar.png';
+}
+
+// Improved error handling for images
+function handleImageError(img) {
+    img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNFNUU3RUIiLz4KPHBhdGggZD0iTTEyIDEyQzE0LjIwOTEgMTIgMTYgMTAuMjA5MSAxNiA4QzE2IDUuNzkwODYgMTQuMjA5MSA0IDEyIDRDOS43OTA4NiA0IDggNS43OTA4NiA4IDhDOCAxMC4yMDkxIDkuNzkwODYgMTIgMTIgMTJaIiBmaWxsPSIjOUM5Qzk3Ii8+CjxwYXRoIGQ9Ik0xMiAxNEM5LjMzIDEzLjk5IDcuMDEgMTUuNzMgNiAxOC4yNEM1Ljk5IDE4LjQ0IDYuMTEgMTguNjMgNi4yOSAxOC43MkM2LjY3IDE4Ljk2IDcuMDggMTkuMTYgNy41IDE5LjMxQzguOTIgMTkuODYgMTAuNDQgMjAgMTIgMjBDMTMuNTYgMjAgMTUuMDggMTkuODYgMTYuNSAxOS4zMUMxNi45MiAxOS4xNiAxNy4zMyAxOC45NiAxNy43MSAxOC43MkMxNy44OSAxOC42MyAxOC4wMSAxOC40NCAxOCAxOC4yNEMxNi45OSAxNS43MyAxNC42NyAxMy45OSAxMiAxNFoiIGZpbGw9IiM5QzlDOTciLz4KPC9zdmc+';
+    img.onerror = null; // Prevent infinite loop
+}
+
+// Add hover effects for passport actions
+function addPassportHoverEffects() {
+    const memberPhotos = document.querySelectorAll('.member-photo');
+    memberPhotos.forEach(photo => {
+        const actions = photo.querySelector('.passport-actions');
+        if (actions) {
+            photo.addEventListener('mouseenter', () => {
+                actions.style.display = 'block';
+            });
+            photo.addEventListener('mouseleave', () => {
+                actions.style.display = 'none';
+            });
+        }
+    });
+}
+
+// Function to handle passport upload
+async function uploadPassport(memberId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    
+    input.onchange = async function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            showMessage('File size must be less than 5MB', 'error');
+            return;
+        }
+        
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            showMessage('Please select a valid image file', 'error');
+            return;
+        }
+        
+        // Show loading state
+        const loadingMessage = showMessage('Uploading passport photo...', 'info');
+        
+        try {
+            const formData = new FormData();
+            formData.append('passport', file);
+            formData.append('memberId', memberId);
+            
+            const response = await fetch('/api/upload-passport', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                showMessage('Passport photo uploaded successfully!', 'success');
+                // Reload the members table to show the new image
+                await loadMembers();
+            } else {
+                throw new Error(result.message || 'Upload failed');
+            }
+            
+        } catch (error) {
+            console.error('Upload error:', error);
+            showMessage('Failed to upload passport photo: ' + error.message, 'error');
+        }
+    };
+    
+    document.body.appendChild(input);
+    input.click();
+    document.body.removeChild(input);
+}
+
+// Function to delete passport photo
+async function deletePassport(memberId) {
+    if (!confirm('Are you sure you want to delete this passport photo?')) {
+        return;
+    }
+    
+    try {
+        showMessage('Deleting passport photo...', 'info');
+        
+        const response = await fetch(`/api/delete-passport/${memberId}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            showMessage('Passport photo deleted successfully!', 'success');
+            // Reload the members table
+            await loadMembers();
+        } else {
+            throw new Error(result.message || 'Delete failed');
+        }
+        
+    } catch (error) {
+        console.error('Delete passport error:', error);
+        showMessage('Failed to delete passport photo: ' + error.message, 'error');
+    }
+}
+
+// Updated loadUsers function to work with MongoDB
+async function loadUsers() {
+    try {
+        const response = await fetch('/api/members');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const members = await response.json();
+        return members;
+        
+    } catch (error) {
+        console.error('Error loading users:', error);
+        throw error;
+    }
+}
+
+// Enhanced member editing with passport support
+async function editMember(memberId) {
+    try {
+        // Get member data
+        const response = await fetch(`/api/members/${memberId}`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch member data');
+        }
+        
+        const member = await response.json();
+        
+        // Create edit form modal
+        const modal = createEditMemberModal(member);
+        document.body.appendChild(modal);
+        
+        // Show modal
+        modal.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Edit member error:', error);
+        showMessage('Failed to load member data: ' + error.message, 'error');
+    }
+}
+
+// Create edit member modal with passport upload
+function createEditMemberModal(member) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.cssText = `
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+    `;
+    
+    const passportImage = getPassportImagePath(member.passport);
+    
+    modal.innerHTML = `
+        <div class="modal-content" style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 600px; border-radius: 8px;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2>Edit Member</h2>
+                <span class="close" style="color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+            </div>
+            
+            <form id="editMemberForm">
+                <div style="display: grid; grid-template-columns: 1fr 200px; gap: 20px;">
+                    <div>
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label>Name:</label>
+                            <input type="text" id="editName" value="${member.name || ''}" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label>Email:</label>
+                            <input type="email" id="editEmail" value="${member.email || ''}" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label>Code:</label>
+                            <input type="text" id="editCode" value="${member.code || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label>Position:</label>
+                            <select id="editPosition" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="MEMBER" ${member.position === 'MEMBER' ? 'selected' : ''}>Member</option>
+                                <option value="ADMIN" ${member.position === 'ADMIN' ? 'selected' : ''}>Admin</option>
+                                <option value="MODERATOR" ${member.position === 'MODERATOR' ? 'selected' : ''}>Moderator</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label>State:</label>
+                            <input type="text" id="editState" value="${member.state || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div class="passport-section" style="text-align: center;">
+                            <label>Passport Photo:</label>
+                            <div class="passport-preview" style="width: 150px; height: 150px; border: 2px dashed #ddd; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin: 10px auto; position: relative; overflow: hidden;">
+                                <img id="passportPreview" src="${passportImage}" alt="Passport" style="width: 100%; height: 100%; object-fit: cover;" onerror="handleImageError(this)">
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <button type="button" onclick="uploadPassportInModal('${member._id}')" class="btn btn-primary btn-sm" style="margin-right: 5px;">
+                                    <i class="fas fa-upload"></i> Upload
+                                </button>
+                                ${member.passport ? `
+                                    <button type="button" onclick="removePassportInModal('${member._id}')" class="btn btn-danger btn-sm">
+                                        <i class="fas fa-trash"></i> Remove
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-actions" style="margin-top: 20px; text-align: right;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()" style="margin-right: 10px;">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    // Add event listeners
+    const closeBtn = modal.querySelector('.close');
+    closeBtn.onclick = () => closeModal();
+    
+    const form = modal.querySelector('#editMemberForm');
+    form.onsubmit = (e) => handleEditMemberSubmit(e, member._id);
+    
+    // Close modal when clicking outside
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            closeModal();
+        }
+    };
+    
+    return modal;
+}
+
+// Handle passport upload in modal
+async function uploadPassportInModal(memberId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    
+    input.onchange = async function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        // Validate file
+        if (file.size > 5 * 1024 * 1024) {
+            showMessage('File size must be less than 5MB', 'error');
+            return;
+        }
+        
+        if (!file.type.startsWith('image/')) {
+            showMessage('Please select a valid image file', 'error');
+            return;
+        }
+        
+        try {
+            showMessage('Uploading passport photo...', 'info');
+            
+            const formData = new FormData();
+            formData.append('passport', file);
+            formData.append('memberId', memberId);
+            
+            const response = await fetch('/api/upload-passport', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                // Update preview image
+                const preview = document.getElementById('passportPreview');
+                if (preview) {
+                    preview.src = result.passportPath + '?t=' + Date.now(); // Add timestamp to prevent caching
+                }
+                
+                showMessage('Passport photo uploaded successfully!', 'success');
+            } else {
+                throw new Error(result.message || 'Upload failed');
+            }
+            
+        } catch (error) {
+            console.error('Upload error:', error);
+            showMessage('Failed to upload passport photo: ' + error.message, 'error');
+        }
+    };
+    
+    document.body.appendChild(input);
+    input.click();
+    document.body.removeChild(input);
+}
+
+// Handle passport removal in modal
+async function removePassportInModal(memberId) {
+    if (!confirm('Are you sure you want to remove this passport photo?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/delete-passport/${memberId}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            // Update preview image
+            const preview = document.getElementById('passportPreview');
+            if (preview) {
+                preview.src = 'images/default-avatar.png';
+            }
+            
+            showMessage('Passport photo removed successfully!', 'success');
+        } else {
+            throw new Error(result.message || 'Remove failed');
+        }
+        
+    } catch (error) {
+        console.error('Remove passport error:', error);
+        showMessage('Failed to remove passport photo: ' + error.message, 'error');
+    }
+}
+
+// Handle edit member form submission
+async function handleEditMemberSubmit(event, memberId) {
+    event.preventDefault();
+    
+    const formData = {
+        name: document.getElementById('editName').value,
+        email: document.getElementById('editEmail').value,
+        code: document.getElementById('editCode').value,
+        position: document.getElementById('editPosition').value,
+        state: document.getElementById('editState').value
+    };
+    
+    try {
+        showMessage('Updating member...', 'info');
+        
+        const response = await fetch(`/api/members/${memberId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            showMessage('Member updated successfully!', 'success');
+            closeModal();
+            await loadMembers(); // Reload the table
+        } else {
+            throw new Error(result.message || 'Update failed');
+        }
+        
+    } catch (error) {
+        console.error('Update member error:', error);
+        showMessage('Failed to update member: ' + error.message, 'error');
+    }
+}
+
+// Close modal function
+function closeModal() {
+    const modal = document.querySelector('.modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Enhanced escapeHtml function
+function escapeHtml(text) {
+    if (!text) return '';
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+
+// Helper function to get correct passport image path
+function getPassportImagePath(passport) {
+    if (!passport) {
+        return 'images/default-avatar.png';
+    }
+    
+    // If it's already a full URL or data URL, return as is
+    if (passport.startsWith('http') || passport.startsWith('data:')) {
+        return passport;
+    }
+    
+    // If it's a relative path, ensure it's properly formatted
+    if (passport.startsWith('uploads/') || passport.startsWith('./uploads/')) {
+        return passport;
+    }
+    
+    // Assume it's a filename in uploads directory
+    return `uploads/passports/${passport}`;
+}
+
+// Improved error handling for images
+function handleImageError(img) {
+    img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNFNUU3RUIiLz4KPHBhdGggZD0iTTEyIDEyQzE0LjIwOTEgMTIgMTYgMTAuMjA5MSAxNiA4QzE2IDUuNzkwODYgMTQuMjA5MSA0IDEyIDRDOS43OTA4NiA0IDggNS43OTA4NiA4IDhDOCAxMC4yMDkxIDkuNzkwODYgMTIgMTIgMTJaIiBmaWxsPSIjOUM5Qzk3Ii8+CjxwYXRoIGQ9Ik0xMiAxNEM5LjMzIDEzLjk5IDcuMDEgMTUuNzMgNiAxOC4yNEM1Ljk5IDE4LjQ0IDYuMTEgMTguNjMgNi4yOSAxOC43MkM2LjY3IDE4Ljk2IDcuMDggMTkuMTYgNy41IDE5LjMxQzguOTIgMTkuODYgMTAuNDQgMjAgMTIgMjBDMTMuNTYgMjAgMTUuMDggMTkuODYgMTYuNSAxOS4zMUMxNi45MiAxOS4xNiAxNy4zMyAxOC45NiAxNy43MSAxOC43MkMxNy44OSAxOC42MyAxOC4wMSAxOC40NCAxOCAxOC4yNEMxNi45OSAxNS43MyAxNC42NyAxMy45OSAxMiAxNFoiIGZpbGw9IiM5QzlDOTciLz4KPC9zdmc+';
+    img.onerror = null; // Prevent infinite loop
+}
+
+// Function to handle passport upload
+async function uploadPassport(memberId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    
+    input.onchange = async function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            showMessage('File size must be less than 5MB', 'error');
+            return;
+        }
+        
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            showMessage('Please select a valid image file', 'error');
+            return;
+        }
+        
+        try {
+            showMessage('Uploading passport photo...', 'info');
+            
+            const formData = new FormData();
+            formData.append('passport', file);
+            formData.append('memberId', memberId);
+            
+            const response = await fetch('/api/upload-passport', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showMessage('Passport photo uploaded successfully!', 'success');
+                // Reload the members table to show the new image
+                await loadMembers();
+            } else {
+                throw new Error(result.message || 'Upload failed');
+            }
+            
+        } catch (error) {
+            console.error('Upload error:', error);
+            showMessage('Failed to upload passport photo: ' + error.message, 'error');
+        }
+    };
+    
+    document.body.appendChild(input);
+    input.click();
+    document.body.removeChild(input);
+}
+
 
 // Get certificates function
 async function getCertificates() {
@@ -2890,7 +3419,7 @@ async function updateMember(event) {
 }
 
 async function deleteMember(id) {
-    if (!confirm('Are you sure you want to delete this member?')) return;
+    if (!confirm('Are you sure you want to delete this member? This will also delete their passport photo.')) return;
     
     try {
         showMessage('Deleting member...', 'info');
@@ -2905,7 +3434,8 @@ async function deleteMember(id) {
         
         if (res.ok) {
             showMessage('Member deleted successfully!', 'success');
-            await loadDashboard(); // Refresh the dashboard
+            await loadMembers(); // Refresh the members table
+            await loadDashboard(); // Refresh the dashboard if needed
         } else {
             showMessage(data.message || 'Failed to delete member', 'error');
         }
@@ -2921,6 +3451,7 @@ async function deleteMember(id) {
         showMessage(errorMessage, 'error');
     }
 }
+
 
 
 // Search and filter functions
