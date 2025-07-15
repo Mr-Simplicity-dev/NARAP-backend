@@ -1536,23 +1536,22 @@ function escapeHtml(text) {
 
 
 // Helper function to get correct passport image path
+const BACKEND_BASE_URL = 'https://narap-backend.onrender.com';
+
 function getPassportImagePath(passport) {
     if (!passport) {
-        return 'images/default-avatar.png';
+        return BACKEND_BASE_URL + '/images/default-avatar.png';
     }
     
-    // If it's already a full URL or data URL, return as is
     if (passport.startsWith('http') || passport.startsWith('data:')) {
         return passport;
     }
     
-    // If it's a relative path, ensure it's properly formatted
-    if (passport.startsWith('uploads/') || passport.startsWith('./uploads/')) {
-        return passport;
+    if (passport.startsWith('uploads/')) {
+        return BACKEND_BASE_URL + '/' + passport;
     }
     
-    // Assume it's a filename in uploads directory
-    return `uploads/passports/${passport}`;
+    return BACKEND_BASE_URL + '/uploads/passports/' + passport;
 }
 
 // Improved error handling for images
