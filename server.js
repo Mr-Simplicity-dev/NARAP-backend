@@ -117,7 +117,55 @@ const connectDB = async () => {
 };
 
 // Database Models
+// Update the user schema to make email optional
 const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: false }, // Changed from required: true
+  password: { type: String, required: true },
+  code: { type: String, required: true, unique: true },
+  position: {
+    type: String,
+    required: true,
+    enum: [
+      'PRESIDENT', 'DEPUTY PRESIDENT', 'WELFARE', 'PUBLIC RELATION OFFICER',
+      'STATE WELFARE COORDINATOR', 'MEMBER', 'TASK FORCE', 'PROVOST MARSHAL 1',
+      'PROVOST MARSHAL 2', 'VICE PRESIDENT (South West)', 'VICE PRESIDENT (South East)',
+      'VICE PRESIDENT (South South)', 'VICE PRESIDENT (North West)', 'VICE PRESIDENT (North Central)',
+      'VICE PRESIDENT (North East)', 'PUBLIC RELATION OFFICE', 'FINANCIAL SECRETARY',
+      'SECRETARY', 'ASSISTANT SECRETARY', 'TREASURER', 'COORDINATOR', 'ASSISTANT FINANCIAL SECRETARY'
+    ],
+    default: 'MEMBER'
+  },
+  state: { type: String, required: true },
+  zone: { type: String, required: true },
+  passportPhoto: { type: String },
+  signature: { type: String },
+  passport: { type: String },
+  isActive: { type: Boolean, default: true },
+  lastLogin: { type: Date },
+  cardGenerated: { type: Boolean, default: false },
+  dateAdded: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+// Update certificate schema to make email optional
+const certificateSchema = new mongoose.Schema({
+  number: { type: String, required: true, unique: true, uppercase: true, trim: true },
+  recipient: { type: String, required: true, trim: true },
+  email: { type: String, required: false, lowercase: true, trim: true }, // Changed from required: true
+  title: { type: String, required: true, trim: true },
+  type: { type: String, required: true, enum: ['membership', 'training', 'achievement', 'recognition', 'service'], default: 'membership' },
+  description: { type: String, trim: true },
+  issueDate: { type: Date, required: true, default: Date.now },
+  validUntil: { type: Date },
+  status: { type: String, enum: ['active', 'revoked', 'expired'], default: 'active' },
+  revokedAt: { type: Date },
+  revokedBy: { type: String },
+  revokedReason: { type: String },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  issuedBy: { type: String, default: 'NARAP Admin System' },
+  serialNumber: { type: String, unique: true }
+}, { timestamps: true });
+
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
@@ -144,7 +192,7 @@ const userSchema = new mongoose.Schema({
   lastLogin: { type: Date },
   cardGenerated: { type: Boolean, default: false },
   dateAdded: { type: Date, default: Date.now }
-}, { timestamps: true });
+
 
 const certificateSchema = new mongoose.Schema({
   number: { type: String, required: true, unique: true, uppercase: true, trim: true },
@@ -386,6 +434,7 @@ app.get('/api/members', withDB(async (req, res) => {
 }));
 
 
+// Update the addUser endpoint to handle optional email and fix passport handling
 app.post('/api/addUser', withDB(async (req, res) => {
   try {
     const {
@@ -400,10 +449,11 @@ app.post('/api/addUser', withDB(async (req, res) => {
       signature
     } = req.body;
     
-    if (!name || !email || !password || !code || !state || !zone) {
+    // Updated validation - email is now optional
+    if (!name || !password || !code || !state || !zone) {
       return res.status(400).json({
         success: false,
-        message: 'All required fields must be provided'
+        message: 'Name, password, code, state, and zone are required'
       });
     }
     
@@ -415,19 +465,21 @@ app.post('/api/addUser', withDB(async (req, res) => {
       });
     }
     
-    const existingEmail = await User.findOne({ email: email.toLowerCase() });
-    if (existingEmail) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Email already exists' 
-      });
+    // Only check email uniqueness if email is provided
+    if (email && email.trim()) {
+      const existingEmail = await User.findOne({ email: email.toLowerCase() });
+      if (existingEmail) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Email already exists' 
+        });
+      }
     }
     
     const hashedPassword = await bcrypt.hash(password, 10);
     
     const userData = {
       name: name.trim(),
-      email: email.toLowerCase().trim(),
       password: hashedPassword,
       code: code.toUpperCase().trim(),
       position,
@@ -437,9 +489,15 @@ app.post('/api/addUser', withDB(async (req, res) => {
       cardGenerated: !!(passportPhoto && signature)
     };
     
+    // Only add email if provided
+    if (email && email.trim()) {
+      userData.email = email.toLowerCase().trim();
+    }
+    
+    // Fix passport photo handling - ensure both fields are set
     if (passportPhoto) {
       userData.passportPhoto = passportPhoto;
-      userData.passport = passportPhoto;
+      userData.passport = passportPhoto; // Ensure both fields have the same value
     }
     
     if (signature) {
@@ -451,7 +509,22 @@ app.post('/api/addUser', withDB(async (req, res) => {
     
     res.status(201).json({ 
       success: true,
-      message: 'User added successfully' 
+      message: 'User added successfully',
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        code: user.code,
+        position: user.position,
+        state: user.state,
+        zone: user.zone,
+        passportPhoto: user.passportPhoto,
+        passport: user.passport,
+        signature: user.signature,
+        dateAdded: user.dateAdded,
+        isActive: user.isActive,
+        cardGenerated: user.cardGenerated
+      }
     });
   } catch (error) {
     console.error('Add user error:', error);
@@ -473,8 +546,7 @@ app.post('/api/addUser', withDB(async (req, res) => {
         });
       }
     } else if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(err => err.message
-      );
+      const messages = Object.values(error.errors).map(err => err.message);
       res.status(400).json({ 
         success: false,
         message: messages.join(', ') 
@@ -487,6 +559,203 @@ app.post('/api/addUser', withDB(async (req, res) => {
     }
   }
 }));
+
+// Update certificate creation endpoint
+app.post('/api/certificates', withDB(async (req, res) => {
+  try {
+    const {
+      number,
+      recipient,
+      email,
+      title,
+      type = 'membership',
+      description,
+      issueDate,
+      validUntil,
+      userId
+    } = req.body;
+    
+    // Updated validation - email is now optional
+    if (!number || !recipient || !title) {
+      return res.status(400).json({
+        success: false,
+        message: 'Certificate number, recipient, and title are required'
+      });
+    }
+    
+    const existingCert = await Certificate.findOne({ 
+      number: number.toUpperCase() 
+    });
+    if (existingCert) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Certificate number already exists' 
+      });
+    }
+    
+    const certificateData = {
+      number: number.toUpperCase().trim(),
+      recipient: recipient.trim(),
+      title: title.trim(),
+      type,
+      description: description?.trim(),
+      issueDate: issueDate ? new Date(issueDate) : new Date(),
+      validUntil: validUntil ? new Date(validUntil) : null,
+      userId: userId || null
+    };
+    
+    // Only add email if provided
+    if (email && email.trim()) {
+      certificateData.email = email.toLowerCase().trim();
+    }
+    
+    const certificate = new Certificate(certificateData);
+    await certificate.save();
+    
+    res.status(201).json({
+      success: true,
+      message: 'Certificate issued successfully',
+      certificate
+    });
+  } catch (error) {
+    console.error('Issue certificate error:', error);
+    if (error.code === 11000) {
+      res.status(400).json({ 
+        success: false,
+        message: 'Certificate number already exists' 
+      });
+    } else if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      res.status(400).json({ 
+        success: false,
+        message: messages.join(', ') 
+      });
+    } else {
+      res.status(500).json({ 
+        success: false,
+        message: 'Server error while issuing certificate' 
+      });
+    }
+  }
+}));
+
+// Fix the member verification to ensure passport photo is returned correctly
+app.post('/api/members/verify', withDB(async (req, res) => {
+  try {
+    const { code } = req.body;
+    
+    console.log('🔍 Frontend verification request for code:', code);
+    
+    if (!code) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Code is required' 
+      });
+    }
+    
+    const member = await User.findOne({ 
+      code: { $regex: new RegExp(`^${code}$`, 'i') },
+      isActive: { $ne: false }
+    }).select('-password');
+    
+    if (!member) {
+      console.log('❌ Member not found for code:', code);
+      return res.status(404).json({ 
+        success: false,
+        message: 'Member not found with this code. Please verify the code and try again.' 
+      });
+    }
+    
+    console.log('✅ Member found:', member.name, member.code);
+    
+    member.lastVerification = new Date();
+    await member.save();
+    
+    // Ensure passport photo is properly returned
+    const passportPhoto = member.passportPhoto || member.passport;
+    
+    res.json({
+      success: true,
+      message: 'Member found successfully',
+      member: {
+        _id: member._id,
+        name: member.name,
+        email: member.email || '', // Handle optional email
+        code: member.code,
+        position: member.position || 'MEMBER',
+        state: member.state,
+        zone: member.zone,
+        passportPhoto: passportPhoto,
+        passport: passportPhoto,
+        signature: member.signature,
+        dateAdded: member.dateAdded || member.createdAt,
+        isActive: member.isActive !== false
+      }
+    });
+  } catch (error) {
+    console.error('❌ Member verification error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error while verifying member' 
+    });
+  }
+}));
+
+// Update searchUser endpoint similarly
+app.post('/api/searchUser', withDB(async (req, res) => {
+  try {
+    const { code } = req.body;
+    
+    console.log('🔍 Legacy searchUser request for code:', code);
+    
+    if (!code) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Code is required' 
+      });
+    }
+    
+    const user = await User.findOne({ 
+      code: { $regex: new RegExp(`^${code}$`, 'i') },
+      isActive: { $ne: false }
+    }).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      });
+    }
+    
+    // Ensure passport photo is properly returned
+    const passportPhoto = user.passportPhoto || user.passport;
+    
+    res.json({
+      success: true,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email || '', // Handle optional email
+        code: user.code,
+        position: user.position || 'MEMBER',
+        state: user.state,
+        zone: user.zone,
+        passportPhoto: passportPhoto,
+        passport: passportPhoto,
+        signature: user.signature,
+        dateAdded: user.dateAdded || user.createdAt,
+        createdAt: user.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Legacy searchUser error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error' 
+    });
+  }
+}));
+
 
 app.delete('/api/deleteUser/:id', withDB(async (req, res) => {
   try {
