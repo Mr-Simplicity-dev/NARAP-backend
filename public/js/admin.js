@@ -1098,6 +1098,32 @@ async function fetchMembers() {
             'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         }
     });
+
+function setupEventDelegation() { 
+    document.getElementById('membersTableBody').addEventListener('click', function(e) {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+
+        const memberId = btn.dataset.memberId;
+
+        if (btn.classList.contains('view-btn')) {
+            viewIdCard(memberId);
+        } 
+        else if (btn.classList.contains('edit-btn')) {
+            editMember(memberId);
+        }
+        else if (btn.classList.contains('upload-btn')) {
+            uploadPassport(memberId);
+        }
+        else if (btn.classList.contains('delete-btn')) {
+            deleteMember(memberId);
+        }
+        else if (btn.classList.contains('passport-delete-btn')) {
+            deletePassport(memberId);
+        }
+    });
+}
+
     
     if (!response.ok) throw new Error('Failed to fetch members');
     return await response.json();
@@ -1197,25 +1223,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 
-// Helper function to get correct passport image path
-function getPassportImagePath(passport) {
-    if (!passport) {
-        return 'images/default-avatar.png';
-    }
-    
-    // If it's already a full URL or data URL, return as is
-    if (passport.startsWith('http') || passport.startsWith('data:')) {
-        return passport;
-    }
-    
-    // If it starts with uploads/, return as is (relative to server root)
-    if (passport.startsWith('uploads/')) {
-        return passport;
-    }
-    
-    // Default fallback
-    return 'images/default-avatar.png';
-}
 
 // Improved error handling for images
 function handleImageError(img) {
@@ -1624,19 +1631,24 @@ function escapeHtml(text) {
 const BACKEND_BASE_URL = 'https://narap-backend.onrender.com';
 
 function getPassportImagePath(passport) {
-    if (!passport) {
-        return BACKEND_BASE_URL + '/images/default-avatar.png';
+    // 1. Handle empty case
+    if (!passport) return `${BACKEND_BASE_URL}/images/default-avatar.png`;
+    
+    // 2. Preserve full URLs
+    if (passport.startsWith('http') || passport.startsWith('data:')) return passport;
+    
+    // 3. Normalize paths (remove leading slashes)
+    const normalizedPath = passport.startsWith('/') 
+        ? passport.substring(1) 
+        : passport;
+    
+    // 4. Handle different upload locations
+    if (normalizedPath.startsWith('uploads/')) {
+        return `${BACKEND_BASE_URL}/${normalizedPath}`;
     }
     
-    if (passport.startsWith('http') || passport.startsWith('data:')) {
-        return passport;
-    }
-    
-    if (passport.startsWith('uploads/')) {
-        return BACKEND_BASE_URL + '/' + passport;
-    }
-    
-    return BACKEND_BASE_URL + '/uploads/passports/' + passport;
+    // 5. Default to passports subfolder
+    return `${BACKEND_BASE_URL}/uploads/passports/${normalizedPath}`;
 }
 
 // Improved error handling for images
@@ -7745,7 +7757,6 @@ if (typeof module !== 'undefined' && module.exports) {
 console.log('NARAP Admin Panel JavaScript fully loaded');
 console.log('Total functions available:', Object.keys(window.narapAdmin).length);
 console.log('Ready for production use!');
-
 
 
 
