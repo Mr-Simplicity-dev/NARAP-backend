@@ -338,91 +338,82 @@ function getAuthHeaders() {
 async function login(event) {
     if (event) event.preventDefault();
     
-    const username = document.getElementById('username').value.trim();
+    const email = document.getElementById('username').value.trim(); // Changed from username to email for clarity
     const password = document.getElementById('password').value;
     const loginError = document.getElementById('loginError');
     
     loginError.innerHTML = '';
     
-    if (!username || !password) {
-        loginError.innerHTML = '<div class="error">Please enter both username and password</div>';
+    if (!email || !password) {
+        loginError.innerHTML = '<div class="error">Please enter both email and password</div>';
         return;
     }
-    
-    console.log('🔐 Login attempt:', { username, password: '***' });
-    console.log('Backend URL:', backendUrl);
     
     try {
         showMessage('Logging in...', 'info');
         
-        const res = await fetch(`${backendUrl}/api/login`, {
+        // Add timeout handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const response = await fetch(`${backendUrl}/api/login`, {
             method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ email: username, password }),
-            credentials: 'include'
-        }, 10000);
+            headers: { 
+                'Content-Type': 'application/json',
+                ...getAuthHeaders() // Preserve any existing auth headers
+            },
+            credentials: 'include',
+            body: JSON.stringify({ email, password }),
+            signal: controller.signal
+        });
         
-        console.log('Response status:', res.status);
-        console.log('Response ok:', res.ok);
+        clearTimeout(timeoutId); // Clear timeout if request completes
         
-        const data = await res.json();
-        console.log('Response data:', data);
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
         
         if (data.success) {
-            console.log('✅ Login successful:', data);
-            
-            if (data.token) {
-                localStorage.setItem('authToken', data.token);
-                console.log('🔑 Token stored');
-            }
+            // Store authentication (improved storage naming)
+            localStorage.setItem('narap_token', data.token);
+            localStorage.setItem('narap_user', JSON.stringify(data.user));
             
             showMessage('Login successful!', 'success');
+            
+            // UI transition
             document.getElementById('loginSection').style.display = 'none';
-            document.getElementById('adminSection').style.display = 'block';
+            document.getElementById('adminPanel').style.display = 'block';
             
-            try {
-                // Load dashboard and get members and certificates
-                await loadDashboard();
-                
-                // Explicitly load members (if loadDashboard doesn't expose members array)
-                const members = await loadMembers();
-                
-                // Load certificates if you want fresh data for recent activity
-                // Assuming you have a function getCertificates() that returns array of certificates
-                const certificates = await getCertificates?.() || [];
-                
-                // Load recent activities passing members and certificates
-                if (typeof loadRecentActivity === 'function') {
-                    loadRecentActivity(members, certificates);
-                }
-                
-            } catch (err) {
-                console.error('Error loading dashboard, members or recent activity:', err);
-                showMessage('Login successful, but some data failed to load', 'warning');
-            }
+            // Load critical data
+            await Promise.all([
+                loadDashboard(),
+                loadUsers(), // Replaces loadMembers()
+                loadCertificates()
+            ]);
             
-            } else {
-            console.log('❌ Login failed:', data);
-            const errorMessage = data.message || 'Login failed';
-            loginError.innerHTML = `<div class="error">Login failed: ${errorMessage}</div>`;
-            showMessage(`Login failed: ${errorMessage}`, 'error');
-            }
+            // Clear cache and initialize
+            dataCache.clear();
+            initializeDashboard();
+            
+        } else {
+            throw new Error(data.message || 'Login failed');
+        }
         
-            } catch (error) {
-            console.error('❌ Login error:', error);
+    } catch (error) {
+        console.error('Login error:', error);
         
-            let errorMessage = 'Network error: Please check your connection and try again';
+        let errorMessage = 'Login failed. Please try again.';
+        if (error.name === 'AbortError') {
+            errorMessage = 'Request timed out. Please check your connection.';
+        } else if (error.message.includes('HTTP')) {
+            errorMessage = error.message;
+        }
         
-            if (error.name === 'AbortError') {
-            errorMessage = 'Request timed out. The server may be slow or unavailable.';
-            } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
-            errorMessage = 'Cannot connect to server. Please check your internet connection or server deployment on Vercel.';
-            } else if (error.message.includes('JSON')) {
-            errorMessage = 'Server response error. Please check server logs';
-            }
-        
-                loginError.innerHTML = `<div class="error">${errorMessage}</div>`;
-            showMessage(errorMessage, 'error');
+        loginError.innerHTML = `<div class="error">${errorMessage}</div>`;
+        showMessage(errorMessage, 'error');
     }
 }
 
@@ -942,46 +933,64 @@ function formatRelativeDate(dateString) {
     }
 }
 
-// Get members function
+// Update the loadUsers function to handle the auto-loading better
 async function loadUsers() {
     try {
-        console.log('Fetching members from:', `${backendUrl}/api/getUsers`);
-               
-        const res = await fetch(`${backendUrl}/api/getUsers`, {
+        console.log('🔄 Loading users...');
+        showLoadingState('membersTableBody', 'Loading members...');
+        
+        const response = await fetch(`${backendUrl}/api/getUsers`, {
             method: 'GET',
             credentials: 'include',
-            headers: getAuthHeaders()
-        }, 15000); // 15 second timeout for data loading
-               
-        // Handle token expiration
-        if (res.status === 401) {
-            console.log('🔐 Token expired, redirecting to login');
-            localStorage.removeItem('authToken');
-            document.getElementById('loginSection').style.display = 'block';
-            document.getElementById('adminSection').style.display = 'none';
-            showMessage('Session expired. Please login again.', 'warning');
-            return [];
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-               
-        if (!res.ok) {
-            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+        const users = await response.json();
+        console.log(`✅ Loaded ${users.length} users`);
+        
+        // Update global variable
+        currentMembers = users;
+        
+        // Save to localStorage for offline access
+        localStorage.setItem('narap_members', JSON.stringify(users));
+        
+        // Update the display
+        displayMembers(users);
+        
+        // Update member count in dashboard if element exists
+        const memberCountElement = document.getElementById('totalMembers');
+        if (memberCountElement) {
+            memberCountElement.textContent = users.length;
         }
-               
-        const members = await res.json();
-        currentMembers = Array.isArray(members) ? members : [];
-        console.log('✅ Members loaded successfully:', currentMembers.length, 'members');
-        return currentMembers;
-           
+        
+        return users;
+        
     } catch (error) {
-        console.error('❌ Get members error:', error);
-               
-        let errorMessage = 'Failed to load members: ' + error.message;
-        if (error.name === 'AbortError') {
-            errorMessage = 'Request timed out while loading members. Please try again.';
+        console.error('❌ Load users error:', error);
+        hideLoadingState('membersTableBody');
+        
+        // Try to load from localStorage as fallback
+        const cachedUsers = localStorage.getItem('narap_members');
+        if (cachedUsers) {
+            try {
+                const users = JSON.parse(cachedUsers);
+                console.log('📱 Using cached users data');
+                currentMembers = users;
+                displayMembers(users);
+                showMessage('Loaded cached member data (offline mode)', 'warning');
+                return users;
+            } catch (parseError) {
+                console.error('Failed to parse cached users:', parseError);
+            }
         }
-               
-        showMessage(errorMessage, 'error');
-        currentMembers = [];
+        
+        showMessage('Failed to load members: ' + error.message, 'error');
         return [];
     }
 }
@@ -991,55 +1000,57 @@ async function getMembers() {
     return await loadUsers();
 }
 
+// Update displayMembers function to handle missing passport photos better
 function displayMembers(members) {
-    try {
-        const membersTableBody = document.querySelector('#membersTable tbody') || 
-                                document.querySelector('#membersTableBody') ||
-                                document.getElementById('membersTableBody');
-        
-        if (!membersTableBody) {
-            console.warn('Members table body not found');
-            return;
-        }
-
-        // Clear existing rows
-        membersTableBody.innerHTML = '';
-
-        if (!members || members.length === 0) {
-            membersTableBody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding: 20px; color: #666;">No members found</td></tr>';
-            return;
-        }
-
-        members.forEach(member => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${member.id || member._id || 'N/A'}</td>
-                <td>${escapeHtml(member.name || member.fullName || 'N/A')}</td>
-                <td>${escapeHtml(member.email || 'N/A')}</td>
-                <td>${escapeHtml(member.membershipType || member.type || 'Regular')}</td>
-                <td>${formatDate(member.createdAt || member.dateAdded)}</td>
-                <td>
-                    <div style="display: flex; gap: 5px;">
-                        <button class="btn btn-sm btn-primary" onclick="viewMember('${member.id || member._id}')" title="View">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                        <button class="btn btn-sm btn-warning" onclick="editMember('${member.id || member._id}')" title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteMember('${member.id || member._id}')" title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </td>
-            `;
-            membersTableBody.appendChild(row);
-        });
-
-        console.log('Members displayed successfully');
-    } catch (error) {
-        console.error('Error displaying members:', error);
-        showMessage('Failed to display members', 'error');
+    const tbody = document.getElementById('membersTableBody');
+    if (!tbody) {
+        console.error('Members table body not found');
+        return;
     }
+
+    if (!members || members.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">No members found</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = members.map(member => {
+        // Handle passport photo with better fallback
+        const passportPhoto = member.passportPhoto || member.passport;
+        const photoSrc = passportPhoto && passportPhoto !== 'undefined' 
+            ? (passportPhoto.startsWith('data:') ? passportPhoto : `${backendUrl}/${passportPhoto}`)
+            : 'images/default-avatar.png';
+        
+        // Handle optional email
+        const email = member.email || 'Not provided';
+        
+        return `
+            <tr>
+                <td>
+                    <img src="${photoSrc}" 
+                         alt="Passport" 
+                         style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;"
+                         onerror="this.src='images/default-avatar.png'">
+                </td>
+                <td>${escapeHtml(member.name)}</td>
+                <td>${escapeHtml(email)}</td>
+                <td>${escapeHtml(member.code)}</td>
+                <td>${escapeHtml(member.position || 'MEMBER')}</td>
+                <td>${escapeHtml(member.state)}</td>
+                <td>${escapeHtml(member.zone)}</td>
+                <td>
+                    <button onclick="editMember('${member._id}')" class="btn btn-sm btn-primary" title="Edit Member">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="viewIdCard('${member._id}')" class="btn btn-sm btn-info" title="View ID Card">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button onclick="deleteMember('${member._id}')" class="btn btn-sm btn-danger" title="Delete Member">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
 }
 
 
