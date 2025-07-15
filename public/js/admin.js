@@ -1083,9 +1083,12 @@ async function loadMembers() {
         return members;
         
     } catch (error) {
-        handleLoadError(tableBody, error);
-        return [];
-    }
+    console.error('Load members error:', error);
+    handleLoadError(tableBody, error);
+    throw error; // Add this line to propagate the error
+    // Keep the return [] if needed by other functions
+    return []; 
+}
 }
 
 // 3. New helper functions
@@ -1113,14 +1116,51 @@ function renderMembersTable(tableBody, members) {
     members.forEach(member => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <!-- Your existing row HTML template -->
-            <!-- ... -->
+            <td>
+                <div class="member-photo-container">
+                    <img src="${getPassportImagePath(member.passport)}"
+                         class="member-photo"
+                         data-member-id="${member._id}">
+                    ${member.passport ? `
+                    <div class="passport-actions">
+                        <button class="btn btn-danger btn-xs passport-delete-btn"
+                                data-member-id="${member._id}">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>` : ''}
+                </div>
+            </td>
+            <td>${escapeHtml(member.name)}</td>
+            <td>${escapeHtml(member.email)}</td>
+            <td><span class="badge bg-primary">${escapeHtml(member.code)}</span></td>
+            <td><span class="badge bg-purple">${escapeHtml(member.position)}</span></td>
+            <td>${escapeHtml(member.state)}</td>
+            <td>
+                <div class="action-buttons">
+                    <button class="btn btn-info btn-sm view-btn"
+                            data-member-id="${member._id}">
+                        <i class="fas fa-id-card"></i>
+                    </button>
+                    <button class="btn btn-warning btn-sm edit-btn"
+                            data-member-id="${member._id}">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-success btn-sm upload-btn"
+                            data-member-id="${member._id}">
+                        <i class="fas fa-camera"></i>
+                    </button>
+                    <button class="btn btn-danger btn-sm delete-btn"
+                            data-member-id="${member._id}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
         `;
         fragment.appendChild(row);
     });
     
     tableBody.appendChild(fragment);
-    setupEventDelegation();
+    setupEventDelegation(); // Now this will work
 }
 
 function handleLoadError(tableBody, error) {
