@@ -334,10 +334,8 @@ async function login(event) {
     const password = document.getElementById('password').value;
     const loginError = document.getElementById('loginError');
     
-    // Clear previous errors
     loginError.innerHTML = '';
     
-    // Validate input
     if (!username || !password) {
         loginError.innerHTML = '<div class="error">Please enter both username and password</div>';
         return;
@@ -349,25 +347,22 @@ async function login(event) {
     try {
         showMessage('Logging in...', 'info');
         
-        // ✅ Use fetchWithTimeout with 10 second timeout
         const res = await fetch(`${backendUrl}/api/login`, {
             method: 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify({ email: username, password }),
             credentials: 'include'
-        }, 10000); // 10 second timeout
+        }, 10000);
         
         console.log('Response status:', res.status);
         console.log('Response ok:', res.ok);
         
-        // Handle response
         const data = await res.json();
         console.log('Response data:', data);
         
         if (data.success) {
             console.log('✅ Login successful:', data);
             
-            // Store token if provided
             if (data.token) {
                 localStorage.setItem('authToken', data.token);
                 console.log('🔑 Token stored');
@@ -377,13 +372,27 @@ async function login(event) {
             document.getElementById('loginSection').style.display = 'none';
             document.getElementById('adminSection').style.display = 'block';
             
-            // Load dashboard
             try {
+                // Load dashboard and get members and certificates
                 await loadDashboard();
-            } catch (dashboardError) {
-                console.error('Dashboard load error:', dashboardError);
-                showMessage('Login successful, but failed to load dashboard', 'warning');
+                
+                // Explicitly load members (if loadDashboard doesn't expose members array)
+                const members = await loadMembers();
+                
+                // Load certificates if you want fresh data for recent activity
+                // Assuming you have a function getCertificates() that returns array of certificates
+                const certificates = await getCertificates?.() || [];
+                
+                // Load recent activities passing members and certificates
+                if (typeof loadRecentActivity === 'function') {
+                    loadRecentActivity(members, certificates);
+                }
+                
+            } catch (err) {
+                console.error('Error loading dashboard, members or recent activity:', err);
+                showMessage('Login successful, but some data failed to load', 'warning');
             }
+            
         } else {
             console.log('❌ Login failed:', data);
             const errorMessage = data.message || 'Login failed';
