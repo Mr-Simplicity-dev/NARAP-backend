@@ -7871,3 +7871,48 @@ function updateNavigation() {
         });
     });
 }
+
+// Add utility function to clear image previews
+function clearImagePreviews() {
+    const passportPreview = document.getElementById('passportPreview');
+    const signaturePreview = document.getElementById('signaturePreview');
+
+    if (passportPreview) {
+        passportPreview.src = 'images/default-avatar.png';
+    }
+
+    if (signaturePreview) {
+        signaturePreview.src = 'images/default-signature.png';
+    }
+}
+
+// Initialize dashboard function
+function initializeDashboard() {
+    console.log('Initializing dashboard...');
+
+    // Update navigation to show current section
+    updateNavigation();
+
+    // Load initial data
+    loadDashboardData();
+
+    // Set up event listeners
+    setupEventListeners();
+
+    // Show members section by default
+    showSection('members');
+}
+
+// Update navigation function
+function updateNavigation() {
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            const section = this.getAttribute('data-section');
+            if (section) {
+                showSection(section);
+            }
+        });
+    });
+}
