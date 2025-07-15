@@ -1042,7 +1042,7 @@ async function loadMembers() {
     
     if (!tableBody) {
         console.error('Members table body not found');
-        return;
+        return [];
     }
     
     try {
@@ -1057,7 +1057,7 @@ async function loadMembers() {
         if (!members || members.length === 0) {
             tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666; padding: 20px;">No members found</td></tr>';
             showMessage('No members found', 'info');
-            return;
+            return [];
         }
         
         // Create table rows
@@ -1113,13 +1113,17 @@ async function loadMembers() {
         addPassportHoverEffects();
         
         showMessage(`Loaded ${members.length} member${members.length > 1 ? 's' : ''}`, 'success');
+
+        return members;  // <----- This return is the fix you need!
         
     } catch (error) {
         console.error('Load members error:', error);
         tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red; padding: 20px;">Failed to load members: ' + error.message + '</td></tr>';
         showMessage('Failed to load members: ' + error.message, 'error');
+        return [];
     }
 }
+
 
 // Helper function to get correct passport image path
 function getPassportImagePath(passport) {
