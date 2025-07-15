@@ -3351,115 +3351,66 @@ function closeConfirmModal() {
 }
 
 // Member management functions
-async function addMember(event) {
-    event.preventDefault();
-    console.log('Add member function called');
-    
+// Update the addMember function to handle optional email
+async function addMember() {
     try {
-        // Get form values using getElementById instead of FormData
-        const memberName = document.getElementById('memberName')?.value?.trim();
-        const memberEmail = document.getElementById('memberEmail')?.value?.trim();
-        const memberPassword = document.getElementById('memberPassword')?.value?.trim();
-        const memberCode = document.getElementById('memberCode')?.value?.trim();
-        const memberPosition = document.getElementById('memberPosition')?.value?.trim();
-        const memberState = document.getElementById('memberState')?.value?.trim();
-        const memberZone = document.getElementById('memberZone')?.value?.trim();
-        
-        console.log('Form values:', {
-            memberName,
-            memberEmail,
-            memberPassword,
-            memberCode,
-            memberPosition,
-            memberState,
-            memberZone
-        });
-        
-        // Create memberData object with correct property names
-        const memberData = {
-            name: memberName,
-            email: memberEmail,
-            password: memberPassword,
-            code: memberCode,
-            position: memberPosition,
-            state: memberState,
-            zone: memberZone
-        };
-        
-        // Validation
-        if (!memberData.name || !memberData.email || !memberData.password || !memberData.code || !memberData.position || !memberData.state || !memberData.zone) {
-            const missingFields = [];
-            if (!memberData.name) missingFields.push('Full Name');
-            if (!memberData.email) missingFields.push('Email');
-            if (!memberData.password) missingFields.push('Password');
-            if (!memberData.code) missingFields.push('NARAP Code');
-            if (!memberData.position) missingFields.push('Position');
-            if (!memberData.state) missingFields.push('State');
-            if (!memberData.zone) missingFields.push('Zone');
-            
-            showMessage(`Please fill in all required fields: ${missingFields.join(', ')}`, 'error');
+        const validation = validateMemberForm();
+        if (!validation.isValid) {
+            showMessage('Please fix the following errors:\n' + validation.errors.join('\n'), 'error');
             return;
         }
         
-        // Email validation
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(memberData.email)) {
-            showMessage('Please enter a valid email address', 'error');
-            return;
+        const memberData = {
+            name: document.getElementById('memberName').value.trim(),
+            code: document.getElementById('memberCode').value.trim(),
+            password: document.getElementById('memberPassword').value,
+            position: document.getElementById('memberPosition').value,
+            state: document.getElementById('memberState').value.trim(),
+            zone: document.getElementById('memberZone').value.trim(),
+            passportPhoto: document.getElementById('passportPreview')?.src || '',
+            signature: document.getElementById('signaturePreview')?.src || ''
+        };
+        
+        // Only add email if provided
+        const email = document.getElementById('memberEmail').value.trim();
+        if (email) {
+            memberData.email = email;
         }
         
         showMessage('Adding member...', 'info');
         
-        // Make sure backendUrl is defined
-        const backendUrl = window.backendUrl || (window.location.origin.includes('localhost') 
-            ? 'http://localhost:3000' 
-            : window.location.origin);
-        
-        const res = await fetch(`${backendUrl}/api/addUser`, {
+        const response = await fetch(`${backendUrl}/api/addUser`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeaders()
-            },
-            body: JSON.stringify(memberData),
-            credentials: 'include'
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(memberData)
         });
         
-        const data = await res.json();
+        const result = await response.json();
         
-        if (res.ok) {
+        if (result.success) {
             showMessage('Member added successfully!', 'success');
             
-            // Reset the form
-            const form = document.getElementById('addMemberForm');
-            if (form) form.reset();
+            // Clear the form
+            document.getElementById('addMemberForm').reset();
+            clearImagePreviews();
             
-            // Close the modal
-            closeAddMemberModal();
+            // Reload members to show the new addition
+            await loadUsers();
             
-            // Refresh the dashboard
-            if (typeof loadDashboard === 'function') {
-                await loadDashboard();
-            }
-            
-            // Refresh members table
-            if (typeof refreshMembers === 'function') {
-                refreshMembers();
+            // Close modal if it exists
+            const modal = document.getElementById('addMemberModal');
+            if (modal) {
+                modal.style.display = 'none';
             }
             
         } else {
-            showMessage(data.message || 'Failed to add member', 'error');
+            showMessage(result.message || 'Failed to add member', 'error');
         }
         
     } catch (error) {
         console.error('Add member error:', error);
-        
-        let errorMessage = 'Failed to add member: ' + error.message;
-        if (error.name === 'AbortError') {
-            errorMessage = 'Request timed out while adding member. Please try again.';
-        }
-        
-        showMessage(errorMessage, 'error');
+        showMessage('Failed to add member: ' + error.message, 'error');
     }
 }
 
@@ -7767,19 +7718,20 @@ console.log('NARAP Admin Panel JavaScript fully loaded');
 console.log('Total functions available:', Object.keys(window.narapAdmin).length);
 console.log('Ready for production use!');
 
+// Update the member verification display to handle passport photos correctly
 function displayMemberVerification(member) {
     const verificationResult = document.getElementById('verificationResult');
     if (!verificationResult) return;
-
+    
     // Handle passport photo with better fallback
     const passportPhoto = member.passportPhoto || member.passport;
     const photoSrc = passportPhoto && passportPhoto !== 'undefined' 
         ? (passportPhoto.startsWith('data:') ? passportPhoto : `${backendUrl}/${passportPhoto}`)
         : 'images/default-avatar.png';
-
+    
     // Handle optional email
     const email = member.email || 'Not provided';
-
+    
     verificationResult.innerHTML = `
         <div class="member-card">
             <div class="member-photo">
@@ -7800,4 +7752,122 @@ function displayMemberVerification(member) {
             </div>
         </div>
     `;
+}
+
+// Update form validation to make email optional
+function validateMemberForm() {
+    const name = document.getElementById('memberName')?.value?.trim();
+    const email = document.getElementById('memberEmail')?.value?.trim();
+    const code = document.getElementById('memberCode')?.value?.trim();
+    const password = document.getElementById('memberPassword')?.value;
+    const state = document.getElementById('memberState')?.value?.trim();
+    const zone = document.getElementById('memberZone')?.value?.trim();
+    
+    const errors = [];
+    
+    if (!name || name.length < 2) {
+        errors.push('Name must be at least 2 characters long');
+    }
+    
+    // Email is now optional, but if provided, must be valid
+    if (email && !validateEmail(email)) {
+        errors.push('Please enter a valid email address');
+    }
+    
+    if (!code || code.length < 3) {
+        errors.push('Member code must be at least 3 characters long');
+    }
+    
+    if (!password || password.length < 6) {
+        errors.push('Password must be at least 6 characters long');
+    }
+    
+    if (!state) {
+        errors.push('State is required');
+    }
+    
+    if (!zone) {
+        errors.push('Zone is required');
+    }
+    
+    return {
+        isValid: errors.length === 0,
+        errors: errors
+    };
+}
+
+// Update certificate form validation to make email optional
+function validateCertificateForm() {
+    const number = document.getElementById('certificateNumber')?.value?.trim();
+    const recipient = document.getElementById('certificateRecipient')?.value?.trim();
+    const email = document.getElementById('certificateEmail')?.value?.trim();
+    const title = document.getElementById('certificateTitle')?.value?.trim();
+    
+    const errors = [];
+    
+    if (!number || number.length < 3) {
+        errors.push('Certificate number is required');
+    }
+    
+    if (!recipient || recipient.length < 2) {
+        errors.push('Recipient name is required');
+    }
+    
+    // Email is now optional, but if provided, must be valid
+    if (email && !validateEmail(email)) {
+        errors.push('Please enter a valid email address');
+    }
+    
+    if (!title || title.length < 3) {
+        errors.push('Certificate title is required');
+    }
+    
+    return {
+        isValid: errors.length === 0,
+        errors: errors
+    };
+}
+
+// Add utility function to clear image previews
+function clearImagePreviews() {
+    const passportPreview = document.getElementById('passportPreview');
+    const signaturePreview = document.getElementById('signaturePreview');
+    
+    if (passportPreview) {
+        passportPreview.src = 'images/default-avatar.png';
+    }
+    
+    if (signaturePreview) {
+        signaturePreview.src = 'images/default-signature.png';
+    }
+}
+// Initialize dashboard function
+function initializeDashboard() {
+    console.log('Initializing dashboard...');
+    
+    // Update navigation to show current section
+    updateNavigation();
+    
+    // Load initial data
+    loadDashboardData();
+    
+    // Set up event listeners
+    setupEventListeners();
+    
+    // Show members section by default
+    showSection('members');
+}
+
+// Update navigation function
+function updateNavigation() {
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            const section = this.getAttribute('data-section');
+            if (section) {
+                showSection(section);
+            }
+        });
+    });
 }
