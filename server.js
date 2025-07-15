@@ -147,51 +147,6 @@ const userSchema = new mongoose.Schema({
   dateAdded: { type: Date, default: Date.now }
 }, { timestamps: true });
 
-// Update certificate schema to make email optional
-const certificateSchema = new mongoose.Schema({
-  number: { type: String, required: true, unique: true, uppercase: true, trim: true },
-  recipient: { type: String, required: true, trim: true },
-  email: { type: String, required: false, lowercase: true, trim: true }, // Changed from required: true
-  title: { type: String, required: true, trim: true },
-  type: { type: String, required: true, enum: ['membership', 'training', 'achievement', 'recognition', 'service'], default: 'membership' },
-  description: { type: String, trim: true },
-  issueDate: { type: Date, required: true, default: Date.now },
-  validUntil: { type: Date },
-  status: { type: String, enum: ['active', 'revoked', 'expired'], default: 'active' },
-  revokedAt: { type: Date },
-  revokedBy: { type: String },
-  revokedReason: { type: String },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  issuedBy: { type: String, default: 'NARAP Admin System' },
-  serialNumber: { type: String, unique: true }
-}, { timestamps: true });
-
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  code: { type: String, required: true, unique: true },
-  position: {
-    type: String,
-    required: true,
-    enum: [
-      'PRESIDENT', 'DEPUTY PRESIDENT', 'WELFARE', 'PUBLIC RELATION OFFICER',
-      'STATE WELFARE COORDINATOR', 'MEMBER', 'TASK FORCE', 'PROVOST MARSHAL 1',
-      'PROVOST MARSHAL 2', 'VICE PRESIDENT (South West)', 'VICE PRESIDENT (South East)',
-      'VICE PRESIDENT (South South)', 'VICE PRESIDENT (North West)', 'VICE PRESIDENT (North Central)',
-      'VICE PRESIDENT (North East)', 'PUBLIC RELATION OFFICE', 'FINANCIAL SECRETARY',
-      'SECRETARY', 'ASSISTANT SECRETARY', 'TREASURER', 'COORDINATOR', 'ASSISTANT FINANCIAL SECRETARY'
-    ],
-    default: 'MEMBER'
-  },
-  state: { type: String, required: true },
-  zone: { type: String, required: true },
-  passportPhoto: { type: String },
-  signature: { type: String },
-  passport: { type: String },
-  isActive: { type: Boolean, default: true },
-  lastLogin: { type: Date },
-  cardGenerated: { type: Boolean, default: false },
-  dateAdded: { type: Date, default: Date.now }
 
 
 const certificateSchema = new mongoose.Schema({
