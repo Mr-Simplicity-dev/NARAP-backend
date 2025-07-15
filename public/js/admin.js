@@ -1,3 +1,12 @@
+
+// Global state 
+window.appState = {
+    members: [],
+    certificates: [],
+    isAuthenticated: false
+};
+
+
 // Make sure this matches your server port
 const backendUrl = window.location.origin.includes('localhost')
     ? 'http://localhost:3000'
@@ -393,28 +402,28 @@ async function login(event) {
                 showMessage('Login successful, but some data failed to load', 'warning');
             }
             
-        } else {
+            } else {
             console.log('❌ Login failed:', data);
             const errorMessage = data.message || 'Login failed';
             loginError.innerHTML = `<div class="error">Login failed: ${errorMessage}</div>`;
             showMessage(`Login failed: ${errorMessage}`, 'error');
-        }
+            }
         
-    } catch (error) {
-        console.error('❌ Login error:', error);
+            } catch (error) {
+            console.error('❌ Login error:', error);
         
-        let errorMessage = 'Network error: Please check your connection and try again';
+            let errorMessage = 'Network error: Please check your connection and try again';
         
-        if (error.name === 'AbortError') {
+            if (error.name === 'AbortError') {
             errorMessage = 'Request timed out. The server may be slow or unavailable.';
-        } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
             errorMessage = 'Cannot connect to server. Please check your internet connection or server deployment on Vercel.';
-        } else if (error.message.includes('JSON')) {
+            } else if (error.message.includes('JSON')) {
             errorMessage = 'Server response error. Please check server logs';
-        }
+            }
         
-        loginError.innerHTML = `<div class="error">${errorMessage}</div>`;
-        showMessage(errorMessage, 'error');
+                loginError.innerHTML = `<div class="error">${errorMessage}</div>`;
+            showMessage(errorMessage, 'error');
     }
 }
 
@@ -1037,6 +1046,13 @@ function displayMembers(members) {
 
 // Load members tab
 // Load members table with proper MongoDB integration
+// 1. Add this state management at the top of your file
+const appState = {
+    members: [],
+    isInitialized: false
+};
+
+// 2. Modified loadMembers() with automatic loading support
 async function loadMembers() {
     const tableBody = document.getElementById('membersTableBody');
     
@@ -1046,83 +1062,99 @@ async function loadMembers() {
     }
     
     try {
-        console.log('Loading members...');
-        tableBody.innerHTML = '<tr><td colspan="7" class="loading">Loading members...</td></tr>';
-        
-        const members = await loadUsers();
-        
-        // Clear the table
-        tableBody.innerHTML = '';
-        
-        if (!members || members.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666; padding: 20px;">No members found</td></tr>';
-            showMessage('No members found', 'info');
-            return [];
-        }
-        
-        // Create table rows
-        members.forEach((member, index) => {
-            const row = document.createElement('tr');
-            
-            // Get passport image path
-            const passportImage = getPassportImagePath(member.passport);
-            
-            row.innerHTML = `
-                <td>
-                    <div class="member-photo" style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #f0f0f0; position: relative;">
-                        <img src="${passportImage}"
-                             alt="Photo"
-                             style="width: 100%; height: 100%; object-fit: cover;"
-                             onerror="handleImageError(this)"
-                             data-member-id="${member._id}">
-                        ${member.passport ? `
-                            <div class="passport-actions" style="position: absolute; top: -5px; right: -5px; display: none;">
-                                <button onclick="deletePassport('${member._id}')" class="btn btn-danger btn-xs" style="padding: 2px 4px; font-size: 10px; border-radius: 50%;" title="Delete Photo">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            </div>
-                        ` : ''}
-                    </div>
+        // Show loading state
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" class="loading">
+                    <div class="spinner"></div>
+                    Loading members...
                 </td>
-                <td><strong>${escapeHtml(member.name || 'N/A')}</strong></td>
-                <td>${escapeHtml(member.email || 'N/A')}</td>
-                <td><span style="background: #e3f2fd; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${escapeHtml(member.code || 'N/A')}</span></td>
-                <td><span style="background: #f3e5f5; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${escapeHtml(member.position || 'MEMBER')}</span></td>
-                <td>${escapeHtml(member.state || 'N/A')}</td>
-                <td>
-                    <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-                        <button onclick="viewIdCard('${member._id}')" class="btn btn-info btn-sm" title="View ID Card" style="padding: 5px 8px; font-size: 12px;">
-                            <i class="fas fa-id-card"></i>
-                        </button>
-                        <button onclick="editMember('${member._id}')" class="btn btn-warning btn-sm" title="Edit" style="padding: 5px 8px; font-size: 12px;">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button onclick="uploadPassport('${member._id}')" class="btn btn-success btn-sm" title="Upload/Change Photo" style="padding: 5px 8px; font-size: 12px;">
-                            <i class="fas fa-camera"></i>
-                        </button>
-                        <button onclick="deleteMember('${member._id}')" class="btn btn-danger btn-sm" title="Delete Member" style="padding: 5px 8px; font-size: 12px;">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </td>
-            `;
-            tableBody.appendChild(row);
-        });
+            </tr>
+        `;
         
-        // Add hover effects for passport actions
-        addPassportHoverEffects();
+        // Load members with authentication
+        const members = await fetchMembers();
+        appState.members = members; // Store in global state
         
-        showMessage(`Loaded ${members.length} member${members.length > 1 ? 's' : ''}`, 'success');
-
-        return members;  // <----- This return is the fix you need!
+        // Render members
+        renderMembersTable(tableBody, members);
+        
+        showMessage(`Loaded ${members.length} members`, 'success');
+        return members;
         
     } catch (error) {
-        console.error('Load members error:', error);
-        tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red; padding: 20px;">Failed to load members: ' + error.message + '</td></tr>';
-        showMessage('Failed to load members: ' + error.message, 'error');
+        handleLoadError(tableBody, error);
         return [];
     }
 }
+
+// 3. New helper functions
+async function fetchMembers() {
+    const response = await fetch(`${backendUrl}/api/members`, {
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+    });
+    
+    if (!response.ok) throw new Error('Failed to fetch members');
+    return await response.json();
+}
+
+function renderMembersTable(tableBody, members) {
+    tableBody.innerHTML = '';
+    
+    if (!members.length) {
+        tableBody.innerHTML = '<tr><td colspan="7">No members found</td></tr>';
+        return;
+    }
+    
+    const fragment = document.createDocumentFragment();
+    
+    members.forEach(member => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <!-- Your existing row HTML template -->
+            <!-- ... -->
+        `;
+        fragment.appendChild(row);
+    });
+    
+    tableBody.appendChild(fragment);
+    setupEventDelegation();
+}
+
+function handleLoadError(tableBody, error) {
+    console.error('Load error:', error);
+    tableBody.innerHTML = `
+        <tr>
+            <td colspan="7" class="error">
+                Failed to load members. ${error.message}
+            </td>
+        </tr>
+    `;
+    showMessage('Failed to load members', 'error');
+}
+
+// 4. Automatic loading after login (integrate with your login function)
+async function handleLoginSuccess() {
+    // ... your existing login success code ...
+    
+    // Add these lines:
+    document.getElementById('adminSection').style.display = 'block';
+    await loadMembers(); // This will now automatically load and render
+    
+    // Initialize other components
+    if (typeof loadRecentActivity === 'function') {
+        loadRecentActivity(appState.members);
+    }
+}
+
+// 5. Page load initialization
+document.addEventListener('DOMContentLoaded', async () => {
+    if (localStorage.getItem('authToken')) {
+        await loadMembers(); // Auto-load if already logged in
+    }
+});
 
 
 // Helper function to get correct passport image path
@@ -7673,6 +7705,8 @@ if (typeof module !== 'undefined' && module.exports) {
 console.log('NARAP Admin Panel JavaScript fully loaded');
 console.log('Total functions available:', Object.keys(window.narapAdmin).length);
 console.log('Ready for production use!');
+
+
 
 
 
