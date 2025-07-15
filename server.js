@@ -246,7 +246,7 @@ app.get('/api/db-health', async (req, res) => {
   }
 });
 
-// Authentication endpoints
+// Update the login endpoint to ensure proper response
 app.post('/api/login', async (req, res) => {
   try {
     console.log('🔐 Login attempt received');
@@ -277,7 +277,9 @@ app.post('/api/login', async (req, res) => {
         user: {
           email: email.toLowerCase().trim(),
           role: 'admin'
-        }
+        },
+        // Add this flag to trigger member loading
+        shouldLoadMembers: true
       });
     }
     
@@ -296,6 +298,7 @@ app.post('/api/login', async (req, res) => {
     });
   }
 });
+
 
 // User management endpoints
 app.get('/api/getUsers', withDB(async (req, res) => {

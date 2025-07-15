@@ -1,4 +1,3 @@
-
 // Global state 
 window.appState = {
     members: [],
@@ -1900,7 +1899,6 @@ async function getCertificates() {
 }
 
 
-// Function to display certificates in the table (update your existing one)
 // Enhanced displayCertificates function with state information
 function displayCertificates(certificates) {
     const tableBody = document.getElementById('certificatesTableBody');
