@@ -7767,7 +7767,37 @@ console.log('NARAP Admin Panel JavaScript fully loaded');
 console.log('Total functions available:', Object.keys(window.narapAdmin).length);
 console.log('Ready for production use!');
 
+function displayMemberVerification(member) {
+    const verificationResult = document.getElementById('verificationResult');
+    if (!verificationResult) return;
 
+    // Handle passport photo with better fallback
+    const passportPhoto = member.passportPhoto || member.passport;
+    const photoSrc = passportPhoto && passportPhoto !== 'undefined' 
+        ? (passportPhoto.startsWith('data:') ? passportPhoto : `${backendUrl}/${passportPhoto}`)
+        : 'images/default-avatar.png';
 
+    // Handle optional email
+    const email = member.email || 'Not provided';
 
-
+    verificationResult.innerHTML = `
+        <div class="member-card">
+            <div class="member-photo">
+                <img src="${photoSrc}" 
+                     alt="Member Photo" 
+                     style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover;"
+                     onerror="this.src='images/default-avatar.png'">
+            </div>
+            <div class="member-details">
+                <h3>${escapeHtml(member.name)}</h3>
+                <p><strong>Code:</strong> ${escapeHtml(member.code)}</p>
+                <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+                <p><strong>Position:</strong> ${escapeHtml(member.position || 'MEMBER')}</p>
+                <p><strong>State:</strong> ${escapeHtml(member.state)}</p>
+                <p><strong>Zone:</strong> ${escapeHtml(member.zone)}</p>
+                <p><strong>Status:</strong> <span class="status-active">ACTIVE</span></p>
+                <p><strong>Date Added:</strong> ${formatDate(member.dateAdded)}</p>
+            </div>
+        </div>
+    `;
+}

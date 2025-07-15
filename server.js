@@ -116,7 +116,7 @@ const connectDB = async () => {
   }
 };
 
-// Database Models
+
 // Update the user schema to make email optional
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
