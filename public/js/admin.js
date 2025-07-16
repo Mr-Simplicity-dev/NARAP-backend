@@ -1124,16 +1124,16 @@ async function fetchMembers() {
         }
     });
 
-function setupEventDelegation() { 
+function setupEventDelegation() {
     document.getElementById('membersTableBody').addEventListener('click', function(e) {
         const btn = e.target.closest('button');
         if (!btn) return;
-
+        
         const memberId = btn.dataset.memberId;
-
+        
         if (btn.classList.contains('view-btn')) {
             viewIdCard(memberId);
-        } 
+        }
         else if (btn.classList.contains('edit-btn')) {
             editMember(memberId);
         }
@@ -1149,10 +1149,18 @@ function setupEventDelegation() {
     });
 }
 
-    
-    if (!response.ok) throw new Error('Failed to fetch members');
-    return await response.json();
+// The response handling code should be in your fetch function, like:
+async function fetchMembers() {
+    try {
+        const response = await fetch('/api/members');
+        if (!response.ok) throw new Error('Failed to fetch members');
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching members:', error);
+        throw error;
+    }
 }
+
 
 function renderMembersTable(tableBody, members) {
     tableBody.innerHTML = '';
