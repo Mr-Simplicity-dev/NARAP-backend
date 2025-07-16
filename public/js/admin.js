@@ -420,12 +420,27 @@ async function login(event) {
 
 // Logout function
 function logout() {
-    if (confirm('Are you sure you want to logout?')) {
-        document.getElementById('loginSection').style.display = 'block';
-        document.getElementById('adminSection').style.display = 'none';
-        clearLoginForm();
-        showMessage('Logged out successfully', 'success');
-    }
+    //Clear authentication data
+    localStorage.removeItem('narap_token');
+    localStorage.removeItem('narap_us');
+
+    //Clear cached data
+    localStorage.removeItem('narap_members');
+     localStorage.removeItem('narap_certificates');
+     dataCache.clear();
+
+    //Reset global variables
+    currentMembers = [];
+    currentCertificates = [];
+    
+    document.getElementById('loginSection').style.display = 'block';
+    document.getElementById('adminPanel').style.display = 'none';
+
+     //Clear any forms
+     const forms = document.querySelectorAll('form');
+     forms.forEach(form => form.reset());
+     showMessage('Logged out successfully', 'info');
+
 }
 
 // Add this to ensure everything is properly initialized
