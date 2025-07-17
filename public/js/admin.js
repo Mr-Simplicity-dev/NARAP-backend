@@ -62,15 +62,6 @@ let selectedMembers = new Set();
 let currentMembers = [];
 let currentCertificates = [];
 
-// Add these pagination variables near the top of your file
-let currentPage = 1;
-let membersPerPage = 25;
-let totalMembers = 0;
-let allMembers = []; // Store all members
-let filteredMembers = []; // Store filtered members
-let currentSearchTerm = '';
-
-
 class NotificationManager {
     constructor() {
         this.container = null;
@@ -497,16 +488,10 @@ function switchTab(tabName) {
     if (window.innerWidth <= 768) {
         closeSidebar();
     }
-    
-    // Load data based on selected tab
-    if (tabName === 'certificates') {
+       if (tabName === 'certificates') {
         loadCertificates();
-    } else if (tabName === 'members') {
-        // Load first page of members with current settings
-        loadMembers();
     }
 }
-
 
 // Initialize dashboard on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -919,78 +904,42 @@ function formatRelativeDate(dateString) {
 }
 
 // Update the loadUsers function to handle the auto-loading better
-async function loadMembers() {
+async function loadUsers() {
     try {
         console.log('🔄 Loading users...');
         showLoadingState('membersTableBody', 'Loading members...');
         
-        // Only fetch from server if we don't have cached data or if it's a refresh
-        if (allMembers.length === 0 || search !== currentSearchTerm) {
-            const response = await fetch(`${backendUrl}/api/getUsers`, {
-                method: 'GET',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const response = await fetch(`${backendUrl}/api/getUsers`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
             }
+        });
 
-            const users = await response.json();
-            console.log(`✅ Loaded ${users.length} users`);
-            
-            // Store all users
-            allMembers = users;
-            
-            // Save to localStorage for offline access
-            localStorage.setItem('narap_members', JSON.stringify(users));
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        // Apply search filter if provided
-        currentSearchTerm = search;
-        if (search.trim()) {
-            filteredMembers = allMembers.filter(member => 
-                (member.name?.toLowerCase().includes(search.toLowerCase())) ||
-                (member.email?.toLowerCase().includes(search.toLowerCase())) ||
-                (member.memberCode?.toLowerCase().includes(search.toLowerCase())) ||
-                (member.state?.toLowerCase().includes(search.toLowerCase())) ||
-                (member.position?.toLowerCase().includes(search.toLowerCase()))
-            );
-        } else {
-            filteredMembers = [...allMembers];
-        }
-
-        totalMembers = filteredMembers.length;
+        const users = await response.json();
+        console.log(`✅ Loaded ${users.length} users`);
         
-        // Calculate pagination
-        const startIndex = (page - 1) * limit;
-        const endIndex = startIndex + limit;
-        const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
+        // Update global variable
+        currentMembers = users;
         
-        // Update current page state
-        currentPage = page;
-        membersPerPage = limit;
-        currentMembers = paginatedMembers; // Keep your existing global variable
+        // Save to localStorage for offline access
+        localStorage.setItem('narap_members', JSON.stringify(users));
         
-        // Update the display using your existing function
-        displayMembers(paginatedMembers);
+        // Update the display
+        displayMembers(users);
         
-        // Update pagination controls
-        updatePaginationControls();
-        
-        // Update members count
-        updateMembersCount(startIndex, Math.min(endIndex, totalMembers), totalMembers);
-
         // Update member count in dashboard if element exists
         const memberCountElement = document.getElementById('totalMembers');
         if (memberCountElement) {
-            memberCountElement.textContent = allMembers.length; // Show total, not paginated count
+            memberCountElement.textContent = users.length;
         }
-
-        hideLoadingState('membersTableBody');
-        return paginatedMembers;
+        
+        return users;
         
     } catch (error) {
         console.error('❌ Load users error:', error);
@@ -1002,34 +951,10 @@ async function loadMembers() {
             try {
                 const users = JSON.parse(cachedUsers);
                 console.log('📱 Using cached users data');
-                
-                allMembers = users;
-                
-                // Apply search and pagination to cached data
-                if (search.trim()) {
-                    filteredMembers = users.filter(member => 
-                        (member.name?.toLowerCase().includes(search.toLowerCase())) ||
-                        (member.email?.toLowerCase().includes(search.toLowerCase())) ||
-                        (member.memberCode?.toLowerCase().includes(search.toLowerCase())) ||
-                        (member.state?.toLowerCase().includes(search.toLowerCase())) ||
-                        (member.position?.toLowerCase().includes(search.toLowerCase()))
-                    );
-                } else {
-                    filteredMembers = [...users];
-                }
-                
-                totalMembers = filteredMembers.length;
-                const startIndex = (page - 1) * limit;
-                const endIndex = startIndex + limit;
-                const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
-                
-                currentMembers = paginatedMembers;
-                displayMembers(paginatedMembers);
-                updatePaginationControls();
-                updateMembersCount(startIndex, Math.min(endIndex, totalMembers), totalMembers);
-                
+                currentMembers = users;
+                displayMembers(users);
                 showMessage('Loaded cached member data (offline mode)', 'warning');
-                return paginatedMembers;
+                return users;
             } catch (parseError) {
                 console.error('Failed to parse cached users:', parseError);
             }
@@ -1039,7 +964,6 @@ async function loadMembers() {
         return [];
     }
 }
-
 
 // Alias function for loadDashboard compatibility
 async function getMembers() {
@@ -1097,122 +1021,6 @@ function displayMembers(members) {
             </tr>
         `;
     }).join('');
-}
-
-// Update pagination controls
-function updatePaginationControls() {
-    const totalPages = Math.ceil(totalMembers / membersPerPage);
-    
-    // Update button states
-    const firstBtn = document.getElementById('firstPage');
-    const prevBtn = document.getElementById('prevPage');
-    const nextBtn = document.getElementById('nextPage');
-    const lastBtn = document.getElementById('lastPage');
-    
-    if (firstBtn) firstBtn.disabled = currentPage === 1;
-    if (prevBtn) prevBtn.disabled = currentPage === 1;
-    if (nextBtn) nextBtn.disabled = currentPage === totalPages || totalPages === 0;
-    if (lastBtn) lastBtn.disabled = currentPage === totalPages || totalPages === 0;
-    
-    // Update page numbers
-    updatePageNumbers(totalPages);
-}
-
-// Update page numbers display
-function updatePageNumbers(totalPages) {
-    const pageNumbersContainer = document.getElementById('pageNumbers');
-    if (!pageNumbersContainer) return;
-    
-    let pageNumbers = '';
-    const maxVisiblePages = 5;
-    
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-    
-    // Adjust start page if we're near the end
-    if (endPage - startPage < maxVisiblePages - 1) {
-        startPage = Math.max(1, endPage - maxVisiblePages + 1);
-    }
-    
-    // Add first page and ellipsis if needed
-    if (startPage > 1) {
-        pageNumbers += `<span class="page-number" onclick="goToPage(1)">1</span>`;
-        if (startPage > 2) {
-            pageNumbers += `<span class="page-ellipsis">...</span>`;
-        }
-    }
-    
-    // Add visible page numbers
-    for (let i = startPage; i <= endPage; i++) {
-        const activeClass = i === currentPage ? 'active' : '';
-        pageNumbers += `<span class="page-number ${activeClass}" onclick="goToPage(${i})">${i}</span>`;
-    }
-    
-    // Add last page and ellipsis if needed
-    if (endPage < totalPages) {
-        if (endPage < totalPages - 1) {
-            pageNumbers += `<span class="page-ellipsis">...</span>`;
-        }
-        pageNumbers += `<span class="page-number" onclick="goToPage(${totalPages})">${totalPages}</span>`;
-    }
-    
-    pageNumbersContainer.innerHTML = pageNumbers;
-}
-
-// Update members count display
-function updateMembersCount(startIndex, endIndex, total) {
-    const countElement = document.getElementById('membersCount');
-    if (countElement) {
-        const showing = Math.min(endIndex, total);
-        countElement.textContent = `Showing ${startIndex + 1}-${showing} of ${total} members`;
-    }
-}
-
-// Navigation functions
-function goToPage(page) {
-    if (page !== currentPage) {
-        loadMembers();
-    }
-}
-
-function goToFirstPage() {
-    goToPage(1);
-}
-
-function goToPrevPage() {
-    if (currentPage > 1) {
-        goToPage(currentPage - 1);
-    }
-}
-
-function goToNextPage() {
-    const totalPages = Math.ceil(totalMembers / membersPerPage);
-    if (currentPage < totalPages) {
-        goToPage(currentPage + 1);
-    }
-}
-
-function goToLastPage() {
-    const totalPages = Math.ceil(totalMembers / membersPerPage);
-    goToPage(totalPages);
-}
-
-// Change items per page
-function changeItemsPerPage(newLimit) {
-    membersPerPage = parseInt(newLimit);
-    goToPage(1); // Reset to first page
-}
-
-// Search function
-function searchMembers(searchTerm) {
-    currentPage = 1; // Reset to first page when searching
-    loadMembers();
-}
-
-// Refresh function
-function refreshMembers() {
-    allMembers = []; // Clear cache to force refresh
-    loadMembers();
 }
 
 
@@ -1405,94 +1213,11 @@ async function handleLoginSuccess() {
 }
 
 // 5. Page load initialization
-async function loadMembers() {
-    const tableBody = document.getElementById('membersTableBody');
-    
-    if (!tableBody) {
-        console.error('Members table body not found');
-        return [];
+document.addEventListener('DOMContentLoaded', async () => {
+    if (localStorage.getItem('authToken')) {
+        await loadMembers(); // Auto-load if already logged in
     }
-    
-    try {
-        // Show loading state with improved message
-        showMessage('Loading members...', 'info');
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="7" class="loading">
-                    <div class="spinner"></div>
-                    Loading members...
-                </td>
-            </tr>
-        `;
-        
-        // Load members with authentication
-        const members = await fetchMembers();
-        
-        // Store all members globally for pagination
-        allMembers = members;
-        appState.members = members; // Store in global state
-        
-        // Set up initial pagination state
-        totalMembers = members.length;
-        filteredMembers = [...members];
-        currentPage = 1;
-        
-        // Get first page of members
-        const startIndex = 0;
-        const endIndex = membersPerPage;
-        const paginatedMembers = members.slice(startIndex, endIndex);
-        
-        currentMembers = paginatedMembers; // Store paginated members for compatibility
-        
-        // Use the renderMembersTable function
-        renderMembersTable(paginatedMembers);
-        
-        // Update pagination controls
-        updatePaginationControls();
-        updateMembersCount(startIndex, Math.min(endIndex, totalMembers), totalMembers);
-        
-        showMessage(`Loaded ${members.length} members successfully`, 'success');
-        return paginatedMembers; // Return paginated members
-        
-    } catch (error) {
-        console.error('Load members error:', error);
-        showMessage('Failed to load members', 'error');
-        
-        // Show empty table on error using the new function
-        renderMembersTable([]);
-        
-        // Also handle load error with your existing function
-        handleLoadError(tableBody, error);
-        throw error; // Propagate the error
-    }
-}
-
-
-// Add this pagination initialization function right after your DOMContentLoaded
-function initializePagination() {
-    console.log('🔧 Setting up pagination...');
-    
-    // Items per page change
-    const perPageSelect = document.getElementById('membersPerPage');
-    if (perPageSelect) {
-        perPageSelect.addEventListener('change', function() {
-            console.log('📄 Changing items per page to:', this.value);
-            changeItemsPerPage(this.value);
-        });
-    }
-    
-    // Search functionality
-    const searchInput = document.getElementById('memberSearch');
-    if (searchInput) {
-        searchInput.addEventListener('input', debounce(function() {
-            console.log('🔍 Searching members:', this.value);
-            searchMembers(this.value);
-        }, 300));
-    }
-    
-    console.log('✅ Pagination initialized');
-}
-
+});
 
 
 
@@ -7873,12 +7598,25 @@ function setupEventDelegation() {
     });
 }
 
-// Attach pagination click handlers explicitly
-document.addEventListener('click', function (e) {
-    if (e.target.classList.contains('page-number')) {
-        const page = parseInt(e.target.textContent.trim());
-        if (!isNaN(page)) {
-            goToPage(page);
-        }
+// ✅ Pagination: Handle page size change
+document.getElementById('membersPerPage')?.addEventListener('change', function () {
+    const newLimit = parseInt(this.value, 10);
+    if (!isNaN(newLimit)) {
+        membersPerPage = newLimit;
+        loadMembers(1); // Reset to first page
+    }
+});
+
+// ✅ Pagination: Handle next and previous page buttons
+document.getElementById('prevPage')?.addEventListener('click', () => {
+    if (currentPage > 1) {
+        loadMembers(currentPage - 1);
+    }
+});
+
+document.getElementById('nextPage')?.addEventListener('click', () => {
+    const maxPage = Math.ceil(totalMembers / membersPerPage);
+    if (currentPage < maxPage) {
+        loadMembers(currentPage + 1);
     }
 });
