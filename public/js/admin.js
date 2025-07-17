@@ -1493,6 +1493,23 @@ function initializePagination() {
     console.log('✅ Pagination initialized');
 }
 
+function loadUsers(page = 1, limit = membersPerPage, search = '') {
+    currentPage = page;
+    currentSearchTerm = search;
+
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+
+    const data = search ? filteredMembers : allMembers;
+    const paginated = data.slice(startIndex, endIndex);
+
+    renderMembersTable(paginated);
+    totalMembers = data.length;
+
+    updatePaginationControls();
+    updateMembersCount(startIndex, endIndex, totalMembers);
+}
+
 
 
 
