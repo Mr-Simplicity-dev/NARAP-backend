@@ -4367,43 +4367,10 @@ window.suggestMemberEmails = function(partialEmail) {
 };
 
 
-// Local storage functions for certificates
-function getLocalCertificates() {
-    try {
-        const stored = localStorage.getItem('narap_certificates');
-        return stored ? JSON.parse(stored) : [];
-    } catch (error) {
-        console.error('Error reading local certificates:', error);
-        return [];
-    }
-}
 
-function saveLocalCertificates(certificates) {
-    try {
-        localStorage.setItem('narap_certificates', JSON.stringify(certificates));
-    } catch (error) {
-        console.error('Error saving local certificates:', error);
-    }
-    }
+
 
 // Pending sync management
-function getPendingSync() {
-    try {
-        const stored = localStorage.getItem('narap_pending_sync');
-        return stored ? JSON.parse(stored) : {
-            certificateCreations: [],
-            certificateUpdates: [],
-            certificateDeletions: []
-        };
-    } catch (error) {
-        console.error('Error reading pending sync:', error);
-        return {
-            certificateCreations: [],
-            certificateUpdates: [],
-            certificateDeletions: []
-        };
-    }
-}
 
 function savePendingSync(pendingSync) {
     try {
@@ -7842,7 +7809,6 @@ function validateCertificateForm() {
 
 
 // Add utility function to clear image previews
-// Add utility function to clear image previews
 function clearImagePreviews() {
     const passportPreview = document.getElementById('passportPreview');
     const signaturePreview = document.getElementById('signaturePreview');
@@ -7909,16 +7875,4 @@ function updateNavigation() {
     showSection('members');
 
 
-// Update navigation function
-function updateNavigation() {
-    const navItems = document.querySelectorAll('.nav-item');
-    navItems.forEach(item => {
-        item.addEventListener('click', function(e) {
-            e.preventDefault();
-            const section = this.getAttribute('data-section');
-            if (section) {
-                showSection(section);
-            }
-        });
-    });
-}
+
