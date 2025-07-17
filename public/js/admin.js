@@ -7024,6 +7024,14 @@ function displayMemberVerification(member) {
 }
 
 
+// Update form validation to make email optional
+// Update form validation to make email optional
+
+
+// Update certificate form validation to make email optional
+// Update certificate form validation to make email optional
+
+
 // Add utility function to clear image previews
 function clearImagePreviews() {
     const passportPreview = document.getElementById('passportPreview');
@@ -7176,3 +7184,113 @@ window.closeSidebar = function() {
 };
 
 
+// Ensure members load on page load
+
+
+// Restored Login Functions
+
+async function login(event) {
+    if (event) event.preventDefault();
+    
+    const email = document.getElementById('username').value.trim(); // Changed from username to email for clarity
+    const password = document.getElementById('password').value;
+    const loginError = document.getElementById('loginError');
+    
+    loginError.innerHTML = '';
+    
+    if (!email || !password) {
+        loginError.innerHTML = '<div class="error">Please enter both email and password</div>';
+        return;
+    }
+    
+    try {
+        showMessage('Logging in...', 'info');
+        
+        // Add timeout handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const response = await fetch(`${backendUrl}/api/login`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                ...getAuthHeaders() // Preserve any existing auth headers
+            },
+            credentials: 'include',
+            body: JSON.stringify({ email, password }),
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId); // Clear timeout if request completes
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Store authentication (improved storage naming)
+            localStorage.setItem('narap_token', data.token);
+            localStorage.setItem('narap_user', JSON.stringify(data.user));
+            
+            showMessage('Login successful!', 'success');
+            
+            // UI transition
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('adminPanel').style.display = 'block';
+            
+            // Load critical data
+            await Promise.all([
+                loadDashboard(),
+                loadUsers(), // Replaces loadMembers()
+                loadCertificates()
+            ]);
+            
+            // Clear cache and initialize
+            dataCache.clear();
+            initializeDashboard();
+            
+        } else {
+            throw new Error(data.message || 'Login failed');
+        }
+        
+    } catch (error) {
+        console.error('Login error:', error);
+        
+        let errorMessage = 'Login failed. Please try again.';
+        if (error.name === 'AbortError') {
+            errorMessage = 'Request timed out. Please check your connection.';
+        } else if (error.message.includes('HTTP')) {
+            errorMessage = error.message;
+        }
+        
+        loginError.innerHTML = `<div class="error">${errorMessage}</div>`;
+        showMessage(errorMessage, 'error');
+    }
+}
+
+async function handleLoginSuccess() {
+    // ... your existing login success code ...
+    
+    // Add these lines:
+    document.getElementById('adminSection').style.display = 'block';
+    await loadMembers(); // This will now automatically load and render
+    
+    // Initialize other components
+    if (typeof loadRecentActivity === 'function') {
+        loadRecentActivity(appState.members);
+    }
+}
+
+function clearLoginForm() {
+    document.getElementById('username').value = '';
+    document.getElementById('password').value = '';
+    document.getElementById('loginError').innerHTML = '';
+}
+
+function fillAdminCredentials() {
+    document.getElementById('username').value = 'Admin@gmail.com';
+    document.getElementById('password').value = 'Password';
+}
