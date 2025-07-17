@@ -7872,3 +7872,13 @@ function setupEventDelegation() {
         }
     });
 }
+
+// Attach pagination click handlers explicitly
+document.addEventListener('click', function (e) {
+    if (e.target.classList.contains('page-number')) {
+        const page = parseInt(e.target.textContent.trim());
+        if (!isNaN(page)) {
+            goToPage(page);
+        }
+    }
+});
