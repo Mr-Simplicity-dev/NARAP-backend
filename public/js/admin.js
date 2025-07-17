@@ -280,25 +280,25 @@ function clearLoginForm() {
     document.getElementById('loginError').innerHTML = '';
 }
 
-// Enhanced showMessage function
-function showMessage(message, type = 'info') {
+
+// Enhanced showMessage function using notification manager
+function showMessage(message, type = 'success') {
+    console.log(`Message (${type}):`, message);
+    
+    // Use notification manager
     try {
-        if (!notificationManager) {
-            initializeNotificationManager();
-        }
-        
-        if (notificationManager) {
-            notificationManager.show(message, type);
-        } else {
-            // Fallback to console and alert
-            console.log(`${type.toUpperCase()}: ${message}`);
-            if (type === 'error') {
-                alert(`Error: ${message}`);
-            }
-        }
+        notificationManager.show(message, type);
     } catch (error) {
-        console.error('Error in showMessage:', error);
-        console.log(`${type.toUpperCase()}: ${message}`);
+        console.error('Notification manager error:', error);
+        // Fallback to basic message display
+        fallbackShowMessage(message, type);
+    }
+    
+    // Also update the legacy messages div if it exists
+    const messagesDiv = document.getElementById('messages');
+    if (messagesDiv) {
+        messagesDiv.innerHTML = `<div class="${type}" style="padding: 10px; margin: 10px 0; border-radius: 4px; ${getMessageStyle(type)}">${message}</div>`;
+        setTimeout(() => messagesDiv.innerHTML = '', 5000);
     }
 }
 
@@ -832,46 +832,7 @@ function formatTimeAgo(dateString) {
     }
 }
 
-// ✅ Add the formatDate helper function
-function formatDate(dateString) {
-    try {
-        if (!dateString) return 'Unknown date';
-        
-        const date = new Date(dateString);
-        
-        // Validate date
-        if (isNaN(date.getTime())) {
-            console.warn('Invalid date string in formatDate:', dateString);
-            return 'Invalid date';
-        }
-        
-        // Format options
-        const options = {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        };
-        
-        // Check if date is this year
-        const currentYear = new Date().getFullYear();
-        const dateYear = date.getFullYear();
-        
-        if (dateYear === currentYear) {
-            // Same year - don't show year
-            return date.toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric'
-            });
-        } else {
-            // Different year - show full date
-            return date.toLocaleDateString('en-US', options);
-        }
-        
-    } catch (error) {
-        console.error('Error in formatDate:', error, 'for date:', dateString);
-        return 'Unknown date';
-    }
-}
+
 
 // ✅ Optional: Add a more detailed date formatter
 function formatDateTime(dateString) {
@@ -2867,7 +2828,6 @@ window.addEventListener('error', function(event) {
 // Ensure the functions are available globally
 window.revokeCertificate = revokeCertificate;
 window.executeRevocation = executeRevocation;
-window.toggleCustomReason = toggleCustomReason;
 window.closeRevocationModal = closeRevocationModal;
 
 
@@ -3890,21 +3850,6 @@ function searchCertificates(searchTerm) {
     filterCertificates();
 }
 
-// Clear all certificate filters function
-function clearCertificateFilters() {
-    const searchInput = document.getElementById('certificateSearch');
-    const statusFilter = document.getElementById('certificateStatusFilter');
-    const typeFilter = document.getElementById('certificateTypeFilter');
-    const stateFilter = document.getElementById('certificateStateFilter');
-    
-    if (searchInput) searchInput.value = '';
-    if (statusFilter) statusFilter.value = '';
-    if (typeFilter) typeFilter.value = '';
-    if (stateFilter) stateFilter.value = '';
-    
-    filterCertificates();
-    showMessage('All certificate filters cleared', 'info');
-}
 
 // Helper function to handle empty results
 function handleEmptyResults(visibleCount, totalCount, tableBodyId) {
@@ -4439,7 +4384,7 @@ function saveLocalCertificates(certificates) {
     } catch (error) {
         console.error('Error saving local certificates:', error);
     }
-}
+    }
 
 // Pending sync management
 function getPendingSync() {
@@ -5497,14 +5442,6 @@ function loadTheme() {
     }
 }
 
-
-
-function formatDate(dateString) {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Invalid Date';
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-}
 
 function validateEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -7135,26 +7072,7 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Enhanced showMessage function using notification manager
-function showMessage(message, type = 'success') {
-    console.log(`Message (${type}):`, message);
-    
-    // Use notification manager
-    try {
-        notificationManager.show(message, type);
-    } catch (error) {
-        console.error('Notification manager error:', error);
-        // Fallback to basic message display
-        fallbackShowMessage(message, type);
-    }
-    
-    // Also update the legacy messages div if it exists
-    const messagesDiv = document.getElementById('messages');
-    if (messagesDiv) {
-        messagesDiv.innerHTML = `<div class="${type}" style="padding: 10px; margin: 10px 0; border-radius: 4px; ${getMessageStyle(type)}">${message}</div>`;
-        setTimeout(() => messagesDiv.innerHTML = '', 5000);
-    }
-}
+
 
 // Fallback message function
 function fallbackShowMessage(message, type) {
