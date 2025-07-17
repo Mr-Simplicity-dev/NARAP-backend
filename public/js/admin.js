@@ -7876,3 +7876,124 @@ function updateNavigation() {
 
 
 
+// =============================================================================
+// MOBILE SIDEBAR FIX - Add this to the end of admin.js
+// =============================================================================
+
+// Mobile-friendly sidebar toggle
+window.toggleSidebar = function() {
+    console.log('Toggle sidebar called');
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    
+    if (!sidebar) {
+        console.error('Sidebar not found');
+        return;
+    }
+    
+    // Toggle sidebar
+    sidebar.classList.toggle('active');
+    
+    // Create or toggle overlay for mobile
+    if (!overlay) {
+        const newOverlay = document.createElement('div');
+        newOverlay.className = 'sidebar-overlay';
+        newOverlay.onclick = () => closeSidebar();
+        document.body.appendChild(newOverlay);
+        newOverlay.classList.add('active');
+    } else {
+        overlay.classList.toggle('active');
+    }
+    
+    // Prevent body scroll on mobile when sidebar is open
+    if (sidebar.classList.contains('active')) {
+        document.body.style.overflow = 'hidden';
+    } else {
+        document.body.style.overflow = '';
+    }
+};
+
+// Close sidebar function
+window.closeSidebar = function() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    
+    if (sidebar) {
+        sidebar.classList.remove('active');
+    }
+    
+    if (overlay) {
+        overlay.classList.remove('active');
+    }
+    
+    document.body.style.overflow = '';
+};
+
+// =============================================================================
+// MEMBER LOADING FIX
+// =============================================================================
+
+// Ensure members load on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing...');
+    
+    // Setup mobile menu first
+    setupMobileMenu();
+    
+    // Initialize dashboard
+    setTimeout(() => {
+        if (typeof initializeDashboard === 'function') {
+            initializeDashboard();
+        }
+        
+        // Load members automatically
+        if (typeof loadMembers === 'function') {
+            loadMembers().catch(error => {
+                console.error('Failed to load members on startup:', error);
+            });
+        }
+    }, 1000);
+});
+
+// Mobile menu setup
+function setupMobileMenu() {
+    // Find hamburger button
+    const hamburger = document.querySelector('.hamburger, .menu-toggle, [onclick*="toggleSidebar"]');
+    
+    if (hamburger) {
+        hamburger.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof window.toggleSidebar === 'function') {
+                window.toggleSidebar();
+            }
+        };
+        console.log('Mobile menu setup complete');
+    } else {
+        console.warn('Hamburger button not found');
+        // Try to find it by class
+        const menuBtn = document.querySelector('.menu-btn, .nav-toggle, .sidebar-toggle');
+        if (menuBtn) {
+            menuBtn.onclick = function(e) {
+                e.preventDefault();
+                if (typeof window.toggleSidebar === 'function') {
+                    window.toggleSidebar();
+                }
+            };
+        }
+    }
+    
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', function(e) {
+        const sidebar = document.querySelector('.sidebar');
+        const hamburger = document.querySelector('.hamburger, .menu-toggle, .menu-btn');
+        
+        if (sidebar && sidebar.classList.contains('active')) {
+            if (!sidebar.contains(e.target) && !hamburger?.contains(e.target)) {
+                if (typeof window.closeSidebar === 'function') {
+                    window.closeSidebar();
+                }
+            }
+        }
+    });
+}
