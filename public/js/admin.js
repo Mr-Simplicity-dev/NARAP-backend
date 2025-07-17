@@ -438,8 +438,157 @@ function logout() {
 }
 
 // Add this to ensure everything is properly initialized
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize certificates when switching to certificates tab
+    const certificatesTab = document.getElementById('btn-certificates');
+    if (certificatesTab) {
+        certificatesTab.addEventListener('click', function() {
+            setTimeout(() => {
+                loadCertificates();
+            }, 100);
+        });
+    }
+});
+
+// Tab switching functionality
+function switchTab(tabName) {
+    // Hide all panels
+    const panels = document.querySelectorAll('.panel');
+    panels.forEach(panel => {
+        panel.classList.remove('active');
+        panel.style.display = 'none';
+    });
+    
+    // Remove active class from all nav items
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    // Show selected panel
+    const selectedPanel = document.getElementById(`panel-${tabName}`);
+    if (selectedPanel) {
+        selectedPanel.classList.add('active');
+        selectedPanel.style.display = 'block';
+    }
+    
+    // Add active class to selected nav item
+    const selectedNavItem = document.getElementById(`btn-${tabName}`);
+    if (selectedNavItem) {
+        selectedNavItem.classList.add('active');
+    }
+    
+    // Update header title
+    const headerTitle = document.getElementById('headerTitle');
+    if (headerTitle) {
+        headerTitle.textContent = tabName.charAt(0).toUpperCase() + tabName.slice(1);
+    }
+    
+    // Close sidebar on mobile after tab switch
+    if (window.innerWidth <= 768) {
+        closeSidebar();
+    }
+       if (tabName === 'certificates') {
+        loadCertificates();
+    }
+}
 
 // Initialize dashboard on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Ensure only dashboard is visible initially
+    switchTab('dashboard');
+});
+
+
+// Load dashboard data
+async function loadDashboard() {
+    try {
+        console.log('Loading dashboard...');
+        showMessage('Loading dashboard...', 'info');
+        
+        // Load data with timeout protection
+        const [members, certificates] = await Promise.all([
+            getMembers(),
+            getCertificates()
+        ]);
+        
+        // Update statistics
+        const totalMembersEl = document.getElementById('totalMembers');
+        const totalCertificatesEl = document.getElementById('totalCertificates');
+        const newThisMonthEl = document.getElementById('newThisMonth');
+        const systemUptimeEl = document.getElementById('systemUptime');
+        
+        if (totalMembersEl) totalMembersEl.textContent = members.length;
+        if (totalCertificatesEl) totalCertificatesEl.textContent = certificates.length;
+        
+        // Calculate new members this month
+        const thisMonth = new Date().getMonth();
+        const thisYear = new Date().getFullYear();
+        const newThisMonth = members.filter(member => {
+            if (!member.createdAt && !member.dateAdded) return false;
+            const memberDate = new Date(member.createdAt || member.dateAdded);
+            return memberDate.getMonth() === thisMonth && memberDate.getFullYear() === thisYear;
+        }).length;
+        
+        if (newThisMonthEl) newThisMonthEl.textContent = newThisMonth;
+        
+        // Calculate system uptime (placeholder)
+        if (systemUptimeEl) {
+            systemUptimeEl.textContent = Math.floor(Date.now() / (1000 * 60 * 60 * 24)) + 'd';
+        }
+        
+        // Load recent activity
+        try {
+            loadRecentActivity(members, certificates);
+        } catch (activityError) {
+            console.error('Failed to load recent activity:', activityError);
+            // Don't fail the entire dashboard for this
+        }
+        
+        // Display members and certificates in their respective tables
+        displayMembers(members);
+        if (typeof displayCertificates === 'function') {
+            displayCertificates(certificates);
+        }
+        
+        console.log('✅ Dashboard loaded successfully');
+        showMessage('Dashboard loaded successfully!', 'success');
+        
+    } catch (error) {
+        console.error('❌ Dashboard load error:', error);
+        
+        let errorMessage = 'Failed to load dashboard data';
+        
+        if (error.name === 'AbortError') {
+            errorMessage = 'Dashboard load timed out. Please try again.';
+        } else if (error.message.includes('getMembers')) {
+            errorMessage = 'Failed to load members data';
+        } else if (error.message.includes('getCertificates')) {
+            errorMessage = 'Failed to load certificates data';
+        } else if (error.message) {
+            errorMessage += ': ' + error.message;
+        }
+        
+        showMessage(errorMessage, 'error');
+        
+        // Try to load partial data if possible
+        try {
+            console.log('Attempting to load partial dashboard data...');
+            
+            // Try to load members only
+            const members = await getMembers();
+            if (members.length > 0) {
+                const totalMembersEl = document.getElementById('totalMembers');
+                if (totalMembersEl) totalMembersEl.textContent = members.length;
+                displayMembers(members);
+                showMessage('Partial dashboard loaded (members only)', 'warning');
+            }
+        } catch (partialError) {
+            console.error('Failed to load partial dashboard:', partialError);
+            showMessage('Complete dashboard load failed', 'error');
+        }
+    }
+}
 
 
 // Recent activity function
@@ -5378,6 +5527,139 @@ async function verifyCertificate(certificateNumber) {
 
 
 // Event listeners and initialization
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        console.log('NARAP Admin Panel initializing...');
+
+        setupEventDelegation();
+        
+        // Load theme
+        if (typeof loadTheme === 'function') loadTheme();
+        
+        // Auto-fill admin credentials on page load
+        if (typeof fillAdminCredentials === 'function') fillAdminCredentials();
+        
+        // Initialize dashboard as default tab
+        if (typeof switchTab === 'function') switchTab('dashboard');
+        
+        // Initialize all modals
+        window.initModals = function() {
+            const modals = {
+                memberModal: '#memberModal',
+                editMemberModal: '#editMemberModal',
+                addCertificateModal: '#addCertificateModal',
+                viewCertificateModal: '#viewCertificateModal'
+            };
+            Object.keys(modals).forEach(key => {
+                const el = document.querySelector(modals[key]);
+                if (el) window[key] = new bootstrap.Modal(el);
+            });
+        };
+        if (typeof initModals === 'function') initModals();
+        
+        // Setup preview listeners
+        if (typeof setupPreviewListeners === 'function') setupPreviewListeners();
+        
+        // Sidebar functionality
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.querySelector('.sidebar-overlay');
+        
+        // Make toggleSidebar a GLOBAL function so HTML onclick can access it
+        const hamburgerBtns = document.querySelectorAll('.hamburger-btn');
+        console.log('Found hamburger buttons:', hamburgerBtns.length);
+        
+        hamburgerBtns.forEach((btn, index) => {
+            console.log('Adding listener to hamburger button', index);
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Hamburger button clicked via event listener');
+                window.toggleSidebar();
+            });
+            
+            // Add touch event for mobile (only for hamburger buttons)
+            btn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Hamburger button touched');
+                window.toggleSidebar();
+            }, { passive: false });
+        });
+        
+        // Overlay click to close sidebar
+        if (overlay) {
+            overlay.addEventListener('click', function(e) {
+                console.log('Overlay clicked');
+                window.toggleSidebar();
+            });
+        }
+        
+        // Close sidebar when clicking nav items on mobile
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function() {
+                if (window.innerWidth <= 768) {
+                    console.log('Nav item clicked on mobile, closing sidebar');
+                    setTimeout(() => {
+                        window.toggleSidebar();
+                    }, 100);
+                }
+            });
+        });
+        
+        // Close sidebar when resizing to desktop
+        window.addEventListener('resize', function() {
+            if (window.innerWidth >= 769) {
+                console.log('Resized to desktop, closing sidebar');
+                if (sidebar) sidebar.classList.remove('mobile-open');
+                if (overlay) overlay.classList.remove('active');
+                document.body.classList.remove('sidebar-open');
+                document.body.style.overflow = '';
+            }
+        });
+        
+        // Set up modal close on outside click
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        });
+        
+        console.log('NARAP Admin Panel initialized successfully');
+        
+    } catch (error) {
+        console.error('Error initializing admin panel:', error);
+    }
+});
+
+// Login form functions (make sure these are global)
+window.login = function(event) {
+    event.preventDefault();
+    console.log('Login function called');
+    
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    
+    // Add your login logic here
+    console.log('Login attempt:', username);
+    
+    // Example login logic (replace with your actual logic)
+    if (username && password) {
+        // Hide login section and show admin section
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('adminSection').classList.add('active');
+        console.log('Login successful');
+    } else {
+        console.log('Login failed - missing credentials');
+        // Show error message
+        const errorDiv = document.getElementById('loginError');
+        if (errorDiv) {
+            errorDiv.innerHTML = '<div class="error">Please enter both username and password</div>';
+        }
+    }
+};
 
 window.fillAdminCredentials = function() {
     console.log('Fill admin credentials called');
@@ -5458,7 +5740,6 @@ window.logout = function() {
     
     console.log('Logged out successfully');
 };
-
 
 
 // Debug function
@@ -6674,6 +6955,27 @@ function hideLoadingState(element) {
 }
 
 // Enhanced error handling
+function handleError(error, context = 'Unknown') {
+    console.error(`Error in ${context}:`, error);
+    performanceMonitor.recordError(error, context);
+    
+    let userMessage = 'An unexpected error occurred';
+    
+    if (error.message.includes('fetch')) {
+        userMessage = 'Network error - please check your connection';
+    } else if (error.message.includes('401')) {
+        userMessage = 'Authentication required - please login again';
+        logout();
+    } else if (error.message.includes('403')) {
+        userMessage = 'Access denied - insufficient permissions';
+    } else if (error.message.includes('404')) {
+        userMessage = 'Resource not found';
+    } else if (error.message.includes('500')) {
+        userMessage = 'Server error - please try again later';
+    }
+    
+    showMessage(userMessage, 'error');
+}
 
 // Data caching system
 class DataCache {
@@ -6946,6 +7248,17 @@ function clearFormData(formId) {
 }
 
 // Utility function for debouncing
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
 
 // Update the main narapAdmin object with all new functions
 window.narapAdmin = {
@@ -7026,10 +7339,80 @@ function displayMemberVerification(member) {
 
 // Update form validation to make email optional
 // Update form validation to make email optional
+function validateMemberForm() {
+    const name = document.getElementById('memberName')?.value?.trim();
+    const email = document.getElementById('memberEmail')?.value?.trim();
+    const code = document.getElementById('memberCode')?.value?.trim();
+    const password = document.getElementById('memberPassword')?.value;
+    const state = document.getElementById('memberState')?.value?.trim();
+    const zone = document.getElementById('memberZone')?.value?.trim();
+    
+    const errors = [];
+    
+    if (!name || name.length < 2) {
+        errors.push('Name must be at least 2 characters long');
+    }
+    
+    // Email is now optional, but if provided, must be valid
+    if (email && !validateEmail(email)) {
+        errors.push('Please enter a valid email address');
+    }
+    
+    if (!code || code.length < 3) {
+        errors.push('Member code must be at least 3 characters long');
+    }
+    
+    if (!password || password.length < 6) {
+        errors.push('Password must be at least 6 characters long');
+    }
+    
+    if (!state) {
+        errors.push('State is required');
+    }
+    
+    if (!zone) {
+        errors.push('Zone is required');
+    }
+    
+    return {
+        isValid: errors.length === 0,
+        errors: errors
+    };
+}
 
 
 // Update certificate form validation to make email optional
 // Update certificate form validation to make email optional
+function validateCertificateForm() {
+    const number = document.getElementById('certificateNumber')?.value?.trim();
+    const recipient = document.getElementById('certificateRecipient')?.value?.trim();
+    const email = document.getElementById('certificateEmail')?.value?.trim();
+    const title = document.getElementById('certificateTitle')?.value?.trim();
+    
+    const errors = [];
+    
+    if (!number || number.length < 3) {
+        errors.push('Certificate number is required');
+    }
+    
+    if (!recipient || recipient.length < 2) {
+        errors.push('Recipient name is required');
+    }
+    
+    // Email is now optional, but if provided, must be valid
+    if (email && !validateEmail(email)) {
+        errors.push('Please enter a valid email address');
+    }
+    
+    if (!title || title.length < 3) {
+        errors.push('Certificate title is required');
+    }
+    
+    return {
+        isValid: errors.length === 0,
+        errors: errors
+    };
+}
 
 
 // Add utility function to clear image previews
@@ -7185,28 +7568,24 @@ window.closeSidebar = function() {
 
 
 // Ensure members load on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing...');
+    
+    // Setup mobile menu first
+    setupMobileMenu();
+    
+    // Initialize dashboard
+    setTimeout(() => {
+        if (typeof initializeDashboard === 'function') {
+            initializeDashboard();
+        }
+        
+        // Load members automatically
+        if (typeof loadMembers === 'function') {
+            loadMembers().catch(error => {
+                console.error('Failed to load members on startup:', error);
+            });
+        }
+    }, 1000);
+});
 
-
-// Restored simple hardcoded login function
-function login(event) {
-    event.preventDefault();
-
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-
-    if (username === "Admin@gmail.com" && password === "Password") {
-        localStorage.setItem('narap_token', 'dummy-token');
-        localStorage.setItem('narap_user', JSON.stringify({ email: username, role: 'admin' }));
-
-        document.getElementById('loginSection').style.display = 'none';
-        document.getElementById('adminPanel').style.display = 'block';
-
-        loadDashboard();
-        loadUsers();
-        loadCertificates();
-        initializeDashboard();
-    } else {
-        const loginError = document.getElementById('loginError');
-        loginError.innerHTML = '<div class="error">Invalid credentials</div>';
-    }
-}
