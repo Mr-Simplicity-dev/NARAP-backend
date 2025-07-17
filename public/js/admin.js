@@ -1112,24 +1112,16 @@ async function fetchMembers() {
 
 
 function renderMembersTable(members) {
-    if (!Array.isArray(members)) return;
-    window.cachedMembers = members;
-    const start = (currentPage - 1) * membersPerPage;
-    const end = start + membersPerPage;
-    const paginatedMembers = members.slice(start, end);
-    renderPaginationControls(members.length);
-
     console.log('Rendering members table with', members.length, 'members');
-    
+
     const tableBody = document.getElementById('membersTableBody');
     if (!tableBody) {
         console.error('Members table body not found');
         return;
     }
-    
-    // Clear existing content
+
     tableBody.innerHTML = '';
-    
+
     if (!members || members.length === 0) {
         tableBody.innerHTML = `
             <tr>
@@ -1142,14 +1134,14 @@ function renderMembersTable(members) {
         `;
         return;
     }
-    
-    // Render each member
-    members.forEach((member, index) => {
+
+    const paginated = paginateMembers(members, currentPage, pageSize);
+
+    paginated.forEach((member, index) => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>
-                <input type="checkbox" class="member-checkbox" data-member-id="${member._id || member.id}">
-            </td>
+            <td><img src="${member.passport || 'images/default-avatar.png'}" class="member-photo" title="Photo" /></td>
+            <td><input type="checkbox" class="member-checkbox" data-member-id="${member._id || member.id}"></td>
             <td>${escapeHtml(member.name || 'N/A')}</td>
             <td>${escapeHtml(member.email || 'N/A')}</td>
             <td>${escapeHtml(member.code || 'N/A')}</td>
@@ -1157,18 +1149,15 @@ function renderMembersTable(members) {
             <td>
                 <div class="btn-group" role="group">
                     <button class="btn btn-sm btn-info view-member-btn" 
-                            data-member-id="${member._id || member.id}"
-                            title="View Member">
+                            data-member-id="${member._id || member.id}" title="View Member">
                         <i class="fas fa-eye"></i>
                     </button>
                     <button class="btn btn-sm btn-warning edit-member-btn" 
-                            data-member-id="${member._id || member.id}"
-                            title="Edit Member">
+                            data-member-id="${member._id || member.id}" title="Edit Member">
                         <i class="fas fa-edit"></i>
                     </button>
                     <button class="btn btn-sm btn-danger delete-member-btn" 
-                            data-member-id="${member._id || member.id}"
-                            title="Delete Member">
+                            data-member-id="${member._id || member.id}" title="Delete Member">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -1176,11 +1165,9 @@ function renderMembersTable(members) {
         `;
         tableBody.appendChild(row);
     });
-    
-    // Setup event delegation for the newly created elements
+
     setupEventDelegation();
-    
-    // Update member count
+    updatePaginationUI(members.length, currentPage, pageSize);
     updateMemberCount(members.length);
 }
 
@@ -7900,61 +7887,3 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
 });
 
-// ✅ Restored: Event delegation for dynamic member action buttons
-function setupEventDelegation() {
-    const tableBody = document.getElementById('membersTableBody');
-    if (!tableBody) {
-        console.error('Members table body not found for delegation');
-        return;
-    }
-
-    tableBody.removeEventListener('click', handleDelegatedEvent); // Prevent duplicate listeners
-    tableBody.addEventListener('click', handleDelegatedEvent);
-}
-
-function handleDelegatedEvent(event) {
-    const target = event.target;
-
-    if (target.closest('.view-member-btn')) {
-        const memberId = target.closest('button').dataset.memberId;
-        console.log('View member:', memberId);
-        handleViewMember(memberId);
-    }
-
-    else if (target.closest('.edit-member-btn')) {
-        const memberId = target.closest('button').dataset.memberId;
-        console.log('Edit member:', memberId);
-        handleEditMember(memberId);
-    }
-
-    else if (target.closest('.delete-member-btn')) {
-        const memberId = target.closest('button').dataset.memberId;
-        console.log('Delete member:', memberId);
-        handleDeleteMember(memberId);
-    }
-}
-
-// Pagination state
-let currentPage = 1;
-const membersPerPage = 10;
-
-// Function to render pagination controls
-function renderPaginationControls(totalMembers) {
-    const totalPages = Math.ceil(totalMembers / membersPerPage);
-    const paginationContainer = document.getElementById('membersPagination');
-    if (!paginationContainer) return;
-
-    paginationContainer.innerHTML = '';
-
-    for (let i = 1; i <= totalPages; i++) {
-        const pageBtn = document.createElement('button');
-        pageBtn.textContent = i;
-        pageBtn.className = 'btn btn-sm btn-outline-primary mx-1';
-        if (i === currentPage) pageBtn.classList.add('active');
-        pageBtn.addEventListener('click', () => {
-            currentPage = i;
-            renderMembersTable(window.cachedMembers);
-        });
-        paginationContainer.appendChild(pageBtn);
-    }
-}
