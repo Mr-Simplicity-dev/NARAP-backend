@@ -1112,6 +1112,13 @@ async function fetchMembers() {
 
 
 function renderMembersTable(members) {
+    if (!Array.isArray(members)) return;
+    window.cachedMembers = members;
+    const start = (currentPage - 1) * membersPerPage;
+    const end = start + membersPerPage;
+    const paginatedMembers = members.slice(start, end);
+    renderPaginationControls(members.length);
+
     console.log('Rendering members table with', members.length, 'members');
     
     const tableBody = document.getElementById('membersTableBody');
@@ -7924,5 +7931,30 @@ function handleDelegatedEvent(event) {
         const memberId = target.closest('button').dataset.memberId;
         console.log('Delete member:', memberId);
         handleDeleteMember(memberId);
+    }
+}
+
+// Pagination state
+let currentPage = 1;
+const membersPerPage = 10;
+
+// Function to render pagination controls
+function renderPaginationControls(totalMembers) {
+    const totalPages = Math.ceil(totalMembers / membersPerPage);
+    const paginationContainer = document.getElementById('membersPagination');
+    if (!paginationContainer) return;
+
+    paginationContainer.innerHTML = '';
+
+    for (let i = 1; i <= totalPages; i++) {
+        const pageBtn = document.createElement('button');
+        pageBtn.textContent = i;
+        pageBtn.className = 'btn btn-sm btn-outline-primary mx-1';
+        if (i === currentPage) pageBtn.classList.add('active');
+        pageBtn.addEventListener('click', () => {
+            currentPage = i;
+            renderMembersTable(window.cachedMembers);
+        });
+        paginationContainer.appendChild(pageBtn);
     }
 }
