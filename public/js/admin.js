@@ -393,7 +393,7 @@ async function login(event) {
             // Load critical data
             await Promise.all([
                 loadDashboard(),
-                loadMembers(), // Replaces loadMembers()
+                loadUsers(), // Replaces loadMembers()
                 loadCertificates()
             ]);
             
@@ -1043,7 +1043,7 @@ async function loadMembers() {
 
 // Alias function for loadDashboard compatibility
 async function getMembers() {
-    return await loadMembers();
+    return await loadUsers();
 }
 
 // Update displayMembers function to handle missing passport photos better
@@ -1605,7 +1605,7 @@ async function deletePassport(memberId) {
 }
 
 // Updated loadUsers function to work with MongoDB
-async function loadMembers() {
+async function loadUsers() {
     try {
         const response = await fetch('/api/members');
         
@@ -3669,7 +3669,7 @@ async function addMember() {
             clearImagePreviews();
             
             // Reload members to show the new addition
-            await loadMembers();
+            await loadUsers();
             
             // Close modal if it exists
             const modal = document.getElementById('addMemberModal');
@@ -4696,7 +4696,7 @@ window.autoFillCertificateFields = function() {
 // Export functions
 async function exportMembers(format = 'csv') {
     try {
-        const members = currentMembers.length > 0 ? currentMembers : await loadMembers();
+        const members = currentMembers.length > 0 ? currentMembers : await loadUsers();
         
         if (format === 'csv') {
             const csvContent = convertToCSV(members);
@@ -4836,7 +4836,7 @@ async function createBackup() {
     try {
         showMessage('Creating backup...', 'success');
         
-        const members = currentMembers.length > 0 ? currentMembers : await loadMembers();
+        const members = currentMembers.length > 0 ? currentMembers : await loadUsers();
         const certificates = currentCertificates.length > 0 ? currentCertificates : await getCertificates();
         
         const backupData = {
@@ -4862,7 +4862,7 @@ async function exportAllData() {
     try {
         showMessage('Exporting all data...', 'success');
         
-        const members = currentMembers.length > 0 ? currentMembers : await loadMembers();
+        const members = currentMembers.length > 0 ? currentMembers : await loadUsers();
         const certificates = currentCertificates.length > 0 ? currentCertificates : await getCertificates();
         
         const allData = {
@@ -6705,7 +6705,7 @@ async function loadAnalytics() {
         showMessage('Loading analytics...', 'success');
         
         // Ensure we have current data
-        if (currentMembers.length === 0) await loadMembers();
+        if (currentMembers.length === 0) await loadUsers();
         if (currentCertificates.length === 0) await getCertificates();
         
         // Display analytics
@@ -6819,7 +6819,7 @@ async function exportData(type, format = 'json') {
         
         switch(type) {
             case 'members':
-                data = currentMembers.length > 0 ? currentMembers : await loadMembers();
+                data = currentMembers.length > 0 ? currentMembers : await loadUsers();
                 filename = `narap_members_${new Date().toISOString().split('T')[0]}`;
                 break;
                 
@@ -6829,7 +6829,7 @@ async function exportData(type, format = 'json') {
                 break;
                 
             case 'all':
-                const members = currentMembers.length > 0 ? currentMembers : await loadMembers();
+                const members = currentMembers.length > 0 ? currentMembers : await loadUsers();
                 const certificates = currentCertificates.length > 0 ? currentCertificates : await getCertificates();
                 data = { members, certificates, exportDate: new Date().toISOString() };
                 filename = `narap_complete_export_${new Date().toISOString().split('T')[0]}`;
@@ -7295,7 +7295,7 @@ async function getCachedMembers(forceRefresh = false) {
     }
     
     try {
-        const members = await loadMembers();
+        const members = await loadUsers();
         dataCache.set(cacheKey, members);
         return members;
     } catch (error) {
@@ -7882,4 +7882,3 @@ document.addEventListener('click', function (e) {
         }
     }
 });
- 
