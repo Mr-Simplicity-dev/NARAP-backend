@@ -919,7 +919,7 @@ function formatRelativeDate(dateString) {
 }
 
 // Update the loadUsers function to handle the auto-loading better
-async function loadUsers(page = 1, limit = membersPerPage, search = '') {
+//async function loadUsers(page = 1, limit = membersPerPage, search = '') {
     try {
         console.log('🔄 Loading users...');
         showLoadingState('membersTableBody', 'Loading members...');
@@ -1038,7 +1038,118 @@ async function loadUsers(page = 1, limit = membersPerPage, search = '') {
         showMessage('Failed to load members: ' + error.message, 'error');
         return [];
     }
+//}
+
+async function loadUsers(page = 1, limit = membersPerPage, search = '') {
+    try {
+        console.log('🔄 Loading users...');
+        showLoadingState('membersTableBody', 'Loading members...');
+        
+        // Only fetch from server if we don't have cached data or if it's a refresh
+        if (allMembers.length === 0 || search !== currentSearchTerm) {
+            // Use the MongoDB fetch function instead of direct fetch
+            const users = await fetchMembersFromDB();
+            
+            // Store all users
+            allMembers = users;
+            
+            // Save to localStorage for offline access
+            localStorage.setItem('narap_members', JSON.stringify(users));
+        }
+
+        // Apply search filter if provided
+        currentSearchTerm = search;
+        if (search.trim()) {
+            filteredMembers = allMembers.filter(member => 
+                (member.name?.toLowerCase().includes(search.toLowerCase())) ||
+                (member.email?.toLowerCase().includes(search.toLowerCase())) ||
+                (member.memberCode?.toLowerCase().includes(search.toLowerCase())) ||
+                (member.state?.toLowerCase().includes(search.toLowerCase())) ||
+                (member.position?.toLowerCase().includes(search.toLowerCase()))
+            );
+        } else {
+            filteredMembers = [...allMembers];
+        }
+
+        totalMembers = filteredMembers.length;
+        
+        // Calculate pagination
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
+        
+        // Update current page state
+        currentPage = page;
+        membersPerPage = limit;
+        currentMembers = paginatedMembers;
+        
+        // Update the display using your existing function
+        displayMembers(paginatedMembers);
+        
+        // Update pagination controls
+        updatePaginationControls();
+        
+        // Update members count
+        updateMembersCount(startIndex, Math.min(endIndex, totalMembers), totalMembers);
+
+        // Update member count in dashboard if element exists
+        const memberCountElement = document.getElementById('totalMembers');
+        if (memberCountElement) {
+            memberCountElement.textContent = allMembers.length;
+        }
+
+        hideLoadingState('membersTableBody');
+        return paginatedMembers;
+        
+    } catch (error) {
+        console.error('❌ Load users error:', error);
+        hideLoadingState('membersTableBody');
+        
+        // Try to load from localStorage as fallback
+        const cachedUsers = localStorage.getItem('narap_members');
+        if (cachedUsers) {
+            try {
+                const users = JSON.parse(cachedUsers);
+                console.log('📱 Using cached users data');
+                
+                allMembers = users;
+                
+                // Apply search and pagination to cached data
+                if (search.trim()) {
+                    filteredMembers = users.filter(member => 
+                        (member.name?.toLowerCase().includes(search.toLowerCase())) ||
+                        (member.email?.toLowerCase().includes(search.toLowerCase())) ||
+                        (member.memberCode?.toLowerCase().includes(search.toLowerCase())) ||
+                        (member.state?.toLowerCase().includes(search.toLowerCase())) ||
+                        (member.position?.toLowerCase().includes(search.toLowerCase()))
+                    );
+                } else {
+                    filteredMembers = [...users];
+                }
+                
+                totalMembers = filteredMembers.length;
+                const startIndex = (page - 1) * limit;
+                const endIndex = startIndex + limit;
+                const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
+                
+                currentMembers = paginatedMembers;
+                displayMembers(paginatedMembers);
+                updatePaginationControls();
+                updateMembersCount(startIndex, Math.min(endIndex, totalMembers), totalMembers);
+                
+                showMessage('Loaded cached member data (offline mode)', 'warning');
+                return paginatedMembers;
+            } catch (parseError) {
+                console.error('Failed to parse cached users:', parseError);
+            }
+        }
+        
+        showMessage('Failed to load members: ' + error.message, 'error');
+        displayMembers([]); // Show empty table
+        return [];
+    }
 }
+
 
 
 // Alias function for loadDashboard compatibility
@@ -1605,7 +1716,7 @@ async function deletePassport(memberId) {
 }
 
 // Updated loadUsers function to work with MongoDB
-async function loadUsers() {
+//async function loadUsers() {
     try {
         const response = await fetch('/api/members');
         
@@ -1620,7 +1731,28 @@ async function loadUsers() {
         console.error('Error loading users:', error);
         throw error;
     }
+//}
+
+async function fetchMembersFromDB() {
+    try {
+        console.log('🔄 Fetching members from MongoDB...');
+        
+        const response = await fetch('/api/members');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const members = await response.json();
+        console.log(`✅ Successfully fetched ${members.length} members from MongoDB`);
+        return members;
+        
+    } catch (error) {
+        console.error('❌ Error loading users from MongoDB:', error);
+        throw error;
+    }
 }
+
 
 // View member function
 async function viewMember(memberId) {
