@@ -1182,7 +1182,7 @@ function handleDelegatedClicks(event) {
             restoreCertificate(certId);
         }
     }
-}
+}}
 
 
 // The response handling code should be in your fetch function, like:
