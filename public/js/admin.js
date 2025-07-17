@@ -1111,18 +1111,18 @@ async function fetchMembers() {
 
 
 
-
 function renderMembersTable(members) {
     console.log('Rendering members table with', members.length, 'members');
-
+    
     const tableBody = document.getElementById('membersTableBody');
     if (!tableBody) {
         console.error('Members table body not found');
         return;
     }
-
+    
+    // Clear existing content
     tableBody.innerHTML = '';
-
+    
     if (!members || members.length === 0) {
         tableBody.innerHTML = `
             <tr>
@@ -1135,8 +1135,9 @@ function renderMembersTable(members) {
         `;
         return;
     }
-
-    members.forEach((member) => {
+    
+    // Render each member
+    members.forEach((member, index) => {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>
@@ -1168,11 +1169,13 @@ function renderMembersTable(members) {
         `;
         tableBody.appendChild(row);
     });
-
+    
+    // Setup event delegation for the newly created elements
     setupEventDelegation();
+    
+    // Update member count
     updateMemberCount(members.length);
 }
-
 
 // Helper function to update member count display
 function updateMemberCount(count) {
@@ -7890,3 +7893,36 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
 });
 
+// ✅ Restored: Event delegation for dynamic member action buttons
+function setupEventDelegation() {
+    const tableBody = document.getElementById('membersTableBody');
+    if (!tableBody) {
+        console.error('Members table body not found for delegation');
+        return;
+    }
+
+    tableBody.removeEventListener('click', handleDelegatedEvent); // Prevent duplicate listeners
+    tableBody.addEventListener('click', handleDelegatedEvent);
+}
+
+function handleDelegatedEvent(event) {
+    const target = event.target;
+
+    if (target.closest('.view-member-btn')) {
+        const memberId = target.closest('button').dataset.memberId;
+        console.log('View member:', memberId);
+        handleViewMember(memberId);
+    }
+
+    else if (target.closest('.edit-member-btn')) {
+        const memberId = target.closest('button').dataset.memberId;
+        console.log('Edit member:', memberId);
+        handleEditMember(memberId);
+    }
+
+    else if (target.closest('.delete-member-btn')) {
+        const memberId = target.closest('button').dataset.memberId;
+        console.log('Delete member:', memberId);
+        handleDeleteMember(memberId);
+    }
+}
