@@ -7899,26 +7899,3 @@ document.addEventListener('click', function (e) {
         }
     }
 });
-
-// ✅ Setup pagination click handlers
-document.addEventListener('click', function (e) {
-    if (e.target.classList.contains('page-link') && e.target.dataset.page) {
-        e.preventDefault();
-        const newPage = parseInt(e.target.dataset.page);
-        if (!isNaN(newPage)) {
-            loadMembers(newPage, membersPerPage, currentSearchTerm);
-        }
-    }
-});
-
-// ✅ Setup members per page dropdown handler
-const limitSelector = document.getElementById('membersPerPage');
-if (limitSelector) {
-    limitSelector.addEventListener('change', function () {
-        const newLimit = parseInt(this.value);
-        if (!isNaN(newLimit) && newLimit > 0) {
-            membersPerPage = newLimit;
-            loadMembers(1, membersPerPage, currentSearchTerm);
-        }
-    });
-}
