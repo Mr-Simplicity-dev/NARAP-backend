@@ -1111,68 +1111,71 @@ async function fetchMembers() {
 
 
 
-
 function renderMembersTable(members) {
+    console.log('Rendering members table with', members.length, 'members');
+    
     const tableBody = document.getElementById('membersTableBody');
     if (!tableBody) {
         console.error('Members table body not found');
         return;
     }
-
-    const rowsPerPage = 10;
-    let currentPage = 1;
-
-    function renderPage(page) {
-        tableBody.innerHTML = '';
-        const startIndex = (page - 1) * rowsPerPage;
-        const endIndex = Math.min(startIndex + rowsPerPage, members.length);
-
-        for (let i = startIndex; i < endIndex; i++) {
-            const member = members[i];
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td><img src="${member.passport || 'images/default-avatar.png'}" alt="Passport" class="member-passport" /></td>
-                <td>${member.name || ''}</td>
-                <td>${member.email || ''}</td>
-                <td>${member.code || ''}</td>
-                <td>${member.position || ''}</td>
-                <td>${member.state || ''}</td>
-                <td>
-                    <button class="btn btn-sm btn-primary view-member" data-id="${member._id}">View</button>
-                    <button class="btn btn-sm btn-secondary edit-member" data-id="${member._id}">Edit</button>
-                    <button class="btn btn-sm btn-danger delete-member" data-id="${member._id}">Delete</button>
+    
+    // Clear existing content
+    tableBody.innerHTML = '';
+    
+    if (!members || members.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 40px; color: #666;">
+                    <i class="fas fa-users" style="font-size: 48px; margin-bottom: 15px; opacity: 0.3;"></i>
+                    <div>No members found</div>
+                    <div style="font-size: 14px; margin-top: 10px;">Add your first member to get started</div>
                 </td>
-            `;
-            tableBody.appendChild(row);
-        }
-
-        // Update pagination info if needed
-        const pagination = document.getElementById('memberPagination');
-        if (pagination) {
-            pagination.innerHTML = `
-                <button ${currentPage === 1 ? 'disabled' : ''} id="prevPage">Previous</button>
-                <span> Page ${currentPage} of ${Math.ceil(members.length / rowsPerPage)} </span>
-                <button ${endIndex >= members.length ? 'disabled' : ''} id="nextPage">Next</button>
-            `;
-            document.getElementById('prevPage').onclick = () => {
-                if (currentPage > 1) {
-                    currentPage--;
-                    renderPage(currentPage);
-                }
-            };
-            document.getElementById('nextPage').onclick = () => {
-                if (endIndex < members.length) {
-                    currentPage++;
-                    renderPage(currentPage);
-                }
-            };
-        }
+            </tr>
+        `;
+        return;
     }
-
-    renderPage(currentPage);
+    
+    // Render each member
+    members.forEach((member, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                <input type="checkbox" class="member-checkbox" data-member-id="${member._id || member.id}">
+            </td>
+            <td>${escapeHtml(member.name || 'N/A')}</td>
+            <td>${escapeHtml(member.email || 'N/A')}</td>
+            <td>${escapeHtml(member.code || 'N/A')}</td>
+            <td>${escapeHtml(member.state || 'N/A')}</td>
+            <td>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-sm btn-info view-member-btn" 
+                            data-member-id="${member._id || member.id}"
+                            title="View Member">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-warning edit-member-btn" 
+                            data-member-id="${member._id || member.id}"
+                            title="Edit Member">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger delete-member-btn" 
+                            data-member-id="${member._id || member.id}"
+                            title="Delete Member">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+    
+    // Setup event delegation for the newly created elements
     setupEventDelegation();
+    
+    // Update member count
+    updateMemberCount(members.length);
 }
-
 
 // Helper function to update member count display
 function updateMemberCount(count) {
@@ -7890,17 +7893,3 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
 });
 
-
-function setupEventDelegation() {
-    document.getElementById('membersTableBody').addEventListener('click', function (e) {
-        const target = e.target;
-        const id = target.dataset.id;
-        if (target.classList.contains('view-member')) {
-            viewMember(id);
-        } else if (target.classList.contains('edit-member')) {
-            editMember(id);
-        } else if (target.classList.contains('delete-member')) {
-            deleteMember(id);
-        }
-    });
-}
