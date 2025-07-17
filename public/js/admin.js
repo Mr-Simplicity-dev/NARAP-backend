@@ -1113,54 +1113,68 @@ async function fetchMembers() {
 
 function renderMembersTable(members) {
     console.log('Rendering members table with', members.length, 'members');
-
+    
     const tableBody = document.getElementById('membersTableBody');
     if (!tableBody) {
         console.error('Members table body not found');
         return;
     }
-
+    
+    // Clear existing content
     tableBody.innerHTML = '';
-
-    if (!Array.isArray(members) || members.length === 0) {
+    
+    if (!members || members.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="7" style="text-align: center;">No members found</td>
+                <td colspan="6" style="text-align: center; padding: 40px; color: #666;">
+                    <i class="fas fa-users" style="font-size: 48px; margin-bottom: 15px; opacity: 0.3;"></i>
+                    <div>No members found</div>
+                    <div style="font-size: 14px; margin-top: 10px;">Add your first member to get started</div>
+                </td>
             </tr>
         `;
         return;
     }
-
-    members.forEach(member => {
-        const {
-            name = 'N/A',
-            email = 'N/A',
-            code = 'N/A',
-            position = 'N/A',
-            state = 'N/A',
-            photo
-        } = member;
-
-        const photoHtml = photo
-            ? `<img src="${photo}" alt="Passport" width="40" height="40" />`
-            : `<div style="width:40px; height:40px; background:#ccc; text-align:center; line-height:40px;">N/A</div>`;
-
+    
+    // Render each member
+    members.forEach((member, index) => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${photoHtml}</td>
-            <td>${name}</td>
-            <td>${email}</td>
-            <td>${code}</td>
-            <td>${position}</td>
-            <td>${state}</td>
             <td>
-                <button class="btn btn-sm btn-primary view-btn" data-code="${code}">View</button>
-                <button class="btn btn-sm btn-warning edit-btn" data-code="${code}">Edit</button>
-                <button class="btn btn-sm btn-danger delete-btn" data-code="${code}">Delete</button>
+                <input type="checkbox" class="member-checkbox" data-member-id="${member._id || member.id}">
+            </td>
+            <td>${escapeHtml(member.name || 'N/A')}</td>
+            <td>${escapeHtml(member.email || 'N/A')}</td>
+            <td>${escapeHtml(member.code || 'N/A')}</td>
+            <td>${escapeHtml(member.state || 'N/A')}</td>
+            <td>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-sm btn-info view-member-btn" 
+                            data-member-id="${member._id || member.id}"
+                            title="View Member">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-warning edit-member-btn" 
+                            data-member-id="${member._id || member.id}"
+                            title="Edit Member">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger delete-member-btn" 
+                            data-member-id="${member._id || member.id}"
+                            title="Delete Member">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
             </td>
         `;
         tableBody.appendChild(row);
     });
+    
+    // Setup event delegation for the newly created elements
+    setupEventDelegation();
+    
+    // Update member count
+    updateMemberCount(members.length);
 }
 
 // Helper function to update member count display
@@ -5710,6 +5724,7 @@ window.logout = function() {
 };
 
 
+
 // Debug function
 window.debugSidebar = function() {
     const sidebar = document.querySelector('.sidebar');
@@ -7581,4 +7596,4 @@ function setupEventDelegation() {
             }
         }
     });
-} 
+}
