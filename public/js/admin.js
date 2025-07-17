@@ -503,7 +503,7 @@ function switchTab(tabName) {
         loadCertificates();
     } else if (tabName === 'members') {
         // Load first page of members with current settings
-        loadUsers(1, membersPerPage, currentSearchTerm || '');
+        loadMembers();
     }
 }
 
@@ -919,7 +919,7 @@ function formatRelativeDate(dateString) {
 }
 
 // Update the loadUsers function to handle the auto-loading better
-async function loadUsers(page = 1, limit = membersPerPage, search = '') {
+async function loadMembers() {
     try {
         console.log('🔄 Loading users...');
         showLoadingState('membersTableBody', 'Loading members...');
@@ -1171,7 +1171,7 @@ function updateMembersCount(startIndex, endIndex, total) {
 // Navigation functions
 function goToPage(page) {
     if (page !== currentPage) {
-        loadUsers(page, membersPerPage, currentSearchTerm);
+        loadMembers();
     }
 }
 
@@ -1206,13 +1206,13 @@ function changeItemsPerPage(newLimit) {
 // Search function
 function searchMembers(searchTerm) {
     currentPage = 1; // Reset to first page when searching
-    loadUsers(1, membersPerPage, searchTerm);
+    loadMembers();
 }
 
 // Refresh function
 function refreshMembers() {
     allMembers = []; // Clear cache to force refresh
-    loadUsers(currentPage, membersPerPage, currentSearchTerm);
+    loadMembers();
 }
 
 
