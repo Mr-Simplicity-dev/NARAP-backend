@@ -1539,3 +1539,57 @@ body.sidebar-open {
     }
 }
 
+.pagination-container {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.page-numbers {
+    display: flex;
+    gap: 2px;
+    margin: 0 10px;
+}
+
+.page-number {
+    padding: 5px 10px;
+    border: 1px solid #dee2e6;
+    background: white;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.page-number.active {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.page-number:hover:not(.active) {
+    background: #e9ecef;
+}
+
+.pagination-info select {
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+}
+
+@media (max-width: 768px) {
+    .pagination-container {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .pagination-controls {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}

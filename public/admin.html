@@ -282,6 +282,28 @@
 </table>
 </div>
 </div>
+<!-- Add this after your members table in your HTML -->
+<div id="membersPagination" class="pagination-container" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;">
+    <div class="pagination-info">
+        <span id="membersCount">Showing 0 of 0 members</span>
+        <select id="membersPerPage" style="margin-left: 10px; padding: 5px; border: 1px solid #ced4da; border-radius: 4px;">
+            <option value="10">10 per page</option>
+            <option value="25" selected>25 per page</option>
+            <option value="50">50 per page</option>
+            <option value="100">100 per page</option>
+        </select>
+    </div>
+    
+    <div class="pagination-controls" style="display: flex; align-items: center; gap: 5px;">
+        <button id="firstPage" class="btn btn-sm btn-outline-primary" onclick="goToFirstPage()" disabled>First</button>
+        <button id="prevPage" class="btn btn-sm btn-outline-primary" onclick="goToPrevPage()" disabled>Previous</button>
+        <span id="pageNumbers" class="page-numbers" style="display: flex; gap: 2px; margin: 0 10px;"></span>
+        <button id="nextPage" class="btn btn-sm btn-outline-primary" onclick="goToNextPage()">Next</button>
+        <button id="lastPage" class="btn btn-sm btn-outline-primary" onclick="goToLastPage()">Last</button>
+    </div>
+</div>
+
+
 <!-- Certificates Tab -->
 <div class="panel" id="panel-certificates">
 <h2>Certificates Management</h2>
