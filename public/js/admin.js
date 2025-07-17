@@ -1079,84 +1079,36 @@ async function loadMembers() {
 
 // 3. New helper functions
 async function fetchMembers() {
-    const response = await fetch(`${backendUrl}/api/members`, {
-        headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
-    });
-
-function setupEventDelegation() {
-    console.log('Setting up event delegation...');
-    
-    // Remove any existing delegated event listeners to prevent duplicates
-    document.removeEventListener('click', handleDelegatedClicks);
-    
-    // Add delegated event listener for dynamically created buttons
-    document.addEventListener('click', handleDelegatedClicks);
-}
-
-// Handle clicks on dynamically created elements
-function handleDelegatedClicks(event) {
-    const target = event.target;
-    
-    // Handle edit member buttons
-    if (target.matches('.edit-member-btn') || target.closest('.edit-member-btn')) {
-        const button = target.matches('.edit-member-btn') ? target : target.closest('.edit-member-btn');
-        const memberId = button.getAttribute('data-member-id');
-        if (memberId) {
-            editMember(memberId);
-        }
-    }
-    
-    // Handle delete member buttons
-    if (target.matches('.delete-member-btn') || target.closest('.delete-member-btn')) {
-        const button = target.matches('.delete-member-btn') ? target : target.closest('.delete-member-btn');
-        const memberId = button.getAttribute('data-member-id');
-        if (memberId) {
-            deleteMember(memberId);
-        }
-    }
-    
-    // Handle view member buttons
-    if (target.matches('.view-member-btn') || target.closest('.view-member-btn')) {
-        const button = target.matches('.view-member-btn') ? target : target.closest('.view-member-btn');
-        const memberId = button.getAttribute('data-member-id');
-        if (memberId) {
-            viewMember(memberId);
-        }
-    }
-    
-    // Handle certificate action buttons
-    if (target.matches('.revoke-cert-btn') || target.closest('.revoke-cert-btn')) {
-        const button = target.matches('.revoke-cert-btn') ? target : target.closest('.revoke-cert-btn');
-        const certId = button.getAttribute('data-cert-id');
-        if (certId) {
-            showRevocationModal(certId);
-        }
-    }
-    
-    // Handle restore certificate buttons
-    if (target.matches('.restore-cert-btn') || target.closest('.restore-cert-btn')) {
-        const button = target.matches('.restore-cert-btn') ? target : target.closest('.restore-cert-btn');
-        const certId = button.getAttribute('data-cert-id');
-        if (certId) {
-            restoreCertificate(certId);
-        }
-    }
-}}
-
-
-// The response handling code should be in your fetch function, like:
-async function fetchMembers() {
     try {
-        const response = await fetch('/api/members');
-        if (!response.ok) throw new Error('Failed to fetch members');
-        return await response.json();
+        // Use backendUrl if defined, otherwise use relative path
+        const url = typeof backendUrl !== 'undefined' ? `${backendUrl}/api/members` : '/api/members';
+        
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch members: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Fetched members:', data);
+        
+        // Return the members array
+        return data.members || data || [];
+        
     } catch (error) {
         console.error('Error fetching members:', error);
         throw error;
     }
 }
+
+
+
+
 
 
 function renderMembersTable(members) {
@@ -2831,13 +2783,6 @@ window.executeRevocation = executeRevocation;
 window.closeRevocationModal = closeRevocationModal;
 
 
-// Toggle custom reason input
-function toggleCustomReason(selectedValue) {
-    const customReasonDiv = document.getElementById('customReasonDiv');
-    if (customReasonDiv) {
-        customReasonDiv.style.display = selectedValue === 'Other' ? 'block' : 'none';
-    }
-}
 
 // Confirm revocation function
 async function confirmRevocation(certificateId) {
@@ -3563,20 +3508,7 @@ async function deleteMember(id) {
 
 
 
-// Search and filter functions
-function searchMembers(searchTerm) {
-    const rows = document.querySelectorAll('#membersTableBody tr');
-    const term = searchTerm.toLowerCase();
-    
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        if (text.includes(term)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-}
+
 
 function filterMembers() {
     const searchValue = document.getElementById('memberSearch')?.value?.toLowerCase().trim() || '';
@@ -7085,79 +7017,9 @@ function getMessageStyle(type) {
     }
 }
 
-// View functions for modals
-function viewIdCard(memberId) {
-    const member = currentMembers.find(m => m._id === memberId);
-    if (!member) {
-        showMessage('Member not found', 'error');
-        return;
-    }
-    
-    // Populate the view modal with member data
-    const modalContent = document.getElementById('viewIdCardContent');
-    if (modalContent) {
-        modalContent.innerHTML = `
-            <div class="id-card-view">
-                <div class="id-card-header">
-                    <img src="images/narap-logo.jpg" alt="NARAP Logo" class="id-logo">
-                    <h3>NARAP</h3>
-                    <p>Nigerian Association of Refrigeration<br>And Air Conditioning Practitioners</p>
-                </div>
-                <div class="id-card-body">
-                    <div class="id-photo">
-                        <img src="${member.passportPhoto || 'images/default-avatar.png'}" alt="Photo">
-                    </div>
-                    <div class="id-details">
-                        <h4>${member.name}</h4>
-                        <p><strong>Code:</strong> ${member.code}</p>
-                        <p><strong>Position:</strong> ${member.position}</p>
-                        <p><strong>State:</strong> ${member.state}</p>
-                        <p><strong>Zone:</strong> ${member.zone}</p>
-                    </div>
-                </div>
-                <div class="signature-area">
-                    <img src="${member.signature || 'images/default-signature.png'}" alt="Signature" class="signature">
-                </div>
-            </div>
-        `;
-    }
-    
-    document.getElementById('viewIdCardModal').style.display = 'block';
-}
 
-function viewCertificate(certificateId) {
-    const certificate = currentCertificates.find(c => c._id === certificateId || c.id === certificateId);
-    if (!certificate) {
-        showMessage('Certificate not found', 'error');
-        return;
-    }
-    
-    // Populate the view modal with certificate data
-    const modalContent = document.getElementById('viewCertificateContent');
-    if (modalContent) {
-        modalContent.innerHTML = `
-            <div class="certificate-view">
-                ${certificate.status === 'revoked' ? '<div class="revoked-watermark">REVOKED</div>' : ''}
-                <div class="cert-header">
-                    <img src="images/narap-logo.jpg" alt="NARAP Logo" class="cert-logo">
-                    <h2>NARAP Certificate</h2>
-                </div>
-                <div class="cert-body">
-                    <h3>${certificate.title}</h3>
-                    <p><strong>Certificate Number:</strong> ${certificate.number}</p>
-                    <p><strong>Recipient:</strong> ${certificate.recipient}</p>
-                    <p><strong>Type:</strong> ${certificate.type}</p>
-                    <p><strong>Issue Date:</strong> ${formatDate(certificate.issueDate)}</p>
-                    ${certificate.validUntil ? `<p><strong>Valid Until:</strong> ${formatDate(certificate.validUntil)}</p>` : ''}
-                    <p><strong>Description:</strong> ${certificate.description}</p>
-                    <p><strong>Status:</strong> <span class="status-${certificate.status || 'active'}">${(certificate.status || 'active').toUpperCase()}</span></p>
-                </div>
-            </div>
-        `;
-    }
-    
-    document.getElementById('viewCertificateModal').style.display = 'block';
-}
+
+
 
 // Revoke certificate function
 async function revokeCertificate(certificateId) {
@@ -7929,31 +7791,6 @@ window.closeSidebar = function() {
     document.body.style.overflow = '';
 };
 
-// =============================================================================
-// MEMBER LOADING FIX
-// =============================================================================
-
-// Ensure members load on page load
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing...');
-    
-    // Setup mobile menu first
-    setupMobileMenu();
-    
-    // Initialize dashboard
-    setTimeout(() => {
-        if (typeof initializeDashboard === 'function') {
-            initializeDashboard();
-        }
-        
-        // Load members automatically
-        if (typeof loadMembers === 'function') {
-            loadMembers().catch(error => {
-                console.error('Failed to load members on startup:', error);
-            });
-        }
-    }, 1000);
-});
 
 // Mobile menu setup
 function setupMobileMenu() {
@@ -7997,3 +7834,62 @@ function setupMobileMenu() {
         }
     });
 }
+
+// Mobile sidebar toggle functions
+window.toggleSidebar = function() {
+    console.log('Toggle sidebar called');
+    const sidebar = document.querySelector('.sidebar');
+    
+    if (!sidebar) {
+        console.error('Sidebar not found');
+        return;
+    }
+    
+    sidebar.classList.toggle('active');
+    
+    // Handle overlay
+    let overlay = document.querySelector('.sidebar-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'sidebar-overlay';
+        overlay.onclick = () => window.closeSidebar();
+        document.body.appendChild(overlay);
+    }
+    
+    overlay.classList.toggle('active');
+    document.body.style.overflow = sidebar.classList.contains('active') ? 'hidden' : '';
+};
+
+window.closeSidebar = function() {
+    console.log('Close sidebar called');
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    
+    if (sidebar) sidebar.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
+    document.body.style.overflow = '';
+};
+
+
+// Ensure members load on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing...');
+    
+    // Setup mobile menu first
+    setupMobileMenu();
+    
+    // Initialize dashboard
+    setTimeout(() => {
+        if (typeof initializeDashboard === 'function') {
+            initializeDashboard();
+        }
+        
+        // Load members automatically
+        if (typeof loadMembers === 'function') {
+            loadMembers().catch(error => {
+                console.error('Failed to load members on startup:', error);
+            });
+        }
+    }, 1000);
+});
+
