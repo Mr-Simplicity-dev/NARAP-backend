@@ -1113,15 +1113,16 @@ async function fetchMembers() {
 
 function renderMembersTable(members) {
     console.log('Rendering members table with', members.length, 'members');
-
+    
     const tableBody = document.getElementById('membersTableBody');
     if (!tableBody) {
         console.error('Members table body not found');
         return;
     }
-
+    
+    // Clear existing content
     tableBody.innerHTML = '';
-
+    
     if (!members || members.length === 0) {
         tableBody.innerHTML = `
             <tr>
@@ -1134,14 +1135,14 @@ function renderMembersTable(members) {
         `;
         return;
     }
-
-    const paginated = paginateMembers(members, currentPage, pageSize);
-
-    paginated.forEach((member, index) => {
+    
+    // Render each member
+    members.forEach((member, index) => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td><img src="${member.passport || 'images/default-avatar.png'}" class="member-photo" title="Photo" /></td>
-            <td><input type="checkbox" class="member-checkbox" data-member-id="${member._id || member.id}"></td>
+            <td>
+                <input type="checkbox" class="member-checkbox" data-member-id="${member._id || member.id}">
+            </td>
             <td>${escapeHtml(member.name || 'N/A')}</td>
             <td>${escapeHtml(member.email || 'N/A')}</td>
             <td>${escapeHtml(member.code || 'N/A')}</td>
@@ -1149,15 +1150,18 @@ function renderMembersTable(members) {
             <td>
                 <div class="btn-group" role="group">
                     <button class="btn btn-sm btn-info view-member-btn" 
-                            data-member-id="${member._id || member.id}" title="View Member">
+                            data-member-id="${member._id || member.id}"
+                            title="View Member">
                         <i class="fas fa-eye"></i>
                     </button>
                     <button class="btn btn-sm btn-warning edit-member-btn" 
-                            data-member-id="${member._id || member.id}" title="Edit Member">
+                            data-member-id="${member._id || member.id}"
+                            title="Edit Member">
                         <i class="fas fa-edit"></i>
                     </button>
                     <button class="btn btn-sm btn-danger delete-member-btn" 
-                            data-member-id="${member._id || member.id}" title="Delete Member">
+                            data-member-id="${member._id || member.id}"
+                            title="Delete Member">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -1165,9 +1169,11 @@ function renderMembersTable(members) {
         `;
         tableBody.appendChild(row);
     });
-
+    
+    // Setup event delegation for the newly created elements
     setupEventDelegation();
-    updatePaginationUI(members.length, currentPage, pageSize);
+    
+    // Update member count
     updateMemberCount(members.length);
 }
 
@@ -3410,24 +3416,6 @@ async function addMember() {
 window.addMember = addMember;
 
 
-async function editMember(memberId) {
-    const member = currentMembers.find(m => m._id === memberId);
-    if (!member) {
-        showMessage('Member not found', 'error');
-        return;
-    }
-    
-    // Populate edit form
-    document.getElementById('editMemberId').value = member._id;
-    document.getElementById('editMemberName').value = member.name || '';
-    document.getElementById('editMemberEmail').value = member.email || '';
-    document.getElementById('editMemberCode').value = member.code || '';
-    document.getElementById('editMemberPosition').value = member.position || '';
-    document.getElementById('editMemberState').value = member.state || '';
-    document.getElementById('editMemberZone').value = member.zone || '';
-    
-    showEditMemberModal();
-}
 
 async function updateMember(event) {
     event.preventDefault();
@@ -5559,30 +5547,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const overlay = document.querySelector('.sidebar-overlay');
         
         // Make toggleSidebar a GLOBAL function so HTML onclick can access it
-        window.toggleSidebar = function() {
-            console.log('Toggle sidebar called');
-            
-            if (sidebar) {
-                sidebar.classList.toggle('mobile-open');
-                console.log('Sidebar classes after toggle:', sidebar.className);
-            }
-            
-            if (overlay) {
-                overlay.classList.toggle('active');
-                console.log('Overlay classes after toggle:', overlay.className);
-            }
-            
-            // Prevent body scrolling when sidebar is open
-            if (sidebar && sidebar.classList.contains('mobile-open')) {
-                document.body.classList.add('sidebar-open');
-                document.body.style.overflow = 'hidden';
-            } else {
-                document.body.classList.remove('sidebar-open');
-                document.body.style.overflow = '';
-            }
-        };
-        
-        // Add event listeners for hamburger buttons (backup method)
         const hamburgerBtns = document.querySelectorAll('.hamburger-btn');
         console.log('Found hamburger buttons:', hamburgerBtns.length);
         
@@ -5759,26 +5723,7 @@ window.logout = function() {
     console.log('Logged out successfully');
 };
 
-// Additional utility functions
-window.closeSidebar = function() {
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.querySelector('.sidebar-overlay');
-    
-    if (sidebar) sidebar.classList.remove('mobile-open');
-    if (overlay) overlay.classList.remove('active');
-    document.body.classList.remove('sidebar-open');
-    document.body.style.overflow = '';
-};
 
-window.openSidebar = function() {
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.querySelector('.sidebar-overlay');
-    
-    if (sidebar) sidebar.classList.add('mobile-open');
-    if (overlay) overlay.classList.add('active');
-    document.body.classList.add('sidebar-open');
-    document.body.style.overflow = 'hidden';
-};
 
 // Debug function
 window.debugSidebar = function() {
@@ -5823,26 +5768,6 @@ window.isMobile = function() {
 };
 
 // Function to close sidebar (can be called from anywhere)
-window.closeSidebar = function() {
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.querySelector('.sidebar-overlay');
-    
-    if (sidebar) sidebar.classList.remove('mobile-open');
-    if (overlay) overlay.classList.remove('active');
-    document.body.classList.remove('sidebar-open');
-    document.body.style.overflow = '';
-};
-
-// Function to open sidebar (can be called from anywhere)
-window.openSidebar = function() {
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.querySelector('.sidebar-overlay');
-    
-    if (sidebar) sidebar.classList.add('mobile-open');
-    if (overlay) overlay.classList.add('active');
-    document.body.classList.add('sidebar-open');
-    document.body.style.overflow = 'hidden';
-};
 
 // Enhanced toggle function with better error handling
 window.toggleSidebarEnhanced = function() {
@@ -6613,197 +6538,6 @@ function generateCharts() {
 }
 
 // Data validation and cleanup
-function validateMemberData(memberData) {
-    const errors = [];
-    
-    if (!memberData.name || memberData.name.trim().length < 2) {
-        errors.push('Name must be at least 2 characters long');
-    }
-    
-    if (!memberData.email || !validateEmail(memberData.email)) {
-        errors.push('Valid email address is required');
-    }
-    
-    if (!memberData.code || memberData.code.trim().length < 3) {
-        errors.push('Member code must be at least 3 characters long');
-    }
-    
-    if (memberData.password && memberData.password.length < 6) {
-        errors.push('Password must be at least 6 characters long');
-    }
-    
-    return {
-        isValid: errors.length === 0,
-        errors: errors
-    };
-}
-
-function validateCertificateData(certData) {
-    const errors = [];
-    
-    if (!certData.number || certData.number.trim().length < 3) {
-        errors.push('Certificate number is required');
-    }
-    
-    if (!certData.recipient || certData.recipient.trim().length < 2) {
-        errors.push('Recipient name is required');
-    }
-    
-    if (!certData.email || !validateEmail(certData.email)) {
-        errors.push('Valid recipient email is required');
-    }
-    
-    if (!certData.title || certData.title.trim().length < 3) {
-        errors.push('Certificate title is required');
-    }
-    
-    if (!certData.type) {
-        errors.push('Certificate type is required');
-    }
-    
-    if (!certData.issueDate) {
-        errors.push('Issue date is required');
-    }
-    
-    return {
-        isValid: errors.length === 0,
-        errors: errors
-    };
-}
-
-// Enhanced form validation with real-time feedback
-function setupFormValidation() {
-    // Member form validation
-    const memberForm = document.getElementById('addMemberForm');
-    if (memberForm) {
-        const fields = ['memberName', 'memberEmail', 'memberCode', 'memberPassword'];
-        
-        fields.forEach(fieldId => {
-            const field = document.getElementById(fieldId);
-            if (field) {
-                field.addEventListener('blur', function() {
-                    validateField(fieldId, this.value);
-                });
-                
-                field.addEventListener('input', function() {
-                    clearFieldError(fieldId);
-                });
-            }
-        });
-    }
-    
-    // Certificate form validation
-    const certForm = document.getElementById('issueCertificateForm');
-    if (certForm) {
-        const fields = ['certificateRecipient', 'certificateEmail', 'certificateTitle', 'certificateNumber'];
-        
-        fields.forEach(fieldId => {
-            const field = document.getElementById(fieldId);
-            if (field) {
-                field.addEventListener('blur', function() {
-                    validateField(fieldId, this.value);
-                });
-                
-                field.addEventListener('input', function() {
-                    clearFieldError(fieldId);
-                });
-            }
-        });
-    }
-}
-
-function validateField(fieldId, value) {
-    const field = document.getElementById(fieldId);
-    const errorDiv = document.getElementById(fieldId + 'Error') || createErrorDiv(fieldId);
-    
-    let isValid = true;
-    let errorMessage = '';
-    
-    switch(fieldId) {
-        case 'memberName':
-        case 'certificateRecipient':
-            if (!value || value.trim().length < 2) {
-                isValid = false;
-                errorMessage = 'Name must be at least 2 characters long';
-            }
-            break;
-            
-        case 'memberEmail':
-        case 'certificateEmail':
-            if (!value || !validateEmail(value)) {
-                isValid = false;
-                errorMessage = 'Please enter a valid email address';
-            }
-            break;
-            
-        case 'memberCode':
-            if (!value || value.trim().length < 3) {
-                isValid = false;
-                errorMessage = 'Member code must be at least 3 characters long';
-            }
-            break;
-            
-        case 'memberPassword':
-            const passwordValidation = validatePassword(value);
-            if (!passwordValidation.isValid) {
-                isValid = false;
-                errorMessage = passwordValidation.message;
-            }
-            break;
-            
-        case 'certificateNumber':
-            if (!value || value.trim().length < 3) {
-                isValid = false;
-                errorMessage = 'Certificate number is required';
-            }
-            break;
-            
-        case 'certificateTitle':
-            if (!value || value.trim().length < 3) {
-                isValid = false;
-                errorMessage = 'Certificate title is required';
-            }
-            break;
-    }
-    
-    if (isValid) {
-        field.classList.remove('error');
-        field.classList.add('valid');
-        errorDiv.style.display = 'none';
-    } else {
-        field.classList.remove('valid');
-        field.classList.add('error');
-        errorDiv.textContent = errorMessage;
-        errorDiv.style.display = 'block';
-    }
-    
-    return isValid;
-}
-
-function createErrorDiv(fieldId) {
-    const field = document.getElementById(fieldId);
-    const errorDiv = document.createElement('div');
-    errorDiv.id = fieldId + 'Error';
-    errorDiv.className = 'field-error';
-    errorDiv.style.cssText = 'color: #dc3545; font-size: 12px; margin-top: 5px; display: none;';
-    field.parentNode.insertBefore(errorDiv, field.nextSibling);
-    return errorDiv;
-}
-
-function clearFieldError(fieldId) {
-    const field = document.getElementById(fieldId);
-    const errorDiv = document.getElementById(fieldId + 'Error');
-    
-    if (field) {
-        field.classList.remove('error');
-    }
-    
-    if (errorDiv) {
-        errorDiv.style.display = 'none';
-    }
-}
-
-// Enhanced data export with multiple formats
 async function exportData(type, format = 'json') {
     try {
         let data, filename;
@@ -7737,55 +7471,6 @@ function updateNavigation() {
 // =============================================================================
 
 // Mobile-friendly sidebar toggle
-window.toggleSidebar = function() {
-    console.log('Toggle sidebar called');
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.querySelector('.sidebar-overlay');
-    
-    if (!sidebar) {
-        console.error('Sidebar not found');
-        return;
-    }
-    
-    // Toggle sidebar
-    sidebar.classList.toggle('active');
-    
-    // Create or toggle overlay for mobile
-    if (!overlay) {
-        const newOverlay = document.createElement('div');
-        newOverlay.className = 'sidebar-overlay';
-        newOverlay.onclick = () => closeSidebar();
-        document.body.appendChild(newOverlay);
-        newOverlay.classList.add('active');
-    } else {
-        overlay.classList.toggle('active');
-    }
-    
-    // Prevent body scroll on mobile when sidebar is open
-    if (sidebar.classList.contains('active')) {
-        document.body.style.overflow = 'hidden';
-    } else {
-        document.body.style.overflow = '';
-    }
-};
-
-// Close sidebar function
-window.closeSidebar = function() {
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.querySelector('.sidebar-overlay');
-    
-    if (sidebar) {
-        sidebar.classList.remove('active');
-    }
-    
-    if (overlay) {
-        overlay.classList.remove('active');
-    }
-    
-    document.body.style.overflow = '';
-};
-
-
 // Mobile menu setup
 function setupMobileMenu() {
     // Find hamburger button
@@ -7887,3 +7572,28 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
 });
 
+
+
+// Restored setupEventDelegation function
+function setupEventDelegation() {
+    document.body.addEventListener('click', function (event) {
+        if (event.target.matches('[data-action="delete"]')) {
+            const id = event.target.dataset.id;
+            if (id && confirm('Are you sure you want to delete this item?')) {
+                deleteItemById(id);
+            }
+        }
+        if (event.target.matches('[data-action="edit"]')) {
+            const id = event.target.dataset.id;
+            if (id) {
+                editItemById(id);
+            }
+        }
+        if (event.target.matches('[data-action="view"]')) {
+            const id = event.target.dataset.id;
+            if (id) {
+                viewItemById(id);
+            }
+        }
+    });
+}
