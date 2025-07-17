@@ -1,0 +1,196 @@
+/* Add these styles to your admin.css file */
+
+/* Certificate action buttons */
+.certificate-actions {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.certificate-actions .btn {
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+}
+
+.certificate-actions .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.certificate-actions .btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* Revoke modal specific styles */
+.revoke-modal .certificate-info {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #dc3545;
+}
+
+.revoke-modal .form-group {
+    margin-bottom: 15px;
+}
+
+.revoke-modal .form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.revoke-modal .form-control {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.revoke-modal .form-control:focus {
+    outline: none;
+    border-color: #dc3545;
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25);
+}
+
+/* Certificate status badges */
+.status-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-active {
+    background: #28a745;
+    color: white;
+}
+
+.status-revoked {
+    background: #dc3545;
+    color: white;
+}
+
+.status-expired {
+    background: #ffc107;
+    color: #212529;
+}
+
+/* Responsive adjustments for certificate actions */
+@media (max-width: 768px) {
+    .certificate-actions {
+        flex-direction: column;
+        gap: 3px;
+    }
+    
+    .certificate-actions .btn {
+        width: 100%;
+        justify-content: flex-start;
+        padding: 8px 12px;
+        font-size: 14px;
+        height: auto;
+    }
+    
+    .certificate-actions .btn i {
+        margin-right: 8px;
+    }
+}
+
+
+
+
+
+/* Enhanced search filter bar for certificates */
+.search-filter-bar {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 15px;
+    align-items: center;
+}
+
+/* Mobile responsive grid */
+@media (max-width: 1024px) {
+    .search-filter-bar {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 768px) {
+    .search-filter-bar {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .search-filter-bar .form-group {
+        margin-bottom: 0;
+    }
+}
+
+/* Filter labels for better UX */
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.filter-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Enhanced no results styling */
+.no-results-row td {
+    background: #f8f9fa !important;
+    border: 2px dashed #dee2e6 !important;
+}
+
+.no-results-row:hover td {
+    background: #f8f9fa !important;
+}
+
+/* Filter active indicator */
+.filter-active {
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2) !important;
+}
+
+/* Certificate type badges */
+.type-badge {
+    background: #e9ecef;
+    color: #495057;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.type-membership { background: #d4edda; color: #155724; }
+.type-achievement { background: #fff3cd; color: #856404; }
+.type-training { background: #d1ecf1; color: #0c5460; }
+.type-recognition { background: #f8d7da; color: #721c24; }
+.type-service { background: #e2e3e5; color: #383d41; }
+
+

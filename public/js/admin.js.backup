@@ -56,7 +56,13 @@ function formatDate(dateString) {
     }
 }
 
-
+// Add this helper function for HTML escaping
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
 let selectedMembers = new Set();
 let currentMembers = [];
@@ -1063,7 +1069,8 @@ function displayMembers(members) {
 }
 
 
-
+// Load members tab
+// Load members table with proper MongoDB integration
 // 1. Add this state management at the top of your file
 const appState = {
     members: [],
@@ -1080,8 +1087,7 @@ async function loadMembers() {
     }
     
     try {
-        // Show loading state with improved message
-        showMessage('Loading members...', 'info');
+        // Show loading state
         tableBody.innerHTML = `
             <tr>
                 <td colspan="7" class="loading">
@@ -1094,27 +1100,21 @@ async function loadMembers() {
         // Load members with authentication
         const members = await fetchMembers();
         appState.members = members; // Store in global state
-        currentMembers = members; // Also store in currentMembers for compatibility
         
-        // Use the new renderMembersTable function (without tableBody parameter)
-        renderMembersTable(members);
+        // Render members
+        renderMembersTable(tableBody, members);
         
-        showMessage(`Loaded ${members.length} members successfully`, 'success');
+        showMessage(`Loaded ${members.length} members`, 'success');
         return members;
         
     } catch (error) {
-        console.error('Load members error:', error);
-        showMessage('Failed to load members', 'error');
-        
-        // Show empty table on error using the new function
-        renderMembersTable([]);
-        
-        // Also handle load error with your existing function
-        handleLoadError(tableBody, error);
-        throw error; // Propagate the error
-    }
+    console.error('Load members error:', error);
+    handleLoadError(tableBody, error);
+    throw error; // Add this line to propagate the error
+    // Keep the return [] if needed by other functions
+    return []; 
 }
-
+}
 
 // 3. New helper functions
 async function fetchMembers() {
@@ -1125,65 +1125,29 @@ async function fetchMembers() {
     });
 
 function setupEventDelegation() {
-    console.log('Setting up event delegation...');
-    
-    // Remove any existing delegated event listeners to prevent duplicates
-    document.removeEventListener('click', handleDelegatedClicks);
-    
-    // Add delegated event listener for dynamically created buttons
-    document.addEventListener('click', handleDelegatedClicks);
-}
-
-// Handle clicks on dynamically created elements
-function handleDelegatedClicks(event) {
-    const target = event.target;
-    
-    // Handle edit member buttons
-    if (target.matches('.edit-member-btn') || target.closest('.edit-member-btn')) {
-        const button = target.matches('.edit-member-btn') ? target : target.closest('.edit-member-btn');
-        const memberId = button.getAttribute('data-member-id');
-        if (memberId) {
+    document.getElementById('membersTableBody').addEventListener('click', function(e) {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        
+        const memberId = btn.dataset.memberId;
+        
+        if (btn.classList.contains('view-btn')) {
+            viewIdCard(memberId);
+        }
+        else if (btn.classList.contains('edit-btn')) {
             editMember(memberId);
         }
-    }
-    
-    // Handle delete member buttons
-    if (target.matches('.delete-member-btn') || target.closest('.delete-member-btn')) {
-        const button = target.matches('.delete-member-btn') ? target : target.closest('.delete-member-btn');
-        const memberId = button.getAttribute('data-member-id');
-        if (memberId) {
+        else if (btn.classList.contains('upload-btn')) {
+            uploadPassport(memberId);
+        }
+        else if (btn.classList.contains('delete-btn')) {
             deleteMember(memberId);
         }
-    }
-    
-    // Handle view member buttons
-    if (target.matches('.view-member-btn') || target.closest('.view-member-btn')) {
-        const button = target.matches('.view-member-btn') ? target : target.closest('.view-member-btn');
-        const memberId = button.getAttribute('data-member-id');
-        if (memberId) {
-            viewMember(memberId);
+        else if (btn.classList.contains('passport-delete-btn')) {
+            deletePassport(memberId);
         }
-    }
-    
-    // Handle certificate action buttons
-    if (target.matches('.revoke-cert-btn') || target.closest('.revoke-cert-btn')) {
-        const button = target.matches('.revoke-cert-btn') ? target : target.closest('.revoke-cert-btn');
-        const certId = button.getAttribute('data-cert-id');
-        if (certId) {
-            showRevocationModal(certId);
-        }
-    }
-    
-    // Handle restore certificate buttons
-    if (target.matches('.restore-cert-btn') || target.closest('.restore-cert-btn')) {
-        const button = target.matches('.restore-cert-btn') ? target : target.closest('.restore-cert-btn');
-        const certId = button.getAttribute('data-cert-id');
-        if (certId) {
-            restoreCertificate(certId);
-        }
-    }
+    });
 }
-
 
 // The response handling code should be in your fetch function, like:
 async function fetchMembers() {
@@ -1198,80 +1162,65 @@ async function fetchMembers() {
 }
 
 
-function renderMembersTable(members) {
-    console.log('Rendering members table with', members.length, 'members');
-    
-    const tableBody = document.getElementById('membersTableBody');
-    if (!tableBody) {
-        console.error('Members table body not found');
-        return;
-    }
-    
-    // Clear existing content
+function renderMembersTable(tableBody, members) {
     tableBody.innerHTML = '';
     
-    if (!members || members.length === 0) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="6" style="text-align: center; padding: 40px; color: #666;">
-                    <i class="fas fa-users" style="font-size: 48px; margin-bottom: 15px; opacity: 0.3;"></i>
-                    <div>No members found</div>
-                    <div style="font-size: 14px; margin-top: 10px;">Add your first member to get started</div>
-                </td>
-            </tr>
-        `;
+    if (!members.length) {
+        tableBody.innerHTML = '<tr><td colspan="7">No members found</td></tr>';
         return;
     }
     
-    // Render each member
-    members.forEach((member, index) => {
+    const fragment = document.createDocumentFragment();
+    
+    members.forEach(member => {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>
-                <input type="checkbox" class="member-checkbox" data-member-id="${member._id || member.id}">
+                <div class="member-photo-container">
+                    <img src="${getPassportImagePath(member.passport)}"
+                         class="member-photo"
+                         data-member-id="${member._id}">
+                    ${member.passport ? `
+                    <div class="passport-actions">
+                        <button class="btn btn-danger btn-xs passport-delete-btn"
+                                data-member-id="${member._id}">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>` : ''}
+                </div>
             </td>
-            <td>${escapeHtml(member.name || 'N/A')}</td>
-            <td>${escapeHtml(member.email || 'N/A')}</td>
-            <td>${escapeHtml(member.code || 'N/A')}</td>
-            <td>${escapeHtml(member.state || 'N/A')}</td>
+            <td>${escapeHtml(member.name)}</td>
+            <td>${escapeHtml(member.email)}</td>
+            <td><span class="badge bg-primary">${escapeHtml(member.code)}</span></td>
+            <td><span class="badge bg-purple">${escapeHtml(member.position)}</span></td>
+            <td>${escapeHtml(member.state)}</td>
             <td>
-                <div class="btn-group" role="group">
-                    <button class="btn btn-sm btn-info view-member-btn" 
-                            data-member-id="${member._id || member.id}"
-                            title="View Member">
-                        <i class="fas fa-eye"></i>
+                <div class="action-buttons">
+                    <button class="btn btn-info btn-sm view-btn"
+                            data-member-id="${member._id}">
+                        <i class="fas fa-id-card"></i>
                     </button>
-                    <button class="btn btn-sm btn-warning edit-member-btn" 
-                            data-member-id="${member._id || member.id}"
-                            title="Edit Member">
+                    <button class="btn btn-warning btn-sm edit-btn"
+                            data-member-id="${member._id}">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="btn btn-sm btn-danger delete-member-btn" 
-                            data-member-id="${member._id || member.id}"
-                            title="Delete Member">
+                    <button class="btn btn-success btn-sm upload-btn"
+                            data-member-id="${member._id}">
+                        <i class="fas fa-camera"></i>
+                    </button>
+                    <button class="btn btn-danger btn-sm delete-btn"
+                            data-member-id="${member._id}">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </td>
         `;
-        tableBody.appendChild(row);
+        fragment.appendChild(row);
     });
     
-    // Setup event delegation for the newly created elements
-    setupEventDelegation();
-    
-    // Update member count
-    updateMemberCount(members.length);
+    tableBody.appendChild(fragment);
+    setupEventDelegation(); // Now this will work
 }
-
-// Helper function to update member count display
-function updateMemberCount(count) {
-    const countElement = document.getElementById('memberCount');
-    if (countElement) {
-        countElement.textContent = count;
-    }
-}
-
 
 function handleLoadError(tableBody, error) {
     console.error('Load error:', error);
@@ -1433,25 +1382,6 @@ async function loadUsers() {
         throw error;
     }
 }
-
-// View member function
-async function viewMember(memberId) {
-    try {
-        const member = currentMembers.find(m => (m._id || m.id) === memberId);
-        if (!member) {
-            showMessage('Member not found', 'error');
-            return;
-        }
-        
-        // You can reuse your existing viewIdCard function or create a simple view
-        viewIdCard(memberId);
-        
-    } catch (error) {
-        console.error('Error viewing member:', error);
-        showMessage('Failed to view member details', 'error');
-    }
-}
-
 
 // Enhanced member editing with passport support
 async function editMember(memberId) {
@@ -5497,7 +5427,13 @@ function loadTheme() {
     }
 }
 
-
+// Utility functions
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
 function formatDate(dateString) {
     if (!dateString) return 'N/A';
@@ -5694,8 +5630,6 @@ async function verifyCertificate(certificateNumber) {
 document.addEventListener('DOMContentLoaded', function() {
     try {
         console.log('NARAP Admin Panel initializing...');
-
-        setupEventDelegation();
         
         // Load theme
         if (typeof loadTheme === 'function') loadTheme();
@@ -7808,14 +7742,13 @@ console.log('Total functions available:', Object.keys(window.narapAdmin).length)
 console.log('Ready for production use!');
 
 // Update the member verification display to handle passport photos correctly
-// Update the member verification display to handle passport photos correctly
 function displayMemberVerification(member) {
     const verificationResult = document.getElementById('verificationResult');
     if (!verificationResult) return;
     
     // Handle passport photo with better fallback
     const passportPhoto = member.passportPhoto || member.passport;
-    const photoSrc = passportPhoto && passportPhoto !== 'undefined'
+    const photoSrc = passportPhoto && passportPhoto !== 'undefined' 
         ? (passportPhoto.startsWith('data:') ? passportPhoto : `${backendUrl}/${passportPhoto}`)
         : 'images/default-avatar.png';
     
@@ -7825,8 +7758,8 @@ function displayMemberVerification(member) {
     verificationResult.innerHTML = `
         <div class="member-card">
             <div class="member-photo">
-                <img src="${photoSrc}"
-                     alt="Member Photo"
+                <img src="${photoSrc}" 
+                     alt="Member Photo" 
                      style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover;"
                      onerror="this.src='images/default-avatar.png'">
             </div>
@@ -7844,8 +7777,6 @@ function displayMemberVerification(member) {
     `;
 }
 
-
-// Update form validation to make email optional
 // Update form validation to make email optional
 function validateMemberForm() {
     const name = document.getElementById('memberName')?.value?.trim();
@@ -7888,8 +7819,6 @@ function validateMemberForm() {
     };
 }
 
-
-// Update certificate form validation to make email optional
 // Update certificate form validation to make email optional
 function validateCertificateForm() {
     const number = document.getElementById('certificateNumber')?.value?.trim();
@@ -7922,8 +7851,6 @@ function validateCertificateForm() {
     };
 }
 
-
-// Add utility function to clear image previews
 // Add utility function to clear image previews
 function clearImagePreviews() {
     const passportPreview = document.getElementById('passportPreview');
@@ -7937,8 +7864,6 @@ function clearImagePreviews() {
         signaturePreview.src = 'images/default-signature.png';
     }
 }
-
-// Initialize dashboard function
 // Initialize dashboard function
 function initializeDashboard() {
     console.log('Initializing dashboard...');
@@ -7947,23 +7872,15 @@ function initializeDashboard() {
     updateNavigation();
     
     // Load initial data
-    if (typeof loadDashboardData === 'function') {
-        loadDashboardData();
-    }
+    loadDashboardData();
     
     // Set up event listeners
-    if (typeof setupEventListeners === 'function') {
-        setupEventListeners();
-    }
+    setupEventListeners();
     
     // Show members section by default
-    if (typeof showSection === 'function') {
-        showSection('members');
-    }
+    showSection('members');
 }
 
-
-// Update navigation function
 // Update navigation function
 function updateNavigation() {
     const navItems = document.querySelectorAll('.nav-item');
@@ -7971,14 +7888,54 @@ function updateNavigation() {
         item.addEventListener('click', function(e) {
             e.preventDefault();
             const section = this.getAttribute('data-section');
-            if (section && typeof showSection === 'function') {
+            if (section) {
                 showSection(section);
             }
         });
     });
 }
 
+// Add utility function to clear image previews
+function clearImagePreviews() {
+    const passportPreview = document.getElementById('passportPreview');
+    const signaturePreview = document.getElementById('signaturePreview');
 
+    if (passportPreview) {
+        passportPreview.src = 'images/default-avatar.png';
+    }
 
+    if (signaturePreview) {
+        signaturePreview.src = 'images/default-signature.png';
+    }
+}
 
+// Initialize dashboard function
+function initializeDashboard() {
+    console.log('Initializing dashboard...');
 
+    // Update navigation to show current section
+    updateNavigation();
+
+    // Load initial data
+    loadDashboardData();
+
+    // Set up event listeners
+    setupEventListeners();
+
+    // Show members section by default
+    showSection('members');
+}
+
+// Update navigation function
+function updateNavigation() {
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            const section = this.getAttribute('data-section');
+            if (section) {
+                showSection(section);
+            }
+        });
+    });
+}
