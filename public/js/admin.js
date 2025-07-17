@@ -5742,6 +5742,7 @@ window.logout = function() {
 };
 
 
+
 // Debug function
 window.debugSidebar = function() {
     const sidebar = document.querySelector('.sidebar');
@@ -7589,3 +7590,79 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
 });
 
+
+
+// Restored setupEventDelegation function
+function setupEventDelegation() {
+    document.body.addEventListener('click', function (event) {
+        if (event.target.matches('[data-action="delete"]')) {
+            const id = event.target.dataset.id;
+            if (id && confirm('Are you sure you want to delete this item?')) {
+                deleteItemById(id);
+            }
+        }
+        if (event.target.matches('[data-action="edit"]')) {
+            const id = event.target.dataset.id;
+            if (id) {
+                editItemById(id);
+            }
+        }
+        if (event.target.matches('[data-action="view"]')) {
+            const id = event.target.dataset.id;
+            if (id) {
+                viewItemById(id);
+            }
+        }
+    });
+}
+
+
+// ✅ Download member or certificate DOM element as JPG
+function downloadItemAsJPG(id, type) {
+    const targetElement = document.querySelector(`[data-id="${id}"][data-type="${type}"]`);
+    if (!targetElement) {
+        alert("Element not found for JPG export.");
+        return;
+    }
+
+    html2canvas(targetElement).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `${type}-${id}.jpg`;
+        link.href = canvas.toDataURL('image/jpeg', 1.0);
+        link.click();
+    }).catch(err => {
+        console.error("Error rendering element as JPG:", err);
+        alert("Failed to export image.");
+    });
+}
+
+// 🔁 Extend setupEventDelegation for download as JPG & revoke
+function setupEventDelegation() {
+    document.body.addEventListener('click', function (event) {
+        if (event.target.matches('[data-action="delete"]')) {
+            const id = event.target.dataset.id;
+            if (id) console.log('Delete requested for ID:', id);
+        }
+
+        if (event.target.matches('[data-action="edit"]')) {
+            const id = event.target.dataset.id;
+            if (id) console.log('Edit requested for ID:', id);
+        }
+
+        if (event.target.matches('[data-action="view"]')) {
+            const id = event.target.dataset.id;
+            if (id) console.log('View requested for ID:', id);
+        }
+
+        if (event.target.matches('[data-action="download"]')) {
+            const id = event.target.dataset.id;
+            const type = event.target.dataset.type;
+            if (id && type) downloadItemAsJPG(id, type);
+        }
+
+        if (event.target.matches('[data-action="revoke"]')) {
+            const id = event.target.dataset.id;
+            if (id) revokeCertificateById(id);
+        }
+    });
+}
