@@ -1113,68 +1113,54 @@ async function fetchMembers() {
 
 function renderMembersTable(members) {
     console.log('Rendering members table with', members.length, 'members');
-    
+
     const tableBody = document.getElementById('membersTableBody');
     if (!tableBody) {
         console.error('Members table body not found');
         return;
     }
-    
-    // Clear existing content
+
     tableBody.innerHTML = '';
-    
-    if (!members || members.length === 0) {
+
+    if (!Array.isArray(members) || members.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="6" style="text-align: center; padding: 40px; color: #666;">
-                    <i class="fas fa-users" style="font-size: 48px; margin-bottom: 15px; opacity: 0.3;"></i>
-                    <div>No members found</div>
-                    <div style="font-size: 14px; margin-top: 10px;">Add your first member to get started</div>
-                </td>
+                <td colspan="7" style="text-align: center;">No members found</td>
             </tr>
         `;
         return;
     }
-    
-    // Render each member
-    members.forEach((member, index) => {
+
+    members.forEach(member => {
+        const {
+            name = 'N/A',
+            email = 'N/A',
+            code = 'N/A',
+            position = 'N/A',
+            state = 'N/A',
+            photo
+        } = member;
+
+        const photoHtml = photo
+            ? `<img src="${photo}" alt="Passport" width="40" height="40" />`
+            : `<div style="width:40px; height:40px; background:#ccc; text-align:center; line-height:40px;">N/A</div>`;
+
         const row = document.createElement('tr');
         row.innerHTML = `
+            <td>${photoHtml}</td>
+            <td>${name}</td>
+            <td>${email}</td>
+            <td>${code}</td>
+            <td>${position}</td>
+            <td>${state}</td>
             <td>
-                <input type="checkbox" class="member-checkbox" data-member-id="${member._id || member.id}">
-            </td>
-            <td>${escapeHtml(member.name || 'N/A')}</td>
-            <td>${escapeHtml(member.email || 'N/A')}</td>
-            <td>${escapeHtml(member.code || 'N/A')}</td>
-            <td>${escapeHtml(member.state || 'N/A')}</td>
-            <td>
-                <div class="btn-group" role="group">
-                    <button class="btn btn-sm btn-info view-member-btn" 
-                            data-member-id="${member._id || member.id}"
-                            title="View Member">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="btn btn-sm btn-warning edit-member-btn" 
-                            data-member-id="${member._id || member.id}"
-                            title="Edit Member">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger delete-member-btn" 
-                            data-member-id="${member._id || member.id}"
-                            title="Delete Member">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
+                <button class="btn btn-sm btn-primary view-btn" data-code="${code}">View</button>
+                <button class="btn btn-sm btn-warning edit-btn" data-code="${code}">Edit</button>
+                <button class="btn btn-sm btn-danger delete-btn" data-code="${code}">Delete</button>
             </td>
         `;
         tableBody.appendChild(row);
     });
-    
-    // Setup event delegation for the newly created elements
-    setupEventDelegation();
-    
-    // Update member count
-    updateMemberCount(members.length);
 }
 
 // Helper function to update member count display
@@ -3416,24 +3402,6 @@ async function addMember() {
 window.addMember = addMember;
 
 
-async function editMember(memberId) {
-    const member = currentMembers.find(m => m._id === memberId);
-    if (!member) {
-        showMessage('Member not found', 'error');
-        return;
-    }
-    
-    // Populate edit form
-    document.getElementById('editMemberId').value = member._id;
-    document.getElementById('editMemberName').value = member.name || '';
-    document.getElementById('editMemberEmail').value = member.email || '';
-    document.getElementById('editMemberCode').value = member.code || '';
-    document.getElementById('editMemberPosition').value = member.position || '';
-    document.getElementById('editMemberState').value = member.state || '';
-    document.getElementById('editMemberZone').value = member.zone || '';
-    
-    showEditMemberModal();
-}
 
 async function updateMember(event) {
     event.preventDefault();
@@ -5742,7 +5710,6 @@ window.logout = function() {
 };
 
 
-
 // Debug function
 window.debugSidebar = function() {
     const sidebar = document.querySelector('.sidebar');
@@ -7614,51 +7581,4 @@ function setupEventDelegation() {
             }
         }
     });
-}
-
-// --- Restored helper functions ---
-// ✅ Auto-fill admin login for testing
-function fillAdminCredentials() {
-    const emailInput = document.getElementById('email');
-    const passwordInput = document.getElementById('password');
-    if (emailInput && passwordInput) {
-        emailInput.value = 'admin@narap.org';
-        passwordInput.value = 'password';
-        console.log('Admin credentials filled');
-    } else {
-        console.warn('Login inputs not found');
-    }
-}
-
-// ✅ Clear login form
-function clearLoginForm() {
-    const emailInput = document.getElementById('email');
-    const passwordInput = document.getElementById('password');
-    if (emailInput && passwordInput) {
-        emailInput.value = '';
-        passwordInput.value = '';
-        console.log('Login form cleared');
-    }
-}
-
-// ✅ Auto-fill certificate fields if email matches member
-function autoFillCertificateFields() {
-    const emailField = document.getElementById('certificateEmail');
-    const recipientField = document.getElementById('certificateRecipient');
-    const positionField = document.getElementById('certificatePosition');
-    const codeField = document.getElementById('certificateCode');
-    const stateField = document.getElementById('certificateState');
-
-    if (!emailField || !recipientField) return;
-
-    const email = emailField.value.trim().toLowerCase();
-    const match = allMembers?.find(m => m.email?.toLowerCase() === email);
-
-    if (match) {
-        recipientField.value = match.name || '';
-        positionField.value = match.position || '';
-        codeField.value = match.code || '';
-        stateField.value = match.state || '';
-        console.log('Auto-filled cert fields for:', match.email);
-    }
-}
+} 
