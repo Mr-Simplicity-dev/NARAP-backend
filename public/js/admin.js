@@ -3416,6 +3416,24 @@ async function addMember() {
 window.addMember = addMember;
 
 
+async function editMember(memberId) {
+    const member = currentMembers.find(m => m._id === memberId);
+    if (!member) {
+        showMessage('Member not found', 'error');
+        return;
+    }
+    
+    // Populate edit form
+    document.getElementById('editMemberId').value = member._id;
+    document.getElementById('editMemberName').value = member.name || '';
+    document.getElementById('editMemberEmail').value = member.email || '';
+    document.getElementById('editMemberCode').value = member.code || '';
+    document.getElementById('editMemberPosition').value = member.position || '';
+    document.getElementById('editMemberState').value = member.state || '';
+    document.getElementById('editMemberZone').value = member.zone || '';
+    
+    showEditMemberModal();
+}
 
 async function updateMember(event) {
     event.preventDefault();
@@ -5723,8 +5741,7 @@ window.logout = function() {
     console.log('Logged out successfully');
 };
 
-// Additional utility functions
-};
+
 
 // Debug function
 window.debugSidebar = function() {
@@ -7597,4 +7614,51 @@ function setupEventDelegation() {
             }
         }
     });
+}
+
+// --- Restored helper functions ---
+// ✅ Auto-fill admin login for testing
+function fillAdminCredentials() {
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    if (emailInput && passwordInput) {
+        emailInput.value = 'admin@narap.org';
+        passwordInput.value = 'password';
+        console.log('Admin credentials filled');
+    } else {
+        console.warn('Login inputs not found');
+    }
+}
+
+// ✅ Clear login form
+function clearLoginForm() {
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    if (emailInput && passwordInput) {
+        emailInput.value = '';
+        passwordInput.value = '';
+        console.log('Login form cleared');
+    }
+}
+
+// ✅ Auto-fill certificate fields if email matches member
+function autoFillCertificateFields() {
+    const emailField = document.getElementById('certificateEmail');
+    const recipientField = document.getElementById('certificateRecipient');
+    const positionField = document.getElementById('certificatePosition');
+    const codeField = document.getElementById('certificateCode');
+    const stateField = document.getElementById('certificateState');
+
+    if (!emailField || !recipientField) return;
+
+    const email = emailField.value.trim().toLowerCase();
+    const match = allMembers?.find(m => m.email?.toLowerCase() === email);
+
+    if (match) {
+        recipientField.value = match.name || '';
+        positionField.value = match.position || '';
+        codeField.value = match.code || '';
+        stateField.value = match.state || '';
+        console.log('Auto-filled cert fields for:', match.email);
+    }
 }
