@@ -1,978 +1,943 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NARAP Admin Panel</title>
-    <link rel="stylesheet" href="css/admin.css">
-    <!-- Added Font Awesome CDN for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <script src="js/admin.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NARAP Admin Panel</title>
+<link href="css/admin.css" rel="stylesheet"/>
+<!-- Added Font Awesome CDN for icons -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet"/>
+<script src="js/admin.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 </head>
 <body>
-    <!-- Messages Container -->
-    <div id="messages" class="messages"></div>
-    
-    <!-- Login Section -->
-    <div id="loginSection" class="login-container">
-        <div class="login-card">
-            <div class="login-logo">
-                <img src="images/narap-logo.jpg" alt="NARAP Logo">
-            </div>
-            <h1 class="login-title">🛡️ NARAP Admin Panel</h1>
-            <p class="login-subtitle">Nigerian Association Of Refregiration And Air Conditioning Practitioners<br>Administration Dashboard</p>
-            
-            <form onsubmit="login(event)">
-                <div class="form-group">
-                    <label for="username">Username:</label>
-                    <input type="email" id="username" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Password:</label>
-                    <input type="password" id="password" required>
-                </div>
-                <div class="form-buttons">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-sign-in-alt"></i>
+<!-- Messages Container -->
+<div class="messages" id="messages"></div>
+<!-- Login Section -->
+<div class="login-container" id="loginSection">
+<div class="login-card">
+<div class="login-logo">
+<img alt="NARAP Logo" src="images/narap-logo.jpg"/>
+</div>
+<h1 class="login-title">🛡️ NARAP Admin Panel</h1>
+<p class="login-subtitle">Nigerian Association Of Refregiration And Air Conditioning Practitioners<br/>Administration Dashboard</p>
+<form onsubmit="login(event)">
+<div class="form-group">
+<label for="username">Username:</label>
+<input id="username" required="" type="email"/>
+</div>
+<div class="form-group">
+<label for="password">Password:</label>
+<input id="password" required="" type="password"/>
+</div>
+<div class="form-buttons">
+<button class="btn btn-primary" type="submit">
+<i class="fas fa-sign-in-alt"></i>
                         Login
                     </button>
-                    <button type="button" onclick="fillAdminCredentials()" class="btn btn-info">
-                        <i class="fas fa-user-cog"></i>
+<button class="btn btn-info" onclick="fillAdminCredentials()" type="button">
+<i class="fas fa-user-cog"></i>
                         Auto-Fill Admin
                     </button>
-                    <button type="button" onclick="clearLoginForm()" class="btn btn-secondary">
-                        <i class="fas fa-eraser"></i>
+<button class="btn btn-secondary" onclick="clearLoginForm()" type="button">
+<i class="fas fa-eraser"></i>
                         Clear
                     </button>
-                </div>
-            </form>
-            
-            <div id="loginError"></div>
-        </div>
-    </div>
-    
-    <!-- Admin Panel -->
-    <div id="adminSection" class="admin-container">
-        <button class="hamburger-btn" onclick="toggleSidebar()">
-            <i class="fas fa-bars"></i>
-        </button>
-        <div class="sidebar-overlay"></div>
-        
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-logo">
-                    <img src="images/narap-logo.jpg" alt="NARAP Logo">
-                </div>
-                <div class="sidebar-title">NARAP Admin</div>
-                <div class="sidebar-subtitle">Management System</div>
-            </div>
-            
-            <nav class="nav-list">
-                <a href="#" class="nav-item active" id="btn-dashboard" onclick="switchTab('dashboard')">
-                    <i class="fas fa-tachometer-alt"></i>
+</div>
+</form>
+<div id="loginError"></div>
+</div>
+</div>
+<!-- Admin Panel -->
+<div class="admin-container" id="adminSection">
+<button class="hamburger-btn" onclick="toggleSidebar()">
+<i class="fas fa-bars"></i>
+</button>
+<div class="sidebar-overlay"></div>
+<!-- Sidebar -->
+<div class="sidebar">
+<div class="sidebar-header">
+<div class="sidebar-logo">
+<img alt="NARAP Logo" src="images/narap-logo.jpg"/>
+</div>
+<div class="sidebar-title">NARAP Admin</div>
+<div class="sidebar-subtitle">Management System</div>
+</div>
+<nav class="nav-list">
+<a class="nav-item active" href="#" id="btn-dashboard" onclick="switchTab('dashboard')">
+<i class="fas fa-tachometer-alt"></i>
                     Dashboard
                 </a>
-                <a href="#" class="nav-item" id="btn-members" onclick="switchTab('members')">
-                    <i class="fas fa-users"></i>
+<a class="nav-item" href="#" id="btn-members" onclick="switchTab('members')">
+<i class="fas fa-users"></i>
                     Members
                 </a>
-                <a href="#" class="nav-item" id="btn-certificates" onclick="switchTab('certificates')">
-                    <i class="fas fa-certificate"></i>
+<a class="nav-item" href="#" id="btn-certificates" onclick="switchTab('certificates')">
+<i class="fas fa-certificate"></i>
                     Certificates
                 </a>
-                <a href="#" class="nav-item" id="btn-analytics" onclick="switchTab('analytics')">
-                    <i class="fas fa-chart-bar"></i>
+<a class="nav-item" href="#" id="btn-analytics" onclick="switchTab('analytics')">
+<i class="fas fa-chart-bar"></i>
                     Analytics
                 </a>
-                <a href="#" class="nav-item" id="btn-system" onclick="switchTab('system')">
-                    <i class="fas fa-server"></i>
+<a class="nav-item" href="#" id="btn-system" onclick="switchTab('system')">
+<i class="fas fa-server"></i>
                     System
                 </a>
-            </nav>
-        </div>
-        
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Header -->
-            <div class="header">
-                <button class="hamburger-btn" onclick="toggleSidebar()">
-                    <i class="fas fa-bars"></i>
-                </button>
-                <h1 class="header-title" id="headerTitle">Dashboard</h1>
-                <div class="header-actions">
-                    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle Theme">
-                        <i class="fas fa-moon"></i>
-                    </button>
-                    
-                    <div class="connection-status">
-                        <div class="connection-indicator" id="connectionIndicator"></div>
-                        <span class="connection-text" id="connectionText">Online</span>
-                    </div>
-                    
-                    <button class="logout-btn" onclick="logout()">
-                        <i class="fas fa-sign-out-alt"></i>
-                        <span>Logout</span>
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Content Area -->
-            <!-- Content Area -->
+</nav>
+</div>
+<!-- Main Content -->
+<div class="main-content">
+<!-- Header -->
+<div class="header">
+<button class="hamburger-btn" onclick="toggleSidebar()">
+<i class="fas fa-bars"></i>
+</button>
+<h1 class="header-title" id="headerTitle">Dashboard</h1>
+<div class="header-actions">
+<button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle Theme">
+<i class="fas fa-moon"></i>
+</button>
+<div class="connection-status">
+<div class="connection-indicator" id="connectionIndicator"></div>
+<span class="connection-text" id="connectionText">Online</span>
+</div>
+<button class="logout-btn" onclick="logout()">
+<i class="fas fa-sign-out-alt"></i>
+<span>Logout</span>
+</button>
+</div>
+</div>
+<!-- Content Area -->
+<!-- Content Area -->
 <div class="content">
-    <!-- Dashboard Tab -->
-    <div id="panel-dashboard" class="panel">
-        <!-- Quick Links -->
-        <div class="quick-links">
-            <div class="quick-link-card" onclick="switchTab('members')">
-                <div class="quick-link-icon">
-                    <i class="fas fa-users"></i>
-                </div>
-                <div class="quick-link-title">Members Management</div>
-                <div class="quick-link-desc">Add, edit, and manage member profiles</div>
-            </div>
-            <div class="quick-link-card" onclick="switchTab('certificates')">
-                <div class="quick-link-icon">
-                    <i class="fas fa-certificate"></i>
-                </div>
-                <div class="quick-link-title">Certificates</div>
-                <div class="quick-link-desc">Issue and manage certificates</div>
-            </div>
-        </div>
-        
-        <!-- Statistics -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-number" id="totalMembers">0</div>
-                <div class="stat-label">Total Members</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="totalCertificates">0</div>
-                <div class="stat-label">Total Certificates</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="newThisMonth">0</div>
-                <div class="stat-label">New This Month</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="systemUptime">0d</div>
-                <div class="stat-label">System Uptime</div>
-            </div>
-        </div>
-        
-        <!-- Recent Activity -->
-        <div class="activity-log">
-            <div class="chart-title" style="padding: 20px 20px 0;">Recent Activity</div>
-            <div id="recentActivity">
-                <div class="loading">Loading recent activity...</div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Members Tab -->
-    <div id="panel-members" class="panel">
-        <h2>Members Management</h2>
-        
-        <!-- Action Buttons -->
-        <div class="action-buttons">
-            <button class="btn btn-primary" onclick="showAddMemberModal()">
-                <i class="fas fa-plus"></i>
+<!-- Dashboard Tab -->
+<div class="panel" id="panel-dashboard">
+<!-- Quick Links -->
+<div class="quick-links">
+<div class="quick-link-card" onclick="switchTab('members')">
+<div class="quick-link-icon">
+<i class="fas fa-users"></i>
+</div>
+<div class="quick-link-title">Members Management</div>
+<div class="quick-link-desc">Add, edit, and manage member profiles</div>
+</div>
+<div class="quick-link-card" onclick="switchTab('certificates')">
+<div class="quick-link-icon">
+<i class="fas fa-certificate"></i>
+</div>
+<div class="quick-link-title">Certificates</div>
+<div class="quick-link-desc">Issue and manage certificates</div>
+</div>
+</div>
+<!-- Statistics -->
+<div class="stats-grid">
+<div class="stat-card">
+<div class="stat-number" id="totalMembers">0</div>
+<div class="stat-label">Total Members</div>
+</div>
+<div class="stat-card">
+<div class="stat-number" id="totalCertificates">0</div>
+<div class="stat-label">Total Certificates</div>
+</div>
+<div class="stat-card">
+<div class="stat-number" id="newThisMonth">0</div>
+<div class="stat-label">New This Month</div>
+</div>
+<div class="stat-card">
+<div class="stat-number" id="systemUptime">0d</div>
+<div class="stat-label">System Uptime</div>
+</div>
+</div>
+<!-- Recent Activity -->
+<div class="activity-log">
+<div class="chart-title" style="padding: 20px 20px 0;">Recent Activity</div>
+<div id="recentActivity">
+<div class="loading">Loading recent activity...</div>
+</div>
+</div>
+</div>
+<!-- Members Tab -->
+<div class="panel" id="panel-members">
+<h2>Members Management</h2>
+<!-- Action Buttons -->
+<div class="action-buttons">
+<button class="btn btn-primary" onclick="showAddMemberModal()">
+<i class="fas fa-plus"></i>
                 Add Member
             </button>
-            <button class="btn btn-success" onclick="exportMembers('csv')">
-                <i class="fas fa-download"></i>
+<button class="btn btn-success" onclick="exportMembers('csv')">
+<i class="fas fa-download"></i>
                 Export CSV
             </button>
-            <button class="btn btn-info" onclick="showImportModal()">
-                <i class="fas fa-upload"></i>
+<button class="btn btn-info" onclick="showImportModal()">
+<i class="fas fa-upload"></i>
                 Import CSV
             </button>
-            <button class="btn btn-warning" onclick="refreshMembers()">
-                <i class="fas fa-sync"></i>
+<button class="btn btn-warning" onclick="refreshMembers()">
+<i class="fas fa-sync"></i>
                 Refresh
             </button>
-        </div>
-        
-        <!-- Search and Filter -->
-            <div class="search-filter-bar">
-                <input type="text" class="form-group input search-input" id="memberSearch" placeholder="Search members..." oninput="filterMembers()">
-                <select class="form-group select" id="positionFilter" onchange="filterMembers()">
-                    <option value="">All Positions</option>
-                    <option value="PRESIDENT">President</option>
-                    <option value="DEPUTY PRESIDENT">Deputy President</option>
-                    <option value="VICE PRESIDENT (North Central)">Vice President (North Central)</option>
-                    <option value="VICE PRESIDENT (North East)">Vice President (North East)</option>
-                    <option value="VICE PRESIDENT (North West)">Vice President (North West)</option>
-                    <option value="VICE PRESIDENT (South East)">Vice President (South East)</option>
-                    <option value="VICE PRESIDENT (South South)">Vice President (South South)</option>
-                    <option value="VICE PRESIDENT (South West)">Vice President (South West)</option>
-                    <option value="SECRETARY">Secretary</option>
-                    <option value="ASSISTANT SECRETARY">Assistant Secretary</option>
-                    <option value="FINANCIAL SECRETARY">Financial Secretary</option>
-                    <option value="ASSISTANT FINANCIAL SECRETARY">Assistant Financial Secretary</option>
-                    <option value="TREASURER">Treasurer</option>
-                    <option value="PUBLIC RELATION OFFICE">Public Relation Officer (PRO)</option>
-                    <option value="PROVOST MARSHAL 1">Provost Marshal 1</option>
-                    <option value="PROVOST MARSHAL 2">Provost Marshal 2</option>
-                    <option value="STATE WELFARE COORDINATOR">State Welfare Coordinator</option>
-                    <option value="MEMBER">Member</option>
-                </select>
-                <select class="form-group select" id="stateFilter" onchange="filterMembers()">
-                    <option value="">All States</option>
-                    <option value="Abia">Abia</option>
-                    <option value="Adamawa">Adamawa</option>
-                    <option value="Akwa Ibom">Akwa Ibom</option>
-                    <option value="Anambra">Anambra</option>
-                    <option value="Bauchi">Bauchi</option>
-                    <option value="Bayelsa">Bayelsa</option>
-                    <option value="Benue">Benue</option>
-                    <option value="Borno">Borno</option>
-                    <option value="Cross River">Cross River</option>
-                    <option value="Delta">Delta</option>
-                    <option value="Ebonyi">Ebonyi</option>
-                    <option value="Edo">Edo</option>
-                    <option value="Ekiti">Ekiti</option>
-                    <option value="Enugu">Enugu</option>
-                    <option value="Gombe">Gombe</option>
-                    <option value="Imo">Imo</option>
-                    <option value="Jigawa">Jigawa</option>
-                    <option value="Kaduna">Kaduna</option>
-                    <option value="Kano">Kano</option>
-                    <option value="Katsina">Katsina</option>
-                    <option value="Kebbi">Kebbi</option>
-                    <option value="Kogi">Kogi</option>
-                    <option value="Kwara">Kwara</option>
-                    <option value="Lagos">Lagos</option>
-                    <option value="Nasarawa">Nasarawa</option>
-                    <option value="Niger">Niger</option>
-                    <option value="Ogun">Ogun</option>
-                    <option value="Ondo">Ondo</option>
-                    <option value="Osun">Osun</option>
-                    <option value="Oyo">Oyo</option>
-                    <option value="Plateau">Plateau</option>
-                    <option value="Rivers">Rivers</option>
-                    <option value="Sokoto">Sokoto</option>
-                    <option value="Taraba">Taraba</option>
-                    <option value="Yobe">Yobe</option>
-                    <option value="Zamfara">Zamfara</option>
-                    <option value="FCT">Federal Capital Territory</option>
-                </select>
-            </div>
-
-
-        
-        <!-- Members Table -->
-        <div class="data-table-container">
-            <table class="data-table" id="membersTable">
-                <thead>
-                    <tr>
-                        <th>Photo</th>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Code</th>
-                        <th>Position</th>
-                        <th>State</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="membersTableBody">
-                    <tr>
-                        <td colspan="7" class="loading">Loading members...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    
-    <!-- Certificates Tab -->
-    <div id="panel-certificates" class="panel">
-        <h2>Certificates Management</h2>
-        
-        <!-- Action Buttons -->
-        <!-- Update your certificate action buttons section -->
-        <div class="action-buttons">
-            <button class="btn btn-primary" onclick="showIssueCertificateModal()">
-                <i class="fas fa-plus"></i>
+</div>
+<!-- Search and Filter -->
+<div class="search-filter-bar">
+<input class="form-group input search-input" id="memberSearch" oninput="filterMembers()" placeholder="Search members..." type="text"/>
+<select class="form-group select" id="positionFilter" onchange="filterMembers()">
+<option value="">All Positions</option>
+<option value="PRESIDENT">President</option>
+<option value="DEPUTY PRESIDENT">Deputy President</option>
+<option value="VICE PRESIDENT (North Central)">Vice President (North Central)</option>
+<option value="VICE PRESIDENT (North East)">Vice President (North East)</option>
+<option value="VICE PRESIDENT (North West)">Vice President (North West)</option>
+<option value="VICE PRESIDENT (South East)">Vice President (South East)</option>
+<option value="VICE PRESIDENT (South South)">Vice President (South South)</option>
+<option value="VICE PRESIDENT (South West)">Vice President (South West)</option>
+<option value="SECRETARY">Secretary</option>
+<option value="ASSISTANT SECRETARY">Assistant Secretary</option>
+<option value="FINANCIAL SECRETARY">Financial Secretary</option>
+<option value="ASSISTANT FINANCIAL SECRETARY">Assistant Financial Secretary</option>
+<option value="TREASURER">Treasurer</option>
+<option value="PUBLIC RELATION OFFICE">Public Relation Officer (PRO)</option>
+<option value="PROVOST MARSHAL 1">Provost Marshal 1</option>
+<option value="PROVOST MARSHAL 2">Provost Marshal 2</option>
+<option value="STATE WELFARE COORDINATOR">State Welfare Coordinator</option>
+<option value="MEMBER">Member</option>
+</select>
+<select class="form-group select" id="stateFilter" onchange="filterMembers()">
+<option value="">All States</option>
+<option value="Abia">Abia</option>
+<option value="Adamawa">Adamawa</option>
+<option value="Akwa Ibom">Akwa Ibom</option>
+<option value="Anambra">Anambra</option>
+<option value="Bauchi">Bauchi</option>
+<option value="Bayelsa">Bayelsa</option>
+<option value="Benue">Benue</option>
+<option value="Borno">Borno</option>
+<option value="Cross River">Cross River</option>
+<option value="Delta">Delta</option>
+<option value="Ebonyi">Ebonyi</option>
+<option value="Edo">Edo</option>
+<option value="Ekiti">Ekiti</option>
+<option value="Enugu">Enugu</option>
+<option value="Gombe">Gombe</option>
+<option value="Imo">Imo</option>
+<option value="Jigawa">Jigawa</option>
+<option value="Kaduna">Kaduna</option>
+<option value="Kano">Kano</option>
+<option value="Katsina">Katsina</option>
+<option value="Kebbi">Kebbi</option>
+<option value="Kogi">Kogi</option>
+<option value="Kwara">Kwara</option>
+<option value="Lagos">Lagos</option>
+<option value="Nasarawa">Nasarawa</option>
+<option value="Niger">Niger</option>
+<option value="Ogun">Ogun</option>
+<option value="Ondo">Ondo</option>
+<option value="Osun">Osun</option>
+<option value="Oyo">Oyo</option>
+<option value="Plateau">Plateau</option>
+<option value="Rivers">Rivers</option>
+<option value="Sokoto">Sokoto</option>
+<option value="Taraba">Taraba</option>
+<option value="Yobe">Yobe</option>
+<option value="Zamfara">Zamfara</option>
+<option value="FCT">Federal Capital Territory</option>
+</select>
+</div>
+<!-- Members Table -->
+<div class="data-table-container">
+<table class="data-table" id="membersTable">
+<thead>
+<tr>
+<th>Photo</th>
+<th>Name</th>
+<th>Email</th>
+<th>Code</th>
+<th>Position</th>
+<th>State</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody id="membersTableBody"><tr>
+<td>1</td>
+<td><img alt="Passport" class="img-thumbnail" height="50" src="photo_url_here" width="50"/></td>
+<td>Member Name</td>
+<td>member@example.com</td>
+<td>Position</td>
+<td>State</td>
+<td>Zone</td>
+<td>
+<button class="btn btn-sm btn-primary view-member" data-id="sample-id">View</button>
+<button class="btn btn-sm btn-warning edit-member" data-id="sample-id">Edit</button>
+<button class="btn btn-sm btn-danger delete-member" data-id="sample-id">Delete</button>
+</td>
+</tr>
+<tr>
+<td class="loading" colspan="7">Loading members...</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Certificates Tab -->
+<div class="panel" id="panel-certificates">
+<h2>Certificates Management</h2>
+<!-- Action Buttons -->
+<!-- Update your certificate action buttons section -->
+<div class="action-buttons">
+<button class="btn btn-primary" onclick="showIssueCertificateModal()">
+<i class="fas fa-plus"></i>
                 Issue Certificate
             </button>
-            <button class="btn btn-success" onclick="exportCertificates()">
-                <i class="fas fa-download"></i>
+<button class="btn btn-success" onclick="exportCertificates()">
+<i class="fas fa-download"></i>
                 Export Data
             </button>
-            <button class="btn btn-warning" onclick="refreshCertificates()">
-                <i class="fas fa-sync"></i>
+<button class="btn btn-warning" onclick="refreshCertificates()">
+<i class="fas fa-sync"></i>
                 Refresh
             </button>
-            <button class="btn btn-secondary" onclick="clearCertificateFilters()">
-                <i class="fas fa-times"></i>
+<button class="btn btn-secondary" onclick="clearCertificateFilters()">
+<i class="fas fa-times"></i>
                 Clear Filters
             </button>
-        </div>
-
-        
-        <!-- Search and Filter -->
-        <div class="search-filter-bar">
-            <input type="text" class="form-group input search-input" id="certificateSearch" placeholder="Search certificates..." oninput="filterCertificates()">
-            <select class="form-group select" id="certificateStatusFilter" onchange="filterCertificates()">
-                <option value="">All Status</option>
-                <option value="active">Active</option>
-                <option value="revoked">Revoked</option>
-                <option value="expired">Expired</option>
-            </select>
-            <select class="form-group select" id="certificateTypeFilter" onchange="filterCertificates()">
-                <option value="">All Types</option>
-                <option value="membership">Membership Certificate</option>
-                <option value="achievement">Achievement Certificate</option>
-                <option value="training">Training Certificate</option>
-                <option value="recognition">Recognition Certificate</option>
-                <option value="service">Service Certificate</option>
-            </select>
-            <select class="form-group select" id="certificateStateFilter" onchange="filterCertificates()">
-                <option value="">All States</option>
-                <option value="Abia">Abia</option>
-                <option value="Adamawa">Adamawa</option>
-                <option value="Akwa Ibom">Akwa Ibom</option>
-                <option value="Anambra">Anambra</option>
-                <option value="Bauchi">Bauchi</option>
-                <option value="Bayelsa">Bayelsa</option>
-                <option value="Benue">Benue</option>
-                <option value="Borno">Borno</option>
-                <option value="Cross River">Cross River</option>
-                <option value="Delta">Delta</option>
-                <option value="Ebonyi">Ebonyi</option>
-                <option value="Edo">Edo</option>
-                <option value="Ekiti">Ekiti</option>
-                <option value="Enugu">Enugu</option>
-                <option value="Gombe">Gombe</option>
-                <option value="Imo">Imo</option>
-                <option value="Jigawa">Jigawa</option>
-                <option value="Kaduna">Kaduna</option>
-                <option value="Kano">Kano</option>
-                <option value="Katsina">Katsina</option>
-                <option value="Kebbi">Kebbi</option>
-                <option value="Kogi">Kogi</option>
-                <option value="Kwara">Kwara</option>
-                <option value="Lagos">Lagos</option>
-                <option value="Nasarawa">Nasarawa</option>
-                <option value="Niger">Niger</option>
-                <option value="Ogun">Ogun</option>
-                <option value="Ondo">Ondo</option>
-                <option value="Osun">Osun</option>
-                <option value="Oyo">Oyo</option>
-                <option value="Plateau">Plateau</option>
-                <option value="Rivers">Rivers</option>
-                <option value="Sokoto">Sokoto</option>
-                <option value="Taraba">Taraba</option>
-                <option value="Yobe">Yobe</option>
-                <option value="Zamfara">Zamfara</option>
-                <option value="FCT">Federal Capital Territory</option>
-            </select>
-        </div>
-
-        
-        <!-- Certificates Table -->
-        <div class="data-table-container">
-            <table class="data-table" id="certificatesTable">
-                <thead>
-                    <tr>
-                        <th>Certificate #</th>
-                        <th>Recipient</th>
-                        <th>Title</th>
-                        <th>Issue Date</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="certificatesTableBody">
-                    <tr>
-                        <td colspan="6" class="loading">Loading certificates...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    
-    <!-- Analytics Tab -->
-    <div id="panel-analytics" class="panel">
-        <h2>Analytics</h2>
-        
-        <!-- Charts Container -->
-        <div class="charts-container">
-            <div class="chart-card">
-                <div class="chart-title">Member Registration Trend</div>
-                <canvas id="memberChart" width="400" height="200"></canvas>
-            </div>
-            <div class="chart-card">
-                <div class="chart-title">Certificate Issuance</div>
-                <canvas id="certificateChart" width="400" height="200"></canvas>
-            </div>
-            <div class="chart-card">
-                <div class="chart-title">Members by State</div>
-                <canvas id="stateChart" width="400" height="200"></canvas>
-            </div>
-            <div class="chart-card">
-                <div class="chart-title">System Health</div>
-                <div id="systemHealth">
-                    <div class="loading">Loading system health data...</div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Detailed Statistics -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-number" id="avgMembersPerMonth">0</div>
-                <div class="stat-label">Avg Members/Month</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="activeCertificates">0</div>
-                <div class="stat-label">Active Certificates</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="revokedCertificates">0</div>
-                <div class="stat-label">Revoked Certificates</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="systemLoad">0%</div>
-                <div class="stat-label">System Load</div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- System Tab -->
-    <div id="panel-system" class="panel">
-        <h2>System Settings</h2>
-        
-        <!-- System Actions -->
-        <div class="action-buttons">
-            <button class="btn btn-primary" onclick="syncWithBackend()">
-                <i class="fas fa-sync"></i>
+</div>
+<!-- Search and Filter -->
+<div class="search-filter-bar">
+<input class="form-group input search-input" id="certificateSearch" oninput="filterCertificates()" placeholder="Search certificates..." type="text"/>
+<select class="form-group select" id="certificateStatusFilter" onchange="filterCertificates()">
+<option value="">All Status</option>
+<option value="active">Active</option>
+<option value="revoked">Revoked</option>
+<option value="expired">Expired</option>
+</select>
+<select class="form-group select" id="certificateTypeFilter" onchange="filterCertificates()">
+<option value="">All Types</option>
+<option value="membership">Membership Certificate</option>
+<option value="achievement">Achievement Certificate</option>
+<option value="training">Training Certificate</option>
+<option value="recognition">Recognition Certificate</option>
+<option value="service">Service Certificate</option>
+</select>
+<select class="form-group select" id="certificateStateFilter" onchange="filterCertificates()">
+<option value="">All States</option>
+<option value="Abia">Abia</option>
+<option value="Adamawa">Adamawa</option>
+<option value="Akwa Ibom">Akwa Ibom</option>
+<option value="Anambra">Anambra</option>
+<option value="Bauchi">Bauchi</option>
+<option value="Bayelsa">Bayelsa</option>
+<option value="Benue">Benue</option>
+<option value="Borno">Borno</option>
+<option value="Cross River">Cross River</option>
+<option value="Delta">Delta</option>
+<option value="Ebonyi">Ebonyi</option>
+<option value="Edo">Edo</option>
+<option value="Ekiti">Ekiti</option>
+<option value="Enugu">Enugu</option>
+<option value="Gombe">Gombe</option>
+<option value="Imo">Imo</option>
+<option value="Jigawa">Jigawa</option>
+<option value="Kaduna">Kaduna</option>
+<option value="Kano">Kano</option>
+<option value="Katsina">Katsina</option>
+<option value="Kebbi">Kebbi</option>
+<option value="Kogi">Kogi</option>
+<option value="Kwara">Kwara</option>
+<option value="Lagos">Lagos</option>
+<option value="Nasarawa">Nasarawa</option>
+<option value="Niger">Niger</option>
+<option value="Ogun">Ogun</option>
+<option value="Ondo">Ondo</option>
+<option value="Osun">Osun</option>
+<option value="Oyo">Oyo</option>
+<option value="Plateau">Plateau</option>
+<option value="Rivers">Rivers</option>
+<option value="Sokoto">Sokoto</option>
+<option value="Taraba">Taraba</option>
+<option value="Yobe">Yobe</option>
+<option value="Zamfara">Zamfara</option>
+<option value="FCT">Federal Capital Territory</option>
+</select>
+</div>
+<!-- Certificates Table -->
+<div class="data-table-container">
+<table class="data-table" id="certificatesTable">
+<thead>
+<tr>
+<th>Certificate #</th>
+<th>Recipient</th>
+<th>Title</th>
+<th>Issue Date</th>
+<th>Status</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody id="certificatesTableBody">
+<tr>
+<td class="loading" colspan="6">Loading certificates...</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Analytics Tab -->
+<div class="panel" id="panel-analytics">
+<h2>Analytics</h2>
+<!-- Charts Container -->
+<div class="charts-container">
+<div class="chart-card">
+<div class="chart-title">Member Registration Trend</div>
+<canvas height="200" id="memberChart" width="400"></canvas>
+</div>
+<div class="chart-card">
+<div class="chart-title">Certificate Issuance</div>
+<canvas height="200" id="certificateChart" width="400"></canvas>
+</div>
+<div class="chart-card">
+<div class="chart-title">Members by State</div>
+<canvas height="200" id="stateChart" width="400"></canvas>
+</div>
+<div class="chart-card">
+<div class="chart-title">System Health</div>
+<div id="systemHealth">
+<div class="loading">Loading system health data...</div>
+</div>
+</div>
+</div>
+<!-- Detailed Statistics -->
+<div class="stats-grid">
+<div class="stat-card">
+<div class="stat-number" id="avgMembersPerMonth">0</div>
+<div class="stat-label">Avg Members/Month</div>
+</div>
+<div class="stat-card">
+<div class="stat-number" id="activeCertificates">0</div>
+<div class="stat-label">Active Certificates</div>
+</div>
+<div class="stat-card">
+<div class="stat-number" id="revokedCertificates">0</div>
+<div class="stat-label">Revoked Certificates</div>
+</div>
+<div class="stat-card">
+<div class="stat-number" id="systemLoad">0%</div>
+<div class="stat-label">System Load</div>
+</div>
+</div>
+</div>
+<!-- System Tab -->
+<div class="panel" id="panel-system">
+<h2>System Settings</h2>
+<!-- System Actions -->
+<div class="action-buttons">
+<button class="btn btn-primary" onclick="syncWithBackend()">
+<i class="fas fa-sync"></i>
                 Sync with Backend
             </button>
-            <button class="btn btn-success" onclick="createBackup()">
-                <i class="fas fa-download"></i>
+<button class="btn btn-success" onclick="createBackup()">
+<i class="fas fa-download"></i>
                 Create Backup
             </button>
-            <button class="btn btn-info" onclick="showRestoreModal()">
-                <i class="fas fa-upload"></i>
+<button class="btn btn-info" onclick="showRestoreModal()">
+<i class="fas fa-upload"></i>
                 Restore Backup
             </button>
-            <button class="btn btn-warning" onclick="exportAllData()">
-                <i class="fas fa-file-export"></i>
+<button class="btn btn-warning" onclick="exportAllData()">
+<i class="fas fa-file-export"></i>
                 Export All Data
             </button>
-            <button class="btn btn-danger" onclick="confirmClearAllData()">
-                <i class="fas fa-trash"></i>
+<button class="btn btn-danger" onclick="confirmClearAllData()">
+<i class="fas fa-trash"></i>
                 Clear All Data
             </button>
-        </div>
-        
-        <!-- System Information -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-number" id="dbSize">0 MB</div>
-                <div class="stat-label">Database Size</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="lastBackup">Never</div>
-                <div class="stat-label">Last Backup</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="lastSync">Never</div>
-                <div class="stat-label">Last Sync</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="serverStatus">Unknown</div>
-                <div class="stat-label">Server Status</div>
-            </div>
-        </div>
-        
-        <!-- Activity Logs -->
-        <div class="activity-log">
-            <div class="chart-title" style="padding: 20px 20px 0;">System Activity Logs</div>
-            <div id="systemLogs">
-                <div class="loading">Loading system logs...</div>
-            </div>
-        </div>
-    </div>
 </div>
-
-            
-            <!-- Footer -->
-            <div class="admin-footer">
-                <div class="footer-left">
-                    <div>
-                        <strong>Designed & Developed by ZUFAMOA Unlimited</strong>
-                    </div>
-                    <div>
+<!-- System Information -->
+<div class="stats-grid">
+<div class="stat-card">
+<div class="stat-number" id="dbSize">0 MB</div>
+<div class="stat-label">Database Size</div>
+</div>
+<div class="stat-card">
+<div class="stat-number" id="lastBackup">Never</div>
+<div class="stat-label">Last Backup</div>
+</div>
+<div class="stat-card">
+<div class="stat-number" id="lastSync">Never</div>
+<div class="stat-label">Last Sync</div>
+</div>
+<div class="stat-card">
+<div class="stat-number" id="serverStatus">Unknown</div>
+<div class="stat-label">Server Status</div>
+</div>
+</div>
+<!-- Activity Logs -->
+<div class="activity-log">
+<div class="chart-title" style="padding: 20px 20px 0;">System Activity Logs</div>
+<div id="systemLogs">
+<div class="loading">Loading system logs...</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer -->
+<div class="admin-footer">
+<div class="footer-left">
+<div>
+<strong>Designed &amp; Developed by ZUFAMOA Unlimited</strong>
+</div>
+<div>
                         📞 <a href="tel:+2347067012884" style="color: inherit; text-decoration: none;">07067012884</a>
-                    </div>
-                </div>
-                <div class="footer-right">
-                    <div>
+</div>
+</div>
+<div class="footer-right">
+<div>
                         📍 Front of University of Abuja Boys Hostel, Mini Campus Gwagwalada, FCT Abuja, Nigeria
                     </div>
-                    <div class="connection-status">
-                        <div class="connection-indicator" id="footerConnectionIndicator"></div>
-                        <span id="footerConnectionText">Connected</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Add Member Modal -->
-    <div id="addMemberModal" class="modal">
-        <div class="modal-backdrop" onclick="closeAddMemberModal()"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Add New Member</h2>
-                <button class="close-btn" onclick="closeAddMemberModal()">&times;</button>
-            </div>
-            <form id="addMemberForm" onsubmit="addMember(event)">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="memberName">Full Name *</label>
-                        <input type="text" id="memberName" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="memberEmail">Email Address *</label>
-                        <input type="email" id="memberEmail" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="memberPassword">Password *</label>
-                        <input type="password" id="memberPassword" required oninput="checkPasswordStrength(this.value)">
-                        <div id="passwordStrength" class="password-strength"></div>
-                    </div>
-                    <div class="form-group">
-                        <label for="memberCode">NARAP Code *</label>
-                        <input type="text" id="memberCode" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="memberPosition">Position *</label>
-                        <select id="memberPosition" required>
-                            <option value="">Select Position</option>
-                            <option value="PRESIDENT">President</option>
-                            <option value="DEPUTY PRESIDENT">Deputy President</option>
-                            <option value="VICE PRESIDENT (North Central)">Vice President (North Central)</option>
-                            <option value="VICE PRESIDENT (North East)">Vice President (North East)</option>
-                            <option value="VICE PRESIDENT (North West)">Vice President (North West)</option>
-                            <option value="VICE PRESIDENT (South East)">Vice President (South East)</option>
-                            <option value="VICE PRESIDENT (South South)">Vice President (South South)</option>
-                            <option value="VICE PRESIDENT (South West)">Vice President (South West)</option>
-                            <option value="SECRETARY">Secretary</option>
-                            <option value="ASSISTANT SECRETARY">Assistant Secretary</option>
-                            <option value="FINANCIAL SECRETARY">Financial Secretary</option>
-                            <option value="ASSISTANT FINANCIAL SECRETARY">Assistant Financial Secretary</option>
-                            <option value="TREASURER">Treasurer</option>
-                            <option value="PUBLIC RELATION OFFICE">Public Relation Officer (PRO)</option>
-                            <option value="PROVOST MARSHAL 1">Provost Marshal 1</option>
-                            <option value="PROVOST MARSHAL 2">Provost Marshal 2</option>
-                            <option value="STATE WELFARE COORDINATOR">State Welfare Coordinator</option>
-                            <option value="MEMBER">Member</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="memberState">State *</label>
-                        <input type="text" id="memberState" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="memberZone">Zone *</label>
-                        <input type="text" id="memberZone" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="memberPassport">Passport Photo</label>
-                        <div class="file-upload">
-                            <input type="file" id="memberPassport" accept="image/*" onchange="handleFileUpload(this, 'passportLabel')">
-                            <label for="memberPassport" class="file-upload-label" id="passportLabel">
-                                <i class="fas fa-camera"></i>
+<div class="connection-status">
+<div class="connection-indicator" id="footerConnectionIndicator"></div>
+<span id="footerConnectionText">Connected</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Add Member Modal -->
+<div class="modal" id="addMemberModal">
+<div class="modal-backdrop" onclick="closeAddMemberModal()"></div>
+<div class="modal-content">
+<div class="modal-header">
+<h2 class="modal-title">Add New Member</h2>
+<button class="close-btn" onclick="closeAddMemberModal()">×</button>
+</div>
+<form id="addMemberForm" onsubmit="addMember(event)">
+<div class="form-grid">
+<div class="form-group">
+<label for="memberName">Full Name *</label>
+<input id="memberName" required="" type="text"/>
+</div>
+<div class="form-group">
+<label for="memberEmail">Email Address *</label>
+<input id="memberEmail" required="" type="email"/>
+</div>
+<div class="form-group">
+<label for="memberPassword">Password *</label>
+<input id="memberPassword" oninput="checkPasswordStrength(this.value)" required="" type="password"/>
+<div class="password-strength" id="passwordStrength"></div>
+</div>
+<div class="form-group">
+<label for="memberCode">NARAP Code *</label>
+<input id="memberCode" required="" type="text"/>
+</div>
+<div class="form-group">
+<label for="memberPosition">Position *</label>
+<select id="memberPosition" required="">
+<option value="">Select Position</option>
+<option value="PRESIDENT">President</option>
+<option value="DEPUTY PRESIDENT">Deputy President</option>
+<option value="VICE PRESIDENT (North Central)">Vice President (North Central)</option>
+<option value="VICE PRESIDENT (North East)">Vice President (North East)</option>
+<option value="VICE PRESIDENT (North West)">Vice President (North West)</option>
+<option value="VICE PRESIDENT (South East)">Vice President (South East)</option>
+<option value="VICE PRESIDENT (South South)">Vice President (South South)</option>
+<option value="VICE PRESIDENT (South West)">Vice President (South West)</option>
+<option value="SECRETARY">Secretary</option>
+<option value="ASSISTANT SECRETARY">Assistant Secretary</option>
+<option value="FINANCIAL SECRETARY">Financial Secretary</option>
+<option value="ASSISTANT FINANCIAL SECRETARY">Assistant Financial Secretary</option>
+<option value="TREASURER">Treasurer</option>
+<option value="PUBLIC RELATION OFFICE">Public Relation Officer (PRO)</option>
+<option value="PROVOST MARSHAL 1">Provost Marshal 1</option>
+<option value="PROVOST MARSHAL 2">Provost Marshal 2</option>
+<option value="STATE WELFARE COORDINATOR">State Welfare Coordinator</option>
+<option value="MEMBER">Member</option>
+</select>
+</div>
+<div class="form-group">
+<label for="memberState">State *</label>
+<input id="memberState" required="" type="text"/>
+</div>
+<div class="form-group">
+<label for="memberZone">Zone *</label>
+<input id="memberZone" required="" type="text"/>
+</div>
+<div class="form-group">
+<label for="memberPassport">Passport Photo</label>
+<div class="file-upload">
+<input accept="image/*" id="memberPassport" onchange="handleFileUpload(this, 'passportLabel')" type="file"/>
+<label class="file-upload-label" for="memberPassport" id="passportLabel">
+<i class="fas fa-camera"></i>
                                 Choose passport photo
                             </label>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="memberSignature">Signature</label>
-                        <div class="file-upload">
-                            <input type="file" id="memberSignature" accept="image/*" onchange="handleFileUpload(this, 'signatureLabel')">
-                            <label for="memberSignature" class="file-upload-label" id="signatureLabel">
-                                <i class="fas fa-signature"></i>
+</div>
+</div>
+<div class="form-group">
+<label for="memberSignature">Signature</label>
+<div class="file-upload">
+<input accept="image/*" id="memberSignature" onchange="handleFileUpload(this, 'signatureLabel')" type="file"/>
+<label class="file-upload-label" for="memberSignature" id="signatureLabel">
+<i class="fas fa-signature"></i>
                                 Choose signature
                             </label>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- ID Card Preview -->
-                <div id="idCardPreview" class="hidden">
-                    <h3>ID Card Preview</h3>
-                    <div id="generatedIdCard"></div>
-                </div>
-                
-                <div class="form-buttons">
-                    <button type="button" onclick="generateIdCardPreview()" class="btn btn-info">
-                        <i class="fas fa-eye"></i>
+</div>
+</div>
+</div>
+<!-- ID Card Preview -->
+<div class="hidden" id="idCardPreview">
+<h3>ID Card Preview</h3>
+<div id="generatedIdCard"></div>
+</div>
+<div class="form-buttons">
+<button class="btn btn-info" onclick="generateIdCardPreview()" type="button">
+<i class="fas fa-eye"></i>
                         Preview ID Card
                     </button>
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-save"></i>
+<button class="btn btn-success" type="submit">
+<i class="fas fa-save"></i>
                         Add Member
                     </button>
-                    <button type="button" onclick="closeAddMemberModal()" class="btn btn-secondary">
-                        <i class="fas fa-times"></i>
+<button class="btn btn-secondary" onclick="closeAddMemberModal()" type="button">
+<i class="fas fa-times"></i>
                         Cancel
                     </button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-    <!-- Edit Member Modal -->
-    <div id="editMemberModal" class="modal">
-        <div class="modal-backdrop" onclick="closeEditMemberModal()"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Edit Member</h2>
-                <button class="close-btn" onclick="closeEditMemberModal()">&times;</button>
-            </div>
-            <form id="editMemberForm" onsubmit="updateMember(event)">
-                <input type="hidden" id="editMemberId">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="editMemberName">Full Name *</label>
-                        <input type="text" id="editMemberName" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="editMemberEmail">Email Address *</label>
-                        <input type="email" id="editMemberEmail" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="editMemberCode">NARAP Code *</label>
-                        <input type="text" id="editMemberCode" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="editMemberPosition">Position *</label>
-                        <select id="editMemberPosition" required>
-                            <option value="">Select Position</option>
-                            <option value="PRESIDENT">President</option>
-                            <option value="DEPUTY PRESIDENT">Deputy President</option>
-                            <option value="VICE PRESIDENT (North Central)">Vice President (North Central)</option>
-                            <option value="VICE PRESIDENT (North East)">Vice President (North East)</option>
-                            <option value="VICE PRESIDENT (North West)">Vice President (North West)</option>
-                            <option value="VICE PRESIDENT (South East)">Vice President (South East)</option>
-                            <option value="VICE PRESIDENT (South South)">Vice President (South South)</option>
-                            <option value="VICE PRESIDENT (South West)">Vice President (South West)</option>
-                            <option value="SECRETARY">Secretary</option>
-                            <option value="ASSISTANT SECRETARY">Assistant Secretary</option>
-                            <option value="FINANCIAL SECRETARY">Financial Secretary</option>
-                            <option value="ASSISTANT FINANCIAL SECRETARY">Assistant Financial Secretary</option>
-                            <option value="TREASURER">Treasurer</option>
-                            <option value="PUBLIC RELATION OFFICE">Public Relation Officer (PRO)</option>
-                            <option value="PROVOST MARSHAL 1">Provost Marshal 1</option>
-                            <option value="PROVOST MARSHAL 2">Provost Marshal 2</option>
-                            <option value="STATE WELFARE COORDINATOR">State Welfare Coordinator</option>
-                            <option value="MEMBER">Member</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="editMemberState">State *</label>
-                        <input type="text" id="editMemberState" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="editMemberZone">Zone *</label>
-                        <input type="text" id="editMemberZone" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="editMemberPassport">Update Passport Photo</label>
-                        <div class="file-upload">
-                            <input type="file" id="editMemberPassport" accept="image/*" onchange="handleFileUpload(this, 'editPassportLabel')">
-                            <label for="editMemberPassport" class="file-upload-label" id="editPassportLabel">
-                                <i class="fas fa-camera"></i>
+</div>
+</form>
+</div>
+</div>
+<!-- Edit Member Modal -->
+<div class="modal" id="editMemberModal">
+<div class="modal-backdrop" onclick="closeEditMemberModal()"></div>
+<div class="modal-content">
+<div class="modal-header">
+<h2 class="modal-title">Edit Member</h2>
+<button class="close-btn" onclick="closeEditMemberModal()">×</button>
+</div>
+<form id="editMemberForm" onsubmit="updateMember(event)">
+<input id="editMemberId" type="hidden"/>
+<div class="form-grid">
+<div class="form-group">
+<label for="editMemberName">Full Name *</label>
+<input id="editMemberName" required="" type="text"/>
+</div>
+<div class="form-group">
+<label for="editMemberEmail">Email Address *</label>
+<input id="editMemberEmail" required="" type="email"/>
+</div>
+<div class="form-group">
+<label for="editMemberCode">NARAP Code *</label>
+<input id="editMemberCode" required="" type="text"/>
+</div>
+<div class="form-group">
+<label for="editMemberPosition">Position *</label>
+<select id="editMemberPosition" required="">
+<option value="">Select Position</option>
+<option value="PRESIDENT">President</option>
+<option value="DEPUTY PRESIDENT">Deputy President</option>
+<option value="VICE PRESIDENT (North Central)">Vice President (North Central)</option>
+<option value="VICE PRESIDENT (North East)">Vice President (North East)</option>
+<option value="VICE PRESIDENT (North West)">Vice President (North West)</option>
+<option value="VICE PRESIDENT (South East)">Vice President (South East)</option>
+<option value="VICE PRESIDENT (South South)">Vice President (South South)</option>
+<option value="VICE PRESIDENT (South West)">Vice President (South West)</option>
+<option value="SECRETARY">Secretary</option>
+<option value="ASSISTANT SECRETARY">Assistant Secretary</option>
+<option value="FINANCIAL SECRETARY">Financial Secretary</option>
+<option value="ASSISTANT FINANCIAL SECRETARY">Assistant Financial Secretary</option>
+<option value="TREASURER">Treasurer</option>
+<option value="PUBLIC RELATION OFFICE">Public Relation Officer (PRO)</option>
+<option value="PROVOST MARSHAL 1">Provost Marshal 1</option>
+<option value="PROVOST MARSHAL 2">Provost Marshal 2</option>
+<option value="STATE WELFARE COORDINATOR">State Welfare Coordinator</option>
+<option value="MEMBER">Member</option>
+</select>
+</div>
+<div class="form-group">
+<label for="editMemberState">State *</label>
+<input id="editMemberState" required="" type="text"/>
+</div>
+<div class="form-group">
+<label for="editMemberZone">Zone *</label>
+<input id="editMemberZone" required="" type="text"/>
+</div>
+<div class="form-group">
+<label for="editMemberPassport">Update Passport Photo</label>
+<div class="file-upload">
+<input accept="image/*" id="editMemberPassport" onchange="handleFileUpload(this, 'editPassportLabel')" type="file"/>
+<label class="file-upload-label" for="editMemberPassport" id="editPassportLabel">
+<i class="fas fa-camera"></i>
                                 Choose new passport photo
                             </label>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="editMemberSignature">Update Signature</label>
-                        <div class="file-upload">
-                            <input type="file" id="editMemberSignature" accept="image/*" onchange="handleFileUpload(this, 'editSignatureLabel')">
-                            <label for="editMemberSignature" class="file-upload-label" id="editSignatureLabel">
-                                <i class="fas fa-signature"></i>
+</div>
+</div>
+<div class="form-group">
+<label for="editMemberSignature">Update Signature</label>
+<div class="file-upload">
+<input accept="image/*" id="editMemberSignature" onchange="handleFileUpload(this, 'editSignatureLabel')" type="file"/>
+<label class="file-upload-label" for="editMemberSignature" id="editSignatureLabel">
+<i class="fas fa-signature"></i>
                                 Choose new signature
                             </label>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-buttons">
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-save"></i>
+</div>
+</div>
+</div>
+<div class="form-buttons">
+<button class="btn btn-success" type="submit">
+<i class="fas fa-save"></i>
                         Update Member
                     </button>
-                    <button type="button" onclick="closeEditMemberModal()" class="btn btn-secondary">
-                        <i class="fas fa-times"></i>
+<button class="btn btn-secondary" onclick="closeEditMemberModal()" type="button">
+<i class="fas fa-times"></i>
                         Cancel
                     </button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-    <!-- View ID Card Modal -->
-    <div id="viewIdCardModal" class="modal">
-        <div class="modal-backdrop" onclick="closeViewIdCardModal()"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Member ID Card</h2>
-                <button class="close-btn" onclick="closeViewIdCardModal()">&times;</button>
-            </div>
-            <div id="viewIdCardContent">
-                <!-- ID Card will be generated here -->
-            </div>
-            <div class="form-buttons">
-                <button onclick="printIdCard()" class="btn btn-primary">
-                    <i class="fas fa-print"></i>
+</div>
+</form>
+</div>
+</div>
+<!-- View ID Card Modal -->
+<div class="modal" id="viewIdCardModal">
+<div class="modal-backdrop" onclick="closeViewIdCardModal()"></div>
+<div class="modal-content">
+<div class="modal-header">
+<h2 class="modal-title">Member ID Card</h2>
+<button class="close-btn" onclick="closeViewIdCardModal()">×</button>
+</div>
+<div id="viewIdCardContent">
+<!-- ID Card will be generated here -->
+</div>
+<div class="form-buttons">
+<button class="btn btn-primary" onclick="printIdCard()">
+<i class="fas fa-print"></i>
                     Print ID Card
                 </button>
-                <button onclick="downloadIdCard()" class="btn btn-success">
-                    <i class="fas fa-download"></i>
+<button class="btn btn-success" onclick="downloadIdCard()">
+<i class="fas fa-download"></i>
                     Download
                 </button>
-                <button onclick="closeViewIdCardModal()" class="btn btn-secondary">
-                    <i class="fas fa-times"></i>
+<button class="btn btn-secondary" onclick="closeViewIdCardModal()">
+<i class="fas fa-times"></i>
                     Close
                 </button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Issue Certificate Modal -->
-    <div id="issueCertificateModal" class="modal">
-        <div class="modal-backdrop" onclick="closeIssueCertificateModal()"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Issue Certificate</h2>
-                <button class="close-btn" onclick="closeIssueCertificateModal()">&times;</button>
-            </div>
-            
-            <!-- Update the certificate form in your issueCertificateModal -->
+</div>
+</div>
+</div>
+<!-- Issue Certificate Modal -->
+<div class="modal" id="issueCertificateModal">
+<div class="modal-backdrop" onclick="closeIssueCertificateModal()"></div>
+<div class="modal-content">
+<div class="modal-header">
+<h2 class="modal-title">Issue Certificate</h2>
+<button class="close-btn" onclick="closeIssueCertificateModal()">×</button>
+</div>
+<!-- Update the certificate form in your issueCertificateModal -->
 <form id="issueCertificateForm" onsubmit="issueCertificate(event)">
-    <div class="form-grid">
-        <div class="form-group">
-            <label for="certificateNumber">Certificate Number *</label>
-            <input type="text" id="certificateNumber" required placeholder="Enter certificate number manually">
-        </div>
-        <div class="form-group">
-            <label for="certificateSerialNumber">Serial Number *</label>
-            <input type="text" id="certificateSerialNumber" required placeholder="Enter serial number manually">
-        </div>
-        <div class="form-group">
-            <label for="certificateRecipient">Recipient Name *</label>
-            <input type="text" id="certificateRecipient" required placeholder="Full name of certificate recipient">
-        </div>
-        <div class="form-group">
-            <label for="certificateEmail">Recipient Email *</label>
-            <input type="email" id="certificateEmail" required onblur="autoFillCertificateFields()">
-            <small style="color: #666; font-size: 12px;">If email matches existing member, other fields will be auto-filled</small>
-        </div>
-        <div class="form-group">
-            <label for="certificateTitle">Certificate Title *</label>
-            <input type="text" id="certificateTitle" required placeholder="e.g., Certificate of Membership">
-        </div>
-        <div class="form-group">
-            <label for="certificateType">Certificate Type *</label>
-            <select id="certificateType" required>
-                <option value="">Select Type</option>
-                <option value="membership">Membership Certificate</option>
-                <option value="achievement">Achievement Certificate</option>
-                <option value="training">Training Certificate</option>
-                <option value="recognition">Recognition Certificate</option>
-                <option value="service">Service Certificate</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label for="certificateIssueDate">Issue Date *</label>
-            <input type="date" id="certificateIssueDate" required>
-        </div>
-        <div class="form-group">
-            <label for="certificateValidUntil">Valid Until</label>
-            <input type="date" id="certificateValidUntil">
-        </div>
-        <div class="form-group">
-            <label for="certificatePosition">Position/Title</label>
-            <input type="text" id="certificatePosition" placeholder="e.g., Member, President, etc.">
-        </div>
-        <div class="form-group">
-            <label for="certificateCode">NARAP Code</label>
-            <input type="text" id="certificateCode" placeholder="Optional NARAP member code">
-        </div>
-        <div class="form-group">
-            <label for="certificateState">State</label>
-            <input type="text" id="certificateState" placeholder="State/Region">
-        </div>
-        <div class="form-group" style="grid-column: 1 / -1;">
-            <label for="certificateDescription">Description</label>
-            <textarea id="certificateDescription" rows="3" placeholder="Certificate description or achievement details"></textarea>
-        </div>
-    </div>
-    
-    <!-- Certificate Preview -->
-    <div id="certificatePreview" class="hidden">
-        <h3>Certificate Preview</h3>
-        <div id="generatedCertificate"></div>
-    </div>
-    
-    <div class="form-buttons">
-        <button type="button" onclick="generateCertificatePreview()" class="btn btn-info">
-            <i class="fas fa-eye"></i>
+<div class="form-grid">
+<div class="form-group">
+<label for="certificateNumber">Certificate Number *</label>
+<input id="certificateNumber" placeholder="Enter certificate number manually" required="" type="text"/>
+</div>
+<div class="form-group">
+<label for="certificateSerialNumber">Serial Number *</label>
+<input id="certificateSerialNumber" placeholder="Enter serial number manually" required="" type="text"/>
+</div>
+<div class="form-group">
+<label for="certificateRecipient">Recipient Name *</label>
+<input id="certificateRecipient" placeholder="Full name of certificate recipient" required="" type="text"/>
+</div>
+<div class="form-group">
+<label for="certificateEmail">Recipient Email *</label>
+<input id="certificateEmail" onblur="autoFillCertificateFields()" required="" type="email"/>
+<small style="color: #666; font-size: 12px;">If email matches existing member, other fields will be auto-filled</small>
+</div>
+<div class="form-group">
+<label for="certificateTitle">Certificate Title *</label>
+<input id="certificateTitle" placeholder="e.g., Certificate of Membership" required="" type="text"/>
+</div>
+<div class="form-group">
+<label for="certificateType">Certificate Type *</label>
+<select id="certificateType" required="">
+<option value="">Select Type</option>
+<option value="membership">Membership Certificate</option>
+<option value="achievement">Achievement Certificate</option>
+<option value="training">Training Certificate</option>
+<option value="recognition">Recognition Certificate</option>
+<option value="service">Service Certificate</option>
+</select>
+</div>
+<div class="form-group">
+<label for="certificateIssueDate">Issue Date *</label>
+<input id="certificateIssueDate" required="" type="date"/>
+</div>
+<div class="form-group">
+<label for="certificateValidUntil">Valid Until</label>
+<input id="certificateValidUntil" type="date"/>
+</div>
+<div class="form-group">
+<label for="certificatePosition">Position/Title</label>
+<input id="certificatePosition" placeholder="e.g., Member, President, etc." type="text"/>
+</div>
+<div class="form-group">
+<label for="certificateCode">NARAP Code</label>
+<input id="certificateCode" placeholder="Optional NARAP member code" type="text"/>
+</div>
+<div class="form-group">
+<label for="certificateState">State</label>
+<input id="certificateState" placeholder="State/Region" type="text"/>
+</div>
+<div class="form-group" style="grid-column: 1 / -1;">
+<label for="certificateDescription">Description</label>
+<textarea id="certificateDescription" placeholder="Certificate description or achievement details" rows="3"></textarea>
+</div>
+</div>
+<!-- Certificate Preview -->
+<div class="hidden" id="certificatePreview">
+<h3>Certificate Preview</h3>
+<div id="generatedCertificate"></div>
+</div>
+<div class="form-buttons">
+<button class="btn btn-info" onclick="generateCertificatePreview()" type="button">
+<i class="fas fa-eye"></i>
             Preview Certificate
         </button>
-        <button type="submit" class="btn btn-success">
-            <i class="fas fa-certificate"></i>
+<button class="btn btn-success" type="submit">
+<i class="fas fa-certificate"></i>
             Issue Certificate
         </button>
-        <button type="button" onclick="closeIssueCertificateModal()" class="btn btn-secondary">
-            <i class="fas fa-times"></i>
+<button class="btn btn-secondary" onclick="closeIssueCertificateModal()" type="button">
+<i class="fas fa-times"></i>
             Cancel
         </button>
-    </div>
+</div>
 </form>
-
-        </div>
-    </div>
-    
-    <!-- View Certificate Modal -->
-    <div id="viewCertificateModal" class="modal">
-        <div class="modal-backdrop" onclick="closeViewCertificateModal()"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Certificate Details</h2>
-                <button class="close-btn" onclick="closeViewCertificateModal()">&times;</button>
-            </div>
-            <div id="viewCertificateContent">
-                <!-- Certificate will be displayed here -->
-            </div>
-            <div class="form-buttons">
-                <button onclick="printCertificate()" class="btn btn-primary">
-                    <i class="fas fa-print"></i>
+</div>
+</div>
+<!-- View Certificate Modal -->
+<div class="modal" id="viewCertificateModal">
+<div class="modal-backdrop" onclick="closeViewCertificateModal()"></div>
+<div class="modal-content">
+<div class="modal-header">
+<h2 class="modal-title">Certificate Details</h2>
+<button class="close-btn" onclick="closeViewCertificateModal()">×</button>
+</div>
+<div id="viewCertificateContent">
+<!-- Certificate will be displayed here -->
+</div>
+<div class="form-buttons">
+<button class="btn btn-primary" onclick="printCertificate()">
+<i class="fas fa-print"></i>
                     Print Certificate
                 </button>
-                <button onclick="downloadCertificate()" class="btn btn-success">
-                    <i class="fas fa-download"></i>
+<button class="btn btn-success" onclick="downloadCertificate()">
+<i class="fas fa-download"></i>
                     Download
                 </button>
-                <button onclick="closeViewCertificateModal()" class="btn btn-secondary">
-                    <i class="fas fa-times"></i>
+<button class="btn btn-secondary" onclick="closeViewCertificateModal()">
+<i class="fas fa-times"></i>
                     Close
                 </button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Import Modal -->
-    <div id="importModal" class="modal">
-        <div class="modal-backdrop" onclick="closeImportModal()"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Import Data</h2>
-                <button class="close-btn" onclick="closeImportModal()">&times;</button>
-            </div>
-            <div class="form-group">
-                <label for="importFile">Select CSV File</label>
-                <div class="file-upload">
-                    <input type="file" id="importFile" accept=".csv" onchange="handleFileUpload(this, 'importFileLabel')">
-                    <label for="importFile" class="file-upload-label" id="importFileLabel">
-                        <i class="fas fa-file-csv"></i>
+</div>
+</div>
+</div>
+<!-- Import Modal -->
+<div class="modal" id="importModal">
+<div class="modal-backdrop" onclick="closeImportModal()"></div>
+<div class="modal-content">
+<div class="modal-header">
+<h2 class="modal-title">Import Data</h2>
+<button class="close-btn" onclick="closeImportModal()">×</button>
+</div>
+<div class="form-group">
+<label for="importFile">Select CSV File</label>
+<div class="file-upload">
+<input accept=".csv" id="importFile" onchange="handleFileUpload(this, 'importFileLabel')" type="file"/>
+<label class="file-upload-label" for="importFile" id="importFileLabel">
+<i class="fas fa-file-csv"></i>
                         Choose CSV file
                     </label>
+</div>
+</div>
+<div class="form-group">
+<label>CSV Format Requirements:</label>
+<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 12px;">
+<strong>Required columns:</strong> Name, Email, Code, Position, State, Zone<br/>
+<strong>Optional columns:</strong> Password (will be auto-generated if not provided)
                 </div>
-            </div>
-            <div class="form-group">
-                <label>CSV Format Requirements:</label>
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 12px;">
-                    <strong>Required columns:</strong> Name, Email, Code, Position, State, Zone<br>
-                    <strong>Optional columns:</strong> Password (will be auto-generated if not provided)
-                </div>
-            </div>
-            <div class="form-buttons">
-                <button onclick="importData()" class="btn btn-success">
-                    <i class="fas fa-upload"></i>
+</div>
+<div class="form-buttons">
+<button class="btn btn-success" onclick="importData()">
+<i class="fas fa-upload"></i>
                     Import Data
                 </button>
-                <button onclick="downloadSampleCSV()" class="btn btn-info">
-                    <i class="fas fa-download"></i>
+<button class="btn btn-info" onclick="downloadSampleCSV()">
+<i class="fas fa-download"></i>
                     Download Sample
                 </button>
-                <button onclick="closeImportModal()" class="btn btn-secondary">
-                    <i class="fas fa-times"></i>
+<button class="btn btn-secondary" onclick="closeImportModal()">
+<i class="fas fa-times"></i>
                     Cancel
                 </button>
-            </div>
-            <div id="importStatus"></div>
-        </div>
-    </div>
-    
-    <!-- Restore Modal -->
-    <div id="restoreModal" class="modal">
-        <div class="modal-backdrop" onclick="closeRestoreModal()"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Restore Backup</h2>
-                <button class="close-btn" onclick="closeRestoreModal()">&times;</button>
-            </div>
-            <div class="form-group">
-                <label for="restoreFile">Select Backup File</label>
-                <div class="file-upload">
-                    <input type="file" id="restoreFile" accept=".json" onchange="handleFileUpload(this, 'restoreFileLabel')">
-                    <label for="restoreFile" class="file-upload-label" id="restoreFileLabel">
-                        <i class="fas fa-file-archive"></i>
+</div>
+<div id="importStatus"></div>
+</div>
+</div>
+<!-- Restore Modal -->
+<div class="modal" id="restoreModal">
+<div class="modal-backdrop" onclick="closeRestoreModal()"></div>
+<div class="modal-content">
+<div class="modal-header">
+<h2 class="modal-title">Restore Backup</h2>
+<button class="close-btn" onclick="closeRestoreModal()">×</button>
+</div>
+<div class="form-group">
+<label for="restoreFile">Select Backup File</label>
+<div class="file-upload">
+<input accept=".json" id="restoreFile" onchange="handleFileUpload(this, 'restoreFileLabel')" type="file"/>
+<label class="file-upload-label" for="restoreFile" id="restoreFileLabel">
+<i class="fas fa-file-archive"></i>
                         Choose backup file
                     </label>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="replaceExisting">
+</div>
+</div>
+<div class="form-group">
+<label>
+<input id="replaceExisting" type="checkbox"/>
                     Replace existing data (WARNING: This will delete all current data)
                 </label>
-            </div>
-            <div class="form-buttons">
-                <button onclick="restoreBackup()" class="btn btn-warning">
-                    <i class="fas fa-upload"></i>
+</div>
+<div class="form-buttons">
+<button class="btn btn-warning" onclick="restoreBackup()">
+<i class="fas fa-upload"></i>
                     Restore Backup
                 </button>
-                <button onclick="closeRestoreModal()" class="btn btn-secondary">
-                    <i class="fas fa-times"></i>
+<button class="btn btn-secondary" onclick="closeRestoreModal()">
+<i class="fas fa-times"></i>
                     Cancel
                 </button>
-            </div>
-            <div id="restoreStatus"></div>
-        </div>
-    </div>
-    
-    <!-- Confirmation Modal -->
-    <div id="confirmModal" class="modal">
-        <div class="modal-backdrop" onclick="closeConfirmModal()"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title" id="confirmTitle">Confirm Action</h2>
-                <button class="close-btn" onclick="closeConfirmModal()">&times;</button>
-            </div>
-            <div id="confirmMessage">Are you sure you want to proceed?</div>
-            <div class="form-buttons">
-                <button id="confirmYes" class="btn btn-danger">
-                    <i class="fas fa-check"></i>
+</div>
+<div id="restoreStatus"></div>
+</div>
+</div>
+<!-- Confirmation Modal -->
+<div class="modal" id="confirmModal">
+<div class="modal-backdrop" onclick="closeConfirmModal()"></div>
+<div class="modal-content">
+<div class="modal-header">
+<h2 class="modal-title" id="confirmTitle">Confirm Action</h2>
+<button class="close-btn" onclick="closeConfirmModal()">×</button>
+</div>
+<div id="confirmMessage">Are you sure you want to proceed?</div>
+<div class="form-buttons">
+<button class="btn btn-danger" id="confirmYes">
+<i class="fas fa-check"></i>
                     Yes, Proceed
                 </button>
-                <button onclick="closeConfirmModal()" class="btn btn-secondary">
-                    <i class="fas fa-times"></i>
+<button class="btn btn-secondary" onclick="closeConfirmModal()">
+<i class="fas fa-times"></i>
                     Cancel
                 </button>
-            </div>
-        </div>
-    </div>
+</div>
+</div>
+</div>
 </body>
 </html>
-
