@@ -1111,18 +1111,18 @@ async function fetchMembers() {
 
 
 
+
 function renderMembersTable(members) {
     console.log('Rendering members table with', members.length, 'members');
-    
+
     const tableBody = document.getElementById('membersTableBody');
     if (!tableBody) {
         console.error('Members table body not found');
         return;
     }
-    
-    // Clear existing content
+
     tableBody.innerHTML = '';
-    
+
     if (!members || members.length === 0) {
         tableBody.innerHTML = `
             <tr>
@@ -1135,9 +1135,8 @@ function renderMembersTable(members) {
         `;
         return;
     }
-    
-    // Render each member
-    members.forEach((member, index) => {
+
+    members.forEach((member) => {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>
@@ -1169,13 +1168,11 @@ function renderMembersTable(members) {
         `;
         tableBody.appendChild(row);
     });
-    
-    // Setup event delegation for the newly created elements
+
     setupEventDelegation();
-    
-    // Update member count
     updateMemberCount(members.length);
 }
+
 
 // Helper function to update member count display
 function updateMemberCount(count) {
