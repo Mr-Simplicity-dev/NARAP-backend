@@ -1343,7 +1343,7 @@ body {
         flex-direction: column;
         gap: 10px;
     }
-}
+  
 
 /* Extra small mobile devices */
 @media (max-width: 480px) {
