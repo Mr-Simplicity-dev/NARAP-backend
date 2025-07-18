@@ -7849,7 +7849,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-// Restored setupEventDelegation function
 function setupEventDelegation() {
     document.body.addEventListener('click', function (event) {
         const id = event.target.dataset.id;
@@ -7862,16 +7861,6 @@ function setupEventDelegation() {
         }
         if (event.target.matches('[data-action="view"]') && id) {
             viewIdCard(id);
-        }
-    });
-}}
-        if (event.target.matches('[data-action="edit"]')) {
-            const id = event.target.dataset.id;
-            if (id) {
-        }
-        if (event.target.matches('[data-action="view"]')) {
-            const id = event.target.dataset.id;
-            if (id) {
         }
     });
 }
