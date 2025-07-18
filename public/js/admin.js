@@ -7883,37 +7883,98 @@ function setupEventDelegation() {
 }
 
 // Safer Image Preview
-function setupPassportPreview() {
-    const passportInput = document.getElementById('editPassportInput');
-    const previewImg = document.getElementById('editPassportPreview');
+function setupPassportPreview(inputId = 'editPassportInput', previewId = 'editPassportPreview', options = {}) {
+    const defaults = { maxSize: 2 }; // 2MB default
+    const config = { ...defaults, ...options };
     
-    if (!passportInput || !previewImg) return;
+    const passportInput = document.getElementById(inputId);
+    const previewImg = document.getElementById(previewId);
 
-    passportInput.addEventListener('change', () => {
-        const file = passportInput.files[0];
-        if (file && file.type.startsWith('image/')) {
+    if (!passportInput || !previewImg) {
+        console.error('Passport preview elements not found');
+        return () => {}; // Return empty cleanup if elements missing
+    }
+
+    const errorContainer = document.createElement('div');
+    errorContainer.className = 'image-error text-danger small mt-1';
+    passportInput.parentNode.insertBefore(errorContainer, passportInput.nextSibling);
+
+    const showError = (message) => {
+        errorContainer.textContent = message;
+        passportInput.value = ''; // Clear invalid file
+    };
+
+    const readFileAsDataURL = (file) => {
+        return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = (e) => previewImg.src = e.target.result;
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error);
             reader.readAsDataURL(file);
+        });
+    };
+
+    const handleFileChange = async () => {
+        errorContainer.textContent = '';
+        previewImg.src = '';
+        
+        const file = passportInput.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            showError('Please select an image file (JPEG, PNG)');
+            return;
         }
-    });
+
+        if (file.size > config.maxSize * 1024 * 1024) {
+            showError(`File too large (max ${config.maxSize}MB)`);
+            return;
+        }
+
+        try {
+            const dataUrl = await readFileAsDataURL(file);
+            previewImg.src = dataUrl;
+        } catch (error) {
+            showError('Failed to load image');
+            console.error('Image preview error:', error);
+        }
+    };
+
+    passportInput.addEventListener('change', handleFileChange);
+    return () => passportInput.removeEventListener('change', handleFileChange);
 }
 
-// Safer Modal Handling
+/**
+ * Initialize Bootstrap modals safely
+ */
 function initModals() {
     try {
         const editModalEl = document.getElementById('editModal');
         if (editModalEl) {
             const editModal = new bootstrap.Modal(editModalEl);
-            // Additional modal setup
+            // Additional modal setup here
         }
     } catch (error) {
         console.error('Modal initialization failed:', error);
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    setupEventDelegation();
-    setupPassportPreview();
-    initModals();
-});
+/**
+ * Initialize all components when DOM is ready
+ */
+function initializeApp() {
+    try {
+        setupEventDelegation();
+        const cleanupPassportPreview = setupPassportPreview('editPassportInput', 'editPassportPreview', {
+            maxSize: 3 // Allow 3MB files
+        });
+        initModals();
+
+        // Optional: Clean up when needed (e.g., in a SPA)
+        // window.addEventListener('beforeunload', cleanupPassportPreview);
+    } catch (error) {
+        console.error('Initialization error:', error);
+    }
+}
+
+// Single DOMContentLoaded listener
+document.addEventListener('DOMContentLoaded', initializeApp);
