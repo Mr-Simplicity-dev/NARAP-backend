@@ -7565,7 +7565,6 @@ function validateMemberForm() {
 
 
 // Update certificate form validation to make email optional
-// Update certificate form validation to make email optional
 function validateCertificateForm() {
     const number = document.getElementById('certificateNumber')?.value?.trim();
     const recipient = document.getElementById('certificateRecipient')?.value?.trim();
@@ -7613,7 +7612,6 @@ function clearImagePreviews() {
 }
 
 // Initialize dashboard function
-// Initialize dashboard function
 function initializeDashboard() {
     console.log('Initializing dashboard...');
     
@@ -7635,8 +7633,6 @@ function initializeDashboard() {
         showSection('members');
     }
 }
-
-
 
 // Update navigation function
 function updateNavigation() {
