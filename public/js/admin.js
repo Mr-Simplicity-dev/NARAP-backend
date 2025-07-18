@@ -5789,7 +5789,7 @@ async function verifyCertificate(certificateNumber) {
 }
 
 
-// Event listeners and initialization
+
 // ======================
 // MODAL SYSTEM (Combined Approach)
 // ======================
