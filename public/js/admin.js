@@ -7849,55 +7849,71 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-// Event Delegation for Member Actions
+
+// Improved Event Delegation
 function setupEventDelegation() {
-    document.body.addEventListener('click', function (event) {
-        const id = event.target.dataset.id;
+    document.addEventListener('click', (event) => {
+        const target = event.target.closest('[data-action]');
+        if (!target) return;
+        
+        const id = target.dataset.id;
+        if (!id) return;
 
-        // Handle member actions (delete, edit, view)
-        if (id) {
-            if (event.target.matches('[data-action="delete"]')) {
+        switch(target.dataset.action) {
+            case 'delete':
                 deleteMember(id);
-            } 
-            else if (event.target.matches('[data-action="edit"]')) {
+                break;
+            case 'edit':
                 editMember(id);
-            } 
-            else if (event.target.matches('[data-action="view"]')) {
+                break;
+            case 'view':
                 viewIdCard(id);
-            }
+                break;
         }
+    });
 
-        // Handle pagination clicks
-        if (event.target.classList.contains('page-number')) {
-            const page = parseInt(event.target.textContent.trim());
-            if (!isNaN(page)) {
-                goToPage(page);
-            }
+    // Improved pagination handling
+    document.addEventListener('click', (event) => {
+        const pageBtn = event.target.closest('.page-number');
+        if (pageBtn) {
+            const page = pageBtn.dataset.page; // Use data-page attribute instead
+            if (page) goToPage(parseInt(page));
         }
     });
 }
 
-// Passport Image Preview Handler
+// Safer Image Preview
 function setupPassportPreview() {
     const passportInput = document.getElementById('editPassportInput');
     const previewImg = document.getElementById('editPassportPreview');
+    
+    if (!passportInput || !previewImg) return;
 
-    if (passportInput && previewImg) {
-        passportInput.addEventListener('change', function () {
-            const file = passportInput.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    previewImg.src = e.target.result;
-                };
-                reader.readAsDataURL(file);
-            }
-        });
+    passportInput.addEventListener('change', () => {
+        const file = passportInput.files[0];
+        if (file && file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (e) => previewImg.src = e.target.result;
+            reader.readAsDataURL(file);
+        }
+    });
+}
+
+// Safer Modal Handling
+function initModals() {
+    try {
+        const editModalEl = document.getElementById('editModal');
+        if (editModalEl) {
+            const editModal = new bootstrap.Modal(editModalEl);
+            // Additional modal setup
+        }
+    } catch (error) {
+        console.error('Modal initialization failed:', error);
     }
 }
 
-// Initialize everything when DOM is loaded
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', () => {
     setupEventDelegation();
     setupPassportPreview();
+    initModals();
 });
