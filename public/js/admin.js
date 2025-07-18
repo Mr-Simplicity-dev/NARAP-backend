@@ -6046,24 +6046,19 @@ window.addEventListener('load', function() {
 window.debugSidebar = function() {
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.querySelector('.sidebar-overlay');
+    const hamburgerBtns = document.querySelectorAll('.hamburger-btn');
     
     console.log('=== SIDEBAR DEBUG INFO ===');
     console.log('Sidebar element:', sidebar);
     console.log('Sidebar classes:', sidebar ? sidebar.className : 'Not found');
     console.log('Overlay element:', overlay);
-    console.log('Overlay classes:', overlay ? overlay.className : 'Not found');
+    console.log('Hamburger buttons found:', hamburgerBtns.length);
     console.log('Window width:', window.innerWidth);
-    console.log('Is mobile:', window.innerWidth <= 768);
     console.log('toggleSidebar function exists:', typeof window.toggleSidebar === 'function');
     console.log('========================');
 };
 
-// Call debug function in development (remove in production)
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    setTimeout(() => {
-        window.debugSidebar();
-    }, 2000);
-}
+
 
 // Keyboard shortcuts
 document.addEventListener('keydown', function(e) {
