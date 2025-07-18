@@ -7849,35 +7849,36 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
+// Event Delegation for Member Actions
 function setupEventDelegation() {
     document.body.addEventListener('click', function (event) {
         const id = event.target.dataset.id;
 
-        if (event.target.matches('[data-action="delete"]') && id) {
-            deleteMember(id);
+        // Handle member actions (delete, edit, view)
+        if (id) {
+            if (event.target.matches('[data-action="delete"]')) {
+                deleteMember(id);
+            } 
+            else if (event.target.matches('[data-action="edit"]')) {
+                editMember(id);
+            } 
+            else if (event.target.matches('[data-action="view"]')) {
+                viewIdCard(id);
+            }
         }
-        if (event.target.matches('[data-action="edit"]') && id) {
-            editMember(id);
-        }
-        if (event.target.matches('[data-action="view"]') && id) {
-            viewIdCard(id);
+
+        // Handle pagination clicks
+        if (event.target.classList.contains('page-number')) {
+            const page = parseInt(event.target.textContent.trim());
+            if (!isNaN(page)) {
+                goToPage(page);
+            }
         }
     });
 }
 
-// Attach pagination click handlers explicitly
-document.addEventListener('click', function (e) {
-    if (e.target.classList.contains('page-number')) {
-        const page = parseInt(e.target.textContent.trim());
-        if (!isNaN(page)) {
-            goToPage(page);
-        }
-    }
-});
-
-
-
-document.addEventListener('DOMContentLoaded', function () {
+// Passport Image Preview Handler
+function setupPassportPreview() {
     const passportInput = document.getElementById('editPassportInput');
     const previewImg = document.getElementById('editPassportPreview');
 
@@ -7893,4 +7894,10 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+}
+
+// Initialize everything when DOM is loaded
+document.addEventListener('DOMContentLoaded', function () {
+    setupEventDelegation();
+    setupPassportPreview();
 });
