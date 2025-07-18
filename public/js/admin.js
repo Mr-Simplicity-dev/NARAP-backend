@@ -7868,14 +7868,10 @@ function setupEventDelegation() {
         if (event.target.matches('[data-action="edit"]')) {
             const id = event.target.dataset.id;
             if (id) {
-                editItemById(id);
-            }
         }
         if (event.target.matches('[data-action="view"]')) {
             const id = event.target.dataset.id;
             if (id) {
-                viewItemById(id);
-            }
         }
     });
 }
