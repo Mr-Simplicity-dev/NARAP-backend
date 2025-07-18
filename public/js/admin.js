@@ -5801,17 +5801,26 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Initialize all modals
         window.initModals = function() {
-            const modals = {
-                memberModal: '#memberModal',
-                editMemberModal: '#editMemberModal',
-                addCertificateModal: '#addCertificateModal',
-                viewCertificateModal: '#viewCertificateModal'
-            };
-            Object.keys(modals).forEach(key => {
-                const el = document.querySelector(modals[key]);
-                if (el) window[key] = new bootstrap.Modal(el);
-            });
+    try {
+        const modals = {
+            memberModal: '#memberModal',
+            editMemberModal: '#editMemberModal',
+            // ...
         };
+        Object.keys(modals).forEach(key => {
+            const el = document.querySelector(modals[key]);
+            if (el) {
+                try {
+                    window[key] = new bootstrap.Modal(el);
+                } catch (e) {
+                    console.error(`Failed to init ${key}:`, e);
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Modal initialization failed:', error);
+    }
+};
         if (typeof initModals === 'function') initModals();
         
         // Setup preview listeners
@@ -7775,18 +7784,39 @@ function setupMobileMenu() {
     }
     
     // Close sidebar when clicking outside on mobile
-    document.addEventListener('click', function(e) {
+           // Cache elements at startup
         const sidebar = document.querySelector('.sidebar');
-        const hamburger = document.querySelector('.hamburger, .menu-toggle, .menu-btn');
-        
-        if (sidebar && sidebar.classList.contains('active')) {
-            if (!sidebar.contains(e.target) && !hamburger?.contains(e.target)) {
-                if (typeof window.closeSidebar === 'function') {
-                    window.closeSidebar();
-                }
+        const overlay = document.querySelector('.sidebar-overlay');
+        const hamburgerBtns = document.querySelectorAll('.hamburger-btn');
+
+        // Unified click handler
+        document.addEventListener('click', (e) => {
+            // Hamburger toggle
+            if (e.target.closest('.hamburger-btn')) {
+                e.preventDefault();
+                window.toggleSidebar?.();
             }
-        }
-    });
+            
+            // Overlay/sidebar close
+            if (overlay?.contains(e.target) || 
+                (sidebar?.classList.contains('mobile-open') && 
+                !sidebar.contains(e.target) && 
+                !e.target.closest('.hamburger-btn'))) {
+                window.toggleSidebar?.();
+            }
+        });
+
+        // Throttled resize handler
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                if (window.innerWidth >= 769 && sidebar?.classList.contains('mobile-open')) {
+                    window.toggleSidebar?.();
+                }
+            }, 100);
+        });
+
 }
 
 // Mobile sidebar toggle functions
@@ -7883,64 +7913,45 @@ function setupEventDelegation() {
 }
 
 // Safer Image Preview
-function setupPassportPreview(inputId = 'editPassportInput', previewId = 'editPassportPreview', options = {}) {
-    const defaults = { maxSize: 2 }; // 2MB default
-    const config = { ...defaults, ...options };
-    
-    const passportInput = document.getElementById(inputId);
-    const previewImg = document.getElementById(previewId);
+function setupPassportPreview() {
+    const input = document.getElementById('editPassportInput');
+    const preview = document.getElementById('editPassportPreview');
+    if (!input || !preview) return;
 
-    if (!passportInput || !previewImg) {
-        console.error('Passport preview elements not found');
-        return () => {}; // Return empty cleanup if elements missing
-    }
+    const errorMsg = document.createElement('div');
+    errorMsg.className = 'upload-error text-danger small';
+    input.parentNode.insertBefore(errorMsg, input.nextSibling);
 
-    const errorContainer = document.createElement('div');
-    errorContainer.className = 'image-error text-danger small mt-1';
-    passportInput.parentNode.insertBefore(errorContainer, passportInput.nextSibling);
-
-    const showError = (message) => {
-        errorContainer.textContent = message;
-        passportInput.value = ''; // Clear invalid file
-    };
-
-    const readFileAsDataURL = (file) => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = () => reject(reader.error);
-            reader.readAsDataURL(file);
-        });
-    };
-
-    const handleFileChange = async () => {
-        errorContainer.textContent = '';
-        previewImg.src = '';
+    input.addEventListener('change', async () => {
+        const file = input.files[0];
+        errorMsg.textContent = '';
         
-        const file = passportInput.files[0];
         if (!file) return;
-
         if (!file.type.startsWith('image/')) {
-            showError('Please select an image file (JPEG, PNG)');
+            errorMsg.textContent = 'Only JPEG/PNG images allowed';
             return;
         }
-
-        if (file.size > config.maxSize * 1024 * 1024) {
-            showError(`File too large (max ${config.maxSize}MB)`);
+        if (file.size > 2 * 1024 * 1024) {
+            errorMsg.textContent = 'Max file size: 2MB';
             return;
         }
 
         try {
-            const dataUrl = await readFileAsDataURL(file);
-            previewImg.src = dataUrl;
+            preview.src = await readFileAsDataURL(file);
         } catch (error) {
-            showError('Failed to load image');
-            console.error('Image preview error:', error);
+            errorMsg.textContent = 'Failed to load image';
+            console.error(error);
         }
-    };
+    });
+}
 
-    passportInput.addEventListener('change', handleFileChange);
-    return () => passportInput.removeEventListener('change', handleFileChange);
+function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
 }
 
 /**
@@ -7948,13 +7959,19 @@ function setupPassportPreview(inputId = 'editPassportInput', previewId = 'editPa
  */
 function initModals() {
     try {
-        const editModalEl = document.getElementById('editModal');
-        if (editModalEl) {
-            const editModal = new bootstrap.Modal(editModalEl);
-            // Additional modal setup here
-        }
+        const modals = [
+            { id: 'editModal', instance: null },
+            { id: 'viewModal', instance: null }
+        ];
+        
+        modals.forEach(modal => {
+            const el = document.getElementById(modal.id);
+            if (el) modal.instance = new bootstrap.Modal(el);
+        });
+        
+        return modals; // Optional: Return instances for later use
     } catch (error) {
-        console.error('Modal initialization failed:', error);
+        console.error('Modal init failed:', error);
     }
 }
 
