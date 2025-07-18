@@ -2618,11 +2618,11 @@ function viewRevocationDetails(certificateId) {
     document.body.appendChild(modal);
     
     // Close modal when clicking outside
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
-            modal.remove();
-        }
-    });
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal')) {
+        e.target.style.display = 'none';
+    }
+});
 }
 
 // Print revocation details function
@@ -6032,18 +6032,12 @@ window.addEventListener('load', function() {
     // Ensure hamburger buttons work even if main script fails
     setTimeout(() => {
         const hamburgerBtns = document.querySelectorAll('.hamburger-btn');
-        hamburgerBtns.forEach(btn => {
-            if (!btn.hasAttribute('data-listener-added')) {
-                btn.setAttribute('data-listener-added', 'true');
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (typeof window.toggleSidebar === 'function') {
-                        window.toggleSidebar();
-                    }
-                });
-            }
-        });
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.hamburger-btn')) {
+        e.preventDefault();
+        window.toggleSidebar();
+    }
+});
     }, 1000);
 });
 
@@ -7770,11 +7764,10 @@ window.closeSidebar = function() {
 // ======================
 // MAIN INITIALIZATION
 // ======================
-
 document.addEventListener('DOMContentLoaded', function() {
     try {
         console.log('NARAP Admin Panel initializing...');
-
+        
         // Core setup
         setupEventDelegation();
         setupMobileMenu();
@@ -7785,29 +7778,43 @@ document.addEventListener('DOMContentLoaded', function() {
         if (typeof switchTab === 'function') switchTab('dashboard');
         if (typeof initModals === 'function') initModals();
         if (typeof setupPreviewListeners === 'function') setupPreviewListeners();
-
+        
+        // Initialize pagination
+        if (typeof initializePagination === 'function') {
+            initializePagination();
+        }
+        
         // Load members
         setTimeout(() => {
             if (typeof loadMembers === 'function') {
                 loadMembers().catch(console.error);
             }
         }, 1000);
-
-        // Throttled resize handler
-        let resizeTimeout;
-        window.addEventListener('resize', () => {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
-                if (window.innerWidth >= 769) {
-                    window.closeSidebar();
-                }
-            }, 100);
-        });
-
+        
         console.log('NARAP Admin Panel initialized successfully');
+        
     } catch (error) {
         console.error('Error initializing admin panel:', error);
     }
+});
+
+// ===== Throttled Resize Handler =====
+const throttleResize = (() => {
+    let timeout;
+    return (callback, delay = 100) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(callback, delay);
+    };
+})();
+
+window.addEventListener('resize', () => {
+    throttleResize(() => {
+        if (window.innerWidth >= 769) {
+            if (typeof closeSidebar === 'function') {
+                closeSidebar();
+            }
+        }
+    });
 });
 
 // ======================
