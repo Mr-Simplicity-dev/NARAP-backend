@@ -360,6 +360,8 @@ body {
     position: sticky;
     top: 0;
     z-index: 100;
+    flex-wrap: nowrap;
+    overflow-x: auto;
 }
 
 .header-title {
@@ -367,6 +369,11 @@ body {
     font-weight: 600;
     color: var(--dark-color);
     margin: 0;
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .header-actions {
@@ -374,6 +381,8 @@ body {
     align-items: center;
     gap: 15px;
     margin-left: auto;
+    flex: 1;
+    justify-content: flex-end;
 }
 
 .theme-toggle {
@@ -429,6 +438,8 @@ body {
     display: flex;
     align-items: center;
     gap: 5px;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .logout-btn:focus {
@@ -1106,6 +1117,9 @@ body {
         display: flex;
         align-items: center;
         justify-content: center;
+        position: relative;
+        margin-right: auto;
+        z-index: 1100;
     }
 
     /* Hide sidebar by default on mobile */
@@ -1139,6 +1153,23 @@ body {
         visibility: visible;
     }
 
+    /* Header adjustments for mobile */
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-left: 20px;
+        padding-right: 20px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+
+    .header-actions {
+        margin-left: 0;
+        flex: 1;
+        justify-content: flex-end;
+    }
+
     /* Adjust header padding to account for hamburger */
     .header {
         padding-left: 70px; /* Prevents hamburger from overlapping */
@@ -1165,6 +1196,8 @@ body {
     .btn {
         width: 100%;
         margin: 5px 0;
+        min-height: 44px;
+        padding: 12px 20px;
     }
     
     .search-filter-bar {
@@ -1280,6 +1313,32 @@ body {
         flex-direction: column;
         gap: 10px;
     }
+
+    /* Improve nav items for touch */
+    .nav-item {
+        min-height: 50px;
+        display: flex;
+        align-items: center;
+    }
+    
+    /* Improve form inputs for mobile */
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        font-size: 16px; /* Prevents zoom on iOS */
+        min-height: 44px;
+    }
+    
+    /* Better spacing for mobile */
+    .action-buttons .btn {
+        margin-bottom: 10px;
+    }
+    
+    /* Improve table scrolling */
+    .data-table-container {
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
 }
 
 /* Extra small mobile devices */
@@ -1344,40 +1403,6 @@ body {
     
     .id-card-info {
         font-size: 11px;
-    }
-}
-
-/* Additional mobile touch improvements */
-@media (max-width: 768px) {
-    /* Improve touch targets */
-    .btn {
-        min-height: 44px;
-        padding: 12px 20px;
-    }
-    
-    .nav-item {
-        min-height: 50px;
-        display: flex;
-        align-items: center;
-    }
-    
-    /* Improve form inputs for mobile */
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
-        font-size: 16px; /* Prevents zoom on iOS */
-        min-height: 44px;
-    }
-    
-    /* Better spacing for mobile */
-    .action-buttons .btn {
-        margin-bottom: 10px;
-    }
-    
-    /* Improve table scrolling */
-    .data-table-container {
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
 }
 
