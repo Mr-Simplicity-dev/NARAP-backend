@@ -5790,128 +5790,32 @@ async function verifyCertificate(certificateNumber) {
 
 
 // Event listeners and initialization
-document.addEventListener('DOMContentLoaded', function() {
-    try {
-        console.log('NARAP Admin Panel initializing...');
+// ======================
+// MODAL SYSTEM (Combined Approach)
+// ======================
 
-        setupEventDelegation();
-        
-        // Load theme
-        if (typeof loadTheme === 'function') loadTheme();
-        
-        // Auto-fill admin credentials on page load
-        if (typeof fillAdminCredentials === 'function') fillAdminCredentials();
-        
-        // Initialize dashboard as default tab
-        if (typeof switchTab === 'function') switchTab('dashboard');
-        
-        // Initialize all modals
-        window.initModals = function() {
-            const modals = {
-                memberModal: '#memberModal',
-                editMemberModal: '#editMemberModal',
-                addCertificateModal: '#addCertificateModal',
-                viewCertificateModal: '#viewCertificateModal'
-            };
-            Object.keys(modals).forEach(key => {
-                const el = document.querySelector(modals[key]);
-                if (el) window[key] = new bootstrap.Modal(el);
-            });
-        };
-window.handleModalTrigger = function(modalId) {
-    const modalEl = document.getElementById(modalId);
-    if (!modalEl) return;
-    window[modalId] = window[modalId] || new bootstrap.Modal(modalEl);
-    window[modalId].show();
-};
-        if (typeof initModals === 'function') initModals();
-        
-        // Setup preview listeners
-        if (typeof setupPreviewListeners === 'function') setupPreviewListeners();
-        
-        // Sidebar functionality
-        const sidebar = document.querySelector('.sidebar');
-        const overlay = document.querySelector('.sidebar-overlay');
-        
-        // Make toggleSidebar a GLOBAL function so HTML onclick can access it
-        const hamburgerBtns = document.querySelectorAll('.hamburger-btn');
-        console.log('Found hamburger buttons:', hamburgerBtns.length);
-        
-        hamburgerBtns.forEach((btn, index) => {
-let resizeTimeout;
-window.addEventListener('resize', () => {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
-        if (window.innerWidth >= 769 && sidebar?.classList.contains('mobile-open')) {
-            window.toggleSidebar?.();
-        }
-    }, 100);
-});
-            console.log('Adding listener to hamburger button', index);
-            btn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Hamburger button clicked via event listener');
-                window.toggleSidebar();
-            });
-            
-            // Add touch event for mobile (only for hamburger buttons)
-            btn.addEventListener('touchstart', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Hamburger button touched');
-                window.toggleSidebar();
-            }, { passive: false });
-        });
-        
-        // Overlay click to close sidebar
-        if (overlay) {
-            overlay.addEventListener('click', function(e) {
-                console.log('Overlay clicked');
-                window.toggleSidebar();
-            });
-        }
-        
-        // Close sidebar when clicking nav items on mobile
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', function() {
-                if (window.innerWidth <= 768) {
-                    console.log('Nav item clicked on mobile, closing sidebar');
-                    setTimeout(() => {
-                        window.toggleSidebar();
-                    }, 100);
-                }
-            });
-        });
-        
-        // Close sidebar when resizing to desktop
-        window.addEventListener('resize', function() {
-            if (window.innerWidth >= 769) {
-                console.log('Resized to desktop, closing sidebar');
-                if (sidebar) sidebar.classList.remove('mobile-open');
-                if (overlay) overlay.classList.remove('active');
-                document.body.classList.remove('sidebar-open');
-                document.body.style.overflow = '';
+// 1. MODAL INITIALIZATION (Pre-load frequent modals)
+window.initModals = function() {
+    const modals = {
+        memberModal: '#memberModal',
+        editMemberModal: '#editMemberModal',
+        addCertificateModal: '#addCertificateModal',
+        viewCertificateModal: '#viewCertificateModal'
+    };
+
+    Object.keys(modals).forEach(key => {
+        const el = document.querySelector(modals[key]);
+        if (el) {
+            try {
+                window[key] = new bootstrap.Modal(el);
+            } catch (e) {
+                console.error(`Failed to initialize ${key}:`, e);
             }
-        });
-        
-        // Set up modal close on outside click
-        const modals = document.querySelectorAll('.modal');
-        modals.forEach(modal => {
-            modal.addEventListener('click', function(e) {
-                if (e.target === modal) {
-                    modal.style.display = 'none';
-                }
-            });
-        });
-        
-        console.log('NARAP Admin Panel initialized successfully');
-        
-    } catch (error) {
-        console.error('Error initializing admin panel:', error);
-    }
-});
+        }
+    });
+};
 
+    
 // Login form functions (make sure these are global)
 window.login = function(event) {
     event.preventDefault();
@@ -7761,162 +7665,29 @@ function updateNavigation() {
     showSection('members');
 
 
-
-// =============================================================================
-// MOBILE SIDEBAR FIX - Add this to the end of admin.js
-// =============================================================================
-
-// Mobile-friendly sidebar toggle
-// Mobile menu setup
-function setupMobileMenu() {
-    // Find hamburger button
-    const hamburger = document.querySelector('.hamburger, .menu-toggle, [onclick*="toggleSidebar"]');
-    
-    if (hamburger) {
-        hamburger.onclick = function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (typeof window.toggleSidebar === 'function') {
-                window.toggleSidebar();
-            }
-        };
-        console.log('Mobile menu setup complete');
-    } else {
-        console.warn('Hamburger button not found');
-        // Try to find it by class
-        const menuBtn = document.querySelector('.menu-btn, .nav-toggle, .sidebar-toggle');
-        if (menuBtn) {
-            menuBtn.onclick = function(e) {
-                e.preventDefault();
-                if (typeof window.toggleSidebar === 'function') {
-                    window.toggleSidebar();
-                }
-            };
-        }
-    }
-    
-    // Close sidebar when clicking outside on mobile
-    document.addEventListener('click', function(e) {
-        const sidebar = document.querySelector('.sidebar');
-        const hamburger = document.querySelector('.hamburger, .menu-toggle, .menu-btn');
-        
-        if (sidebar && sidebar.classList.contains('active')) {
-            if (!sidebar.contains(e.target) && !hamburger?.contains(e.target)) {
-                if (typeof window.closeSidebar === 'function') {
-                    window.closeSidebar();
-                }
-            }
-        }
-    });
-}
-
-// Mobile sidebar toggle functions
-window.toggleSidebar = function() {
-    console.log('Toggle sidebar called');
-    const sidebar = document.querySelector('.sidebar');
-    
-    if (!sidebar) {
-        console.error('Sidebar not found');
-        return;
-    }
-    
-    sidebar.classList.toggle('active');
-    
-    // Handle overlay
-    let overlay = document.querySelector('.sidebar-overlay');
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.className = 'sidebar-overlay';
-        overlay.onclick = () => window.closeSidebar();
-        document.body.appendChild(overlay);
-    }
-    
-    overlay.classList.toggle('active');
-    document.body.style.overflow = sidebar.classList.contains('active') ? 'hidden' : '';
-};
-
-window.closeSidebar = function() {
-    console.log('Close sidebar called');
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.querySelector('.sidebar-overlay');
-    
-    if (sidebar) sidebar.classList.remove('active');
-    if (overlay) overlay.classList.remove('active');
-    document.body.style.overflow = '';
-};
-
-
-// Ensure members load on page load
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing...');
-    
-    // Setup mobile menu first
-    setupMobileMenu();
-    
-    // Initialize dashboard
-    setTimeout(() => {
-        if (typeof initializeDashboard === 'function') {
-            initializeDashboard();
-        }
-        
-        // Load members automatically
-        if (typeof loadMembers === 'function') {
-            loadMembers().catch(error => {
-                console.error('Failed to load members on startup:', error);
-            });
-        }
-    }, 1000);
-});
-
-
+// ======================
+// CORE FUNCTIONALITY
+// ======================
 
 function setupEventDelegation() {
-    document.body.addEventListener('click', function (event) {
+    document.body.addEventListener('click', function(event) {
         const id = event.target.dataset.id;
+        if (!id) return;
 
-        if (event.target.matches('[data-action="delete"]') && id) {
+        if (event.target.matches('[data-action="delete"]')) {
             deleteMember(id);
-        }
-        if (event.target.matches('[data-action="edit"]') && id) {
+        } else if (event.target.matches('[data-action="edit"]')) {
             editMember(id);
-        }
-        if (event.target.matches('[data-action="view"]') && id) {
+        } else if (event.target.matches('[data-action="view"]')) {
             viewIdCard(id);
         }
     });
 }
 
-// Attach pagination click handlers explicitly
-document.addEventListener('click', function (e) {
-    if (e.target.classList.contains('page-number')) {
-        const page = parseInt(e.target.textContent.trim());
-        if (!isNaN(page)) {
-            goToPage(page);
-        }
-    }
-});
+// ======================
+// MODAL SYSTEM
+// ======================
 
-
-
-document.addEventListener('DOMContentLoaded', function () {
-    const passportInput = document.getElementById('editPassportInput');
-    const previewImg = document.getElementById('editPassportPreview');
-
-    if (passportInput && previewImg) {
-        passportInput.addEventListener('change', function () {
-            const file = passportInput.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    previewImg.src = e.target.result;
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-    }
-});
-
-// ===== MODAL SYSTEM =====
 window.initModals = function() {
     if (typeof bootstrap?.Modal !== 'function') {
         console.error('Bootstrap Modal not loaded!');
@@ -7945,13 +7716,125 @@ window.initModals = function() {
 window.handleModalTrigger = function(modalId) {
     const modalEl = document.getElementById(modalId);
     if (!modalEl) {
-        console.warn(`Modal #${modalId} not found!`);
+        if (process.env.NODE_ENV !== 'production') {
+            console.warn(`[NARAP] Modal #${modalId} not found. Check:
+            - Element exists in DOM
+            - ID spelling matches
+            - Bootstrap JS is loaded`);
+        }
         return;
     }
 
-    window[modalId] = window[modalId] || new bootstrap.Modal(modalEl);
-    window[modalId].show();
+    try {
+        window[modalId] = window[modalId] || new bootstrap.Modal(modalEl);
+        window[modalId].show();
+    } catch (error) {
+        console.error(`Modal ${modalId} failed:`, error);
+    }
 };
 
-// Auto-initialize on load
-document.addEventListener('DOMContentLoaded', initModals);
+// ======================
+// SIDEBAR SYSTEM
+// ======================
+
+function setupMobileMenu() {
+    const hamburger = document.querySelector('.hamburger, .menu-toggle, [onclick*="toggleSidebar"]');
+    
+    if (hamburger) {
+        hamburger.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.toggleSidebar?.();
+        };
+    }
+
+    document.addEventListener('click', function(e) {
+        const sidebar = document.querySelector('.sidebar');
+        const hamburger = document.querySelector('.hamburger, .menu-toggle');
+        
+        if (sidebar?.classList.contains('active')) {
+            if (!sidebar.contains(e.target) && !hamburger?.contains(e.target)) {
+                window.closeSidebar?.();
+            }
+        }
+    });
+}
+
+window.toggleSidebar = function() {
+    const sidebar = document.querySelector('.sidebar');
+    if (!sidebar) return;
+
+    const isOpening = !sidebar.classList.contains('active');
+    sidebar.classList.toggle('active');
+
+    let overlay = document.querySelector('.sidebar-overlay');
+    if (isOpening && !overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'sidebar-overlay';
+        overlay.onclick = window.closeSidebar;
+        document.body.appendChild(overlay);
+    }
+    
+    overlay?.classList.toggle('active');
+    document.body.style.overflow = isOpening ? 'hidden' : '';
+};
+
+window.closeSidebar = function() {
+    document.querySelector('.sidebar')?.classList.remove('active');
+    document.querySelector('.sidebar-overlay')?.classList.remove('active');
+    document.body.style.overflow = '';
+};
+
+// ======================
+// MAIN INITIALIZATION
+// ======================
+
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        console.log('NARAP Admin Panel initializing...');
+
+        // Core setup
+        setupEventDelegation();
+        setupMobileMenu();
+        
+        // Initialize systems
+        if (typeof loadTheme === 'function') loadTheme();
+        if (typeof fillAdminCredentials === 'function') fillAdminCredentials();
+        if (typeof switchTab === 'function') switchTab('dashboard');
+        if (typeof initModals === 'function') initModals();
+        if (typeof setupPreviewListeners === 'function') setupPreviewListeners();
+
+        // Load members
+        setTimeout(() => {
+            if (typeof loadMembers === 'function') {
+                loadMembers().catch(console.error);
+            }
+        }, 1000);
+
+        // Throttled resize handler
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                if (window.innerWidth >= 769) {
+                    window.closeSidebar();
+                }
+            }, 100);
+        });
+
+        console.log('NARAP Admin Panel initialized successfully');
+    } catch (error) {
+        console.error('Error initializing admin panel:', error);
+    }
+});
+
+// ======================
+// PAGINATION
+// ======================
+
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('page-number')) {
+        const page = parseInt(e.target.textContent.trim());
+        if (!isNaN(page)) goToPage(page);
+    }
+});
