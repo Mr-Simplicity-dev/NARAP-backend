@@ -1413,14 +1413,14 @@ async function handleLoginSuccess() {
 // 5. Page load initialization
 async function loadMembers() {
     const tableBody = document.getElementById('membersTableBody');
-    
+
     if (!tableBody) {
         console.error('Members table body not found');
         return [];
     }
-    
+
     try {
-        // Show loading state with improved message
+        // Show loading spinner
         showMessage('Loading members...', 'info');
         tableBody.innerHTML = `
             <tr>
@@ -1430,46 +1430,47 @@ async function loadMembers() {
                 </td>
             </tr>
         `;
-        
-        // Load members with authentication
+
+        // Immediately fetch members after login
         const members = await fetchMembers();
-        
-        // Store all members globally for pagination
+
+        // Update global state
+        appState.members = members;
         allMembers = members;
-        appState.members = members; // Store in global state
-        
-        // Set up initial pagination state
-        totalMembers = members.length;
         filteredMembers = [...members];
+        totalMembers = members.length;
         currentPage = 1;
-        
-        // Get first page of members
-        const startIndex = 0;
-        const endIndex = membersPerPage;
-        const paginatedMembers = members.slice(startIndex, endIndex);
-        
-        currentMembers = paginatedMembers; // Store paginated members for compatibility
-        
-        // Use the renderMembersTable function
+
+        // Paginate members immediately
+        const paginatedMembers = members.slice(0, membersPerPage);
+        currentMembers = paginatedMembers;
+
+        // Render table immediately
         renderMembersTable(paginatedMembers);
-        
-        // Update pagination controls
+
+        // Immediately display pagination and members count
         updatePaginationControls();
-        updateMembersCount(startIndex, Math.min(endIndex, totalMembers), totalMembers);
-        
+        updateMembersCount(0, Math.min(membersPerPage, totalMembers), totalMembers);
+
+        // Log passport loading for debugging
+        paginatedMembers.forEach(member => {
+            console.log('Passport loaded for:', member.name, member.passportPhoto || member.passport);
+        });
+
         showMessage(`Loaded ${members.length} members successfully`, 'success');
-        return paginatedMembers; // Return paginated members
-        
+        return paginatedMembers;
+
     } catch (error) {
         console.error('Load members error:', error);
         showMessage('Failed to load members', 'error');
-        
-        // Show empty table on error using the new function
+
+        // Clear table on error
         renderMembersTable([]);
-        
-        // Also handle load error with your existing function
+
+        // Existing error handler
         handleLoadError(tableBody, error);
-        throw error; // Propagate the error
+
+        throw error;
     }
 }
 
