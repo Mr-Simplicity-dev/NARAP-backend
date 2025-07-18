@@ -5795,7 +5795,13 @@ async function verifyCertificate(certificateNumber) {
 // ======================
 
 // 1. MODAL INITIALIZATION (Pre-load frequent modals)
+// MODAL SYSTEM ==============================================
 window.initModals = function() {
+    if (typeof bootstrap?.Modal !== 'function') {
+        console.error('Bootstrap Modal not loaded!');
+        return;
+    }
+
     const modals = {
         memberModal: '#memberModal',
         editMemberModal: '#editMemberModal',
@@ -5809,10 +5815,30 @@ window.initModals = function() {
             try {
                 window[key] = new bootstrap.Modal(el);
             } catch (e) {
-                console.error(`Failed to initialize ${key}:`, e);
+                console.error(`Modal init failed for ${key}:`, e);
             }
         }
     });
+};
+
+window.handleModalTrigger = function(modalId) {
+    const modalEl = document.getElementById(modalId);
+    if (!modalEl) {
+        if (process.env.NODE_ENV !== 'production') {
+            console.warn(`[NARAP] Modal #${modalId} not found. Check:
+            - Element exists in DOM
+            - ID spelling matches
+            - Bootstrap JS is loaded`);
+        }
+        return;
+    }
+
+    try {
+        window[modalId] = window[modalId] || new bootstrap.Modal(modalEl);
+        window[modalId].show();
+    } catch (error) {
+        console.error(`Modal ${modalId} failed:`, error);
+    }
 };
 
     
@@ -7662,69 +7688,32 @@ function updateNavigation() {
 // CORE FUNCTIONALITY
 // ======================
 
+// EVENT DELEGATION ==========================================
 function setupEventDelegation() {
     document.body.addEventListener('click', function(event) {
-        const id = event.target.dataset.id;
-        if (!id) return;
+        const target = event.target.closest('[data-action]');
+        if (!target?.dataset?.id) return;
 
-        if (event.target.matches('[data-action="delete"]')) {
-            deleteMember(id);
-        } else if (event.target.matches('[data-action="edit"]')) {
-            editMember(id);
-        } else if (event.target.matches('[data-action="view"]')) {
-            viewIdCard(id);
+        const actions = {
+            'delete': deleteMember,
+            'edit': editMember,
+            'view': viewIdCard
+        };
+
+        const handler = actions[target.dataset.action];
+        if (handler) handler(target.dataset.id);
+    });
+
+    // Pagination handler
+    document.addEventListener('click', function(e) {
+        const pageBtn = e.target.closest('.page-number');
+        if (pageBtn) {
+            const page = parseInt(pageBtn.textContent.trim());
+            if (!isNaN(page)) goToPage(page);
         }
     });
 }
 
-// ======================
-// MODAL SYSTEM
-// ======================
-
-window.initModals = function() {
-    if (typeof bootstrap?.Modal !== 'function') {
-        console.error('Bootstrap Modal not loaded!');
-        return;
-    }
-
-    const modals = {
-        memberModal: '#memberModal',
-        editMemberModal: '#editMemberModal',
-        addCertificateModal: '#addCertificateModal',
-        viewCertificateModal: '#viewCertificateModal'
-    };
-
-    Object.keys(modals).forEach(key => {
-        const el = document.querySelector(modals[key]);
-        if (el) {
-            try {
-                window[key] = new bootstrap.Modal(el);
-            } catch (e) {
-                console.error(`Modal init failed for ${key}:`, e);
-            }
-        }
-    });
-};
-
-window.handleModalTrigger = function(modalId) {
-    const modalEl = document.getElementById(modalId);
-    if (!modalEl) {
-        if (process.env.NODE_ENV !== 'production') {
-            console.warn(`[NARAP] Modal #${modalId} not found. Check:
-            - Element exists in DOM
-            - ID spelling matches
-            - Bootstrap JS is loaded`);
-        }
-        return;
-    }
-
-    try {
-        window[modalId] = window[modalId] || new bootstrap.Modal(modalEl);
-        window[modalId].show();
-    } catch (error) {
-        console.error(`Modal ${modalId} failed:`, error);
-    }
-};
 
 // ======================
 // SIDEBAR SYSTEM
