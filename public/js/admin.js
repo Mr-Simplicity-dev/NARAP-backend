@@ -1084,13 +1084,13 @@ function displayMembers(members) {
                 <td>${escapeHtml(member.state)}</td>
                 <td>${escapeHtml(member.zone)}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary edit-member" data-id="${member._id}" title="Edit Member">
+                    <button onclick="editMember('${member._id}')" class="btn btn-sm btn-primary" title="Edit Member">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="btn btn-sm btn-info view-member" data-id="${member._id}" title="View ID Card">
+                    <button onclick="viewIdCard('${member._id}')" class="btn btn-sm btn-info" title="View ID Card">
                         <i class="fas fa-eye"></i>
                     </button>
-                    <button class="btn btn-sm btn-danger delete-member" data-id="${member._id}" title="Delete Member">
+                    <button onclick="deleteMember('${member._id}')" class="btn btn-sm btn-danger" title="Delete Member">
                         <i class="fas fa-trash"></i>
                     </button>
                 </td>
@@ -7851,35 +7851,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Restored setupEventDelegation function
 function setupEventDelegation() {
-    const membersTable = document.getElementById('membersTableBody');
-    if (!membersTable) return;
+    document.body.addEventListener('click', function (event) {
+        const id = event.target.dataset.id;
 
-    membersTable.addEventListener('click', function (e) {
-        const target = e.target;
-
-        if (target.closest('.edit-member')) {
-            const memberId = target.closest('.edit-member').dataset.id;
-            if (memberId) {
-                editMember(memberId);
-            }
-        } else if (target.closest('.delete-member')) {
-            const memberId = target.closest('.delete-member').dataset.id;
-            if (memberId) {
-                deleteMember(memberId);
-            }
-        } else if (target.closest('.view-member')) {
-            const memberId = target.closest('.view-member').dataset.id;
-            if (memberId) {
-                viewIdCard(memberId);
-            }
+        if (event.target.matches('[data-action="delete"]') && id) {
+            deleteMember(id);
+        }
+        if (event.target.matches('[data-action="edit"]') && id) {
+            editMember(id);
+        }
+        if (event.target.matches('[data-action="view"]') && id) {
+            viewIdCard(id);
         }
     });
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-    setupEventDelegation();
-});
-        }
+}}
         if (event.target.matches('[data-action="edit"]')) {
             const id = event.target.dataset.id;
             if (id) {
