@@ -91,6 +91,12 @@ class NotificationManager {
                 existing.remove();
             }
             
+// Debug missing functions
+['loadTheme', 'fillAdminCredentials', 'switchTab'].forEach(fn => {
+    if (typeof window[fn] !== 'function') {
+        console.warn(`[NARAP] Required function "${fn}" is not defined.`);
+    }
+});
             // Create new container
             this.container = document.createElement('div');
             this.container.id = 'notification-container';
@@ -5812,6 +5818,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (el) window[key] = new bootstrap.Modal(el);
             });
         };
+window.handleModalTrigger = function(modalId) {
+    const modalEl = document.getElementById(modalId);
+    if (!modalEl) return;
+    window[modalId] = window[modalId] || new bootstrap.Modal(modalEl);
+    window[modalId].show();
+};
         if (typeof initModals === 'function') initModals();
         
         // Setup preview listeners
@@ -5826,6 +5838,15 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Found hamburger buttons:', hamburgerBtns.length);
         
         hamburgerBtns.forEach((btn, index) => {
+let resizeTimeout;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        if (window.innerWidth >= 769 && sidebar?.classList.contains('mobile-open')) {
+            window.toggleSidebar?.();
+        }
+    }, 100);
+});
             console.log('Adding listener to hamburger button', index);
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
