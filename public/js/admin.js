@@ -5801,26 +5801,17 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Initialize all modals
         window.initModals = function() {
-    try {
-        const modals = {
-            memberModal: '#memberModal',
-            editMemberModal: '#editMemberModal',
-            // ...
+            const modals = {
+                memberModal: '#memberModal',
+                editMemberModal: '#editMemberModal',
+                addCertificateModal: '#addCertificateModal',
+                viewCertificateModal: '#viewCertificateModal'
+            };
+            Object.keys(modals).forEach(key => {
+                const el = document.querySelector(modals[key]);
+                if (el) window[key] = new bootstrap.Modal(el);
+            });
         };
-        Object.keys(modals).forEach(key => {
-            const el = document.querySelector(modals[key]);
-            if (el) {
-                try {
-                    window[key] = new bootstrap.Modal(el);
-                } catch (e) {
-                    console.error(`Failed to init ${key}:`, e);
-                }
-            }
-        });
-    } catch (error) {
-        console.error('Modal initialization failed:', error);
-    }
-};
         if (typeof initModals === 'function') initModals();
         
         // Setup preview listeners
@@ -7784,39 +7775,18 @@ function setupMobileMenu() {
     }
     
     // Close sidebar when clicking outside on mobile
-           // Cache elements at startup
+    document.addEventListener('click', function(e) {
         const sidebar = document.querySelector('.sidebar');
-        const overlay = document.querySelector('.sidebar-overlay');
-        const hamburgerBtns = document.querySelectorAll('.hamburger-btn');
-
-        // Unified click handler
-        document.addEventListener('click', (e) => {
-            // Hamburger toggle
-            if (e.target.closest('.hamburger-btn')) {
-                e.preventDefault();
-                window.toggleSidebar?.();
-            }
-            
-            // Overlay/sidebar close
-            if (overlay?.contains(e.target) || 
-                (sidebar?.classList.contains('mobile-open') && 
-                !sidebar.contains(e.target) && 
-                !e.target.closest('.hamburger-btn'))) {
-                window.toggleSidebar?.();
-            }
-        });
-
-        // Throttled resize handler
-        let resizeTimeout;
-        window.addEventListener('resize', () => {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
-                if (window.innerWidth >= 769 && sidebar?.classList.contains('mobile-open')) {
-                    window.toggleSidebar?.();
+        const hamburger = document.querySelector('.hamburger, .menu-toggle, .menu-btn');
+        
+        if (sidebar && sidebar.classList.contains('active')) {
+            if (!sidebar.contains(e.target) && !hamburger?.contains(e.target)) {
+                if (typeof window.closeSidebar === 'function') {
+                    window.closeSidebar();
                 }
-            }, 100);
-        });
-
+            }
+        }
+    });
 }
 
 // Mobile sidebar toggle functions
@@ -7879,119 +7849,88 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-
-// Improved Event Delegation
 function setupEventDelegation() {
-    document.addEventListener('click', (event) => {
-        const target = event.target.closest('[data-action]');
-        if (!target) return;
-        
-        const id = target.dataset.id;
-        if (!id) return;
+    document.body.addEventListener('click', function (event) {
+        const id = event.target.dataset.id;
 
-        switch(target.dataset.action) {
-            case 'delete':
-                deleteMember(id);
-                break;
-            case 'edit':
-                editMember(id);
-                break;
-            case 'view':
-                viewIdCard(id);
-                break;
+        if (event.target.matches('[data-action="delete"]') && id) {
+            deleteMember(id);
         }
-    });
-
-    // Improved pagination handling
-    document.addEventListener('click', (event) => {
-        const pageBtn = event.target.closest('.page-number');
-        if (pageBtn) {
-            const page = pageBtn.dataset.page; // Use data-page attribute instead
-            if (page) goToPage(parseInt(page));
+        if (event.target.matches('[data-action="edit"]') && id) {
+            editMember(id);
+        }
+        if (event.target.matches('[data-action="view"]') && id) {
+            viewIdCard(id);
         }
     });
 }
 
-// Safer Image Preview
-function setupPassportPreview() {
-    const input = document.getElementById('editPassportInput');
-    const preview = document.getElementById('editPassportPreview');
-    if (!input || !preview) return;
-
-    const errorMsg = document.createElement('div');
-    errorMsg.className = 'upload-error text-danger small';
-    input.parentNode.insertBefore(errorMsg, input.nextSibling);
-
-    input.addEventListener('change', async () => {
-        const file = input.files[0];
-        errorMsg.textContent = '';
-        
-        if (!file) return;
-        if (!file.type.startsWith('image/')) {
-            errorMsg.textContent = 'Only JPEG/PNG images allowed';
-            return;
+// Attach pagination click handlers explicitly
+document.addEventListener('click', function (e) {
+    if (e.target.classList.contains('page-number')) {
+        const page = parseInt(e.target.textContent.trim());
+        if (!isNaN(page)) {
+            goToPage(page);
         }
-        if (file.size > 2 * 1024 * 1024) {
-            errorMsg.textContent = 'Max file size: 2MB';
-            return;
-        }
-
-        try {
-            preview.src = await readFileAsDataURL(file);
-        } catch (error) {
-            errorMsg.textContent = 'Failed to load image';
-            console.error(error);
-        }
-    });
-}
-
-function readFileAsDataURL(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
-/**
- * Initialize Bootstrap modals safely
- */
-function initModals() {
-    try {
-        const modals = [
-            { id: 'editModal', instance: null },
-            { id: 'viewModal', instance: null }
-        ];
-        
-        modals.forEach(modal => {
-            const el = document.getElementById(modal.id);
-            if (el) modal.instance = new bootstrap.Modal(el);
-        });
-        
-        return modals; // Optional: Return instances for later use
-    } catch (error) {
-        console.error('Modal init failed:', error);
     }
-}
+});
 
-/**
- * Initialize all components when DOM is ready
- */
-function initializeApp() {
-    try {
-        setupEventDelegation();
-        const cleanupPassportPreview = setupPassportPreview('editPassportInput', 'editPassportPreview', {
-            maxSize: 3 // Allow 3MB files
+
+
+document.addEventListener('DOMContentLoaded', function () {
+    const passportInput = document.getElementById('editPassportInput');
+    const previewImg = document.getElementById('editPassportPreview');
+
+    if (passportInput && previewImg) {
+        passportInput.addEventListener('change', function () {
+            const file = passportInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    previewImg.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
         });
-        initModals();
-
-        // Optional: Clean up when needed (e.g., in a SPA)
-        // window.addEventListener('beforeunload', cleanupPassportPreview);
-    } catch (error) {
-        console.error('Initialization error:', error);
     }
-}
+});
 
-// Single DOMContentLoaded listener
-document.addEventListener('DOMContentLoaded', initializeApp);
+// ===== MODAL SYSTEM =====
+window.initModals = function() {
+    if (typeof bootstrap?.Modal !== 'function') {
+        console.error('Bootstrap Modal not loaded!');
+        return;
+    }
+
+    const modals = {
+        memberModal: '#memberModal',
+        editMemberModal: '#editMemberModal',
+        addCertificateModal: '#addCertificateModal',
+        viewCertificateModal: '#viewCertificateModal'
+    };
+
+    Object.keys(modals).forEach(key => {
+        const el = document.querySelector(modals[key]);
+        if (el) {
+            try {
+                window[key] = new bootstrap.Modal(el);
+            } catch (e) {
+                console.error(`Modal init failed for ${key}:`, e);
+            }
+        }
+    });
+};
+
+window.handleModalTrigger = function(modalId) {
+    const modalEl = document.getElementById(modalId);
+    if (!modalEl) {
+        console.warn(`Modal #${modalId} not found!`);
+        return;
+    }
+
+    window[modalId] = window[modalId] || new bootstrap.Modal(modalEl);
+    window[modalId].show();
+};
+
+// Auto-initialize on load
+document.addEventListener('DOMContentLoaded', initModals);
