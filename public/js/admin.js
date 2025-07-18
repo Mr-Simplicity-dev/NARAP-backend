@@ -7882,3 +7882,23 @@ document.addEventListener('click', function (e) {
         }
     }
 });
+
+
+
+document.addEventListener('DOMContentLoaded', function () {
+    const passportInput = document.getElementById('editPassportInput');
+    const previewImg = document.getElementById('editPassportPreview');
+
+    if (passportInput && previewImg) {
+        passportInput.addEventListener('change', function () {
+            const file = passportInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    previewImg.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+});
