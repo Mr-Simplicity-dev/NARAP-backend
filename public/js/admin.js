@@ -7471,8 +7471,6 @@ window.narapAdmin = {
     startSystemMonitoring
 };
 
-
-
 // Export for module systems if needed
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.narapAdmin;
@@ -7482,7 +7480,6 @@ console.log('NARAP Admin Panel JavaScript fully loaded');
 console.log('Total functions available:', Object.keys(window.narapAdmin).length);
 console.log('Ready for production use!');
 
-// Update the member verification display to handle passport photos correctly
 // Update the member verification display to handle passport photos correctly
 function displayMemberVerification(member) {
     const verificationResult = document.getElementById('verificationResult');
