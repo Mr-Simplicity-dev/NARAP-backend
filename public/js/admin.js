@@ -5952,22 +5952,21 @@ window.logout = function() {
 
 
 // Debug function
-window.debugSidebar = function() {
+window.toggleSidebar = function() {
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.querySelector('.sidebar-overlay');
-    const hamburgerBtns = document.querySelectorAll('.hamburger-btn');
     
-    console.log('=== SIDEBAR DEBUG INFO ===');
-    console.log('Sidebar element:', sidebar);
-    console.log('Sidebar classes:', sidebar ? sidebar.className : 'Not found');
-    console.log('Overlay element:', overlay);
-    console.log('Overlay classes:', overlay ? overlay.className : 'Not found');
-    console.log('Hamburger buttons found:', hamburgerBtns.length);
-    console.log('Window width:', window.innerWidth);
-    console.log('Is mobile:', window.innerWidth <= 768);
-    console.log('toggleSidebar function exists:', typeof window.toggleSidebar === 'function');
-    console.log('========================');
+    console.log('toggleSidebar called');
+    
+    if (sidebar) {
+        sidebar.classList.toggle('active');
+    }
+    
+    if (overlay) {
+        overlay.classList.toggle('active');
+    }
 };
+
 
 // Ensure functions are available immediately
 window.addEventListener('load', function() {
@@ -6026,33 +6025,27 @@ window.addEventListener('load', function() {
     // Double-check that toggle function exists
     if (typeof window.toggleSidebar !== 'function') {
         console.warn('Main toggleSidebar function not found, creating fallback');
-        window.toggleSidebar = window.toggleSidebarEnhanced;
-    }
-    
-    // Ensure hamburger buttons work even if main script fails
-    setTimeout(() => {
-        const hamburgerBtns = document.querySelectorAll('.hamburger-btn');
-document.addEventListener('click', function(e) {
-    if (e.target.closest('.hamburger-btn')) {
-        e.preventDefault();
-        window.toggleSidebar();
+        window.toggleSidebar = function() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.querySelector('.sidebar-overlay');
+            
+            if (sidebar) sidebar.classList.toggle('active');
+            if (overlay) overlay.classList.toggle('active');
+        };
     }
 });
-    }, 1000);
-});
+
 
 // Debug function to check sidebar state
 window.debugSidebar = function() {
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.querySelector('.sidebar-overlay');
-    const hamburgerBtns = document.querySelectorAll('.hamburger-btn');
     
     console.log('=== SIDEBAR DEBUG INFO ===');
     console.log('Sidebar element:', sidebar);
     console.log('Sidebar classes:', sidebar ? sidebar.className : 'Not found');
     console.log('Overlay element:', overlay);
     console.log('Overlay classes:', overlay ? overlay.className : 'Not found');
-    console.log('Hamburger buttons found:', hamburgerBtns.length);
     console.log('Window width:', window.innerWidth);
     console.log('Is mobile:', window.innerWidth <= 768);
     console.log('toggleSidebar function exists:', typeof window.toggleSidebar === 'function');
@@ -7712,29 +7705,18 @@ function setupEventDelegation() {
 // ======================
 // SIDEBAR SYSTEM
 // ======================
-
 function setupMobileMenu() {
-    const hamburger = document.querySelector('.hamburger, .menu-toggle, [onclick*="toggleSidebar"]');
-    
-    if (hamburger) {
-        hamburger.onclick = function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            window.toggleSidebar?.();
-        };
-    }
-
     document.addEventListener('click', function(e) {
         const sidebar = document.querySelector('.sidebar');
-        const hamburger = document.querySelector('.hamburger, .menu-toggle');
         
         if (sidebar?.classList.contains('active')) {
-            if (!sidebar.contains(e.target) && !hamburger?.contains(e.target)) {
-                window.closeSidebar?.();
+            if (!sidebar.contains(e.target)) {
+                window.toggleSidebar?.();
             }
         }
     });
 }
+
 
 window.toggleSidebar = function() {
     const sidebar = document.querySelector('.sidebar');
@@ -7770,9 +7752,19 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Core setup
         setupEventDelegation();
-        setupMobileMenu();
+        setupMobileMenu(); // This will now use the hamburger-free version
         
-        // Initialize systems
+        // Initialize sidebar functionality
+        console.log('Admin.js loaded, toggleSidebar available:', typeof window.toggleSidebar === 'function');
+        
+        // Close sidebar when clicking overlay
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('sidebar-overlay')) {
+                window.toggleSidebar();
+            }
+        });
+        
+        // Initialize systems (your existing code)
         if (typeof loadTheme === 'function') loadTheme();
         if (typeof fillAdminCredentials === 'function') fillAdminCredentials();
         if (typeof switchTab === 'function') switchTab('dashboard');
