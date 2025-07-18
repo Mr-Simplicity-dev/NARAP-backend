@@ -7739,10 +7739,13 @@ window.toggleSidebar = function() {
 };
 
 window.closeSidebar = function() {
-    document.querySelector('.sidebar')?.classList.remove('active');
-    document.querySelector('.sidebar-overlay')?.classList.remove('active');
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
     document.body.style.overflow = '';
 };
+
 
 // ======================
 // MAIN INITIALIZATION
