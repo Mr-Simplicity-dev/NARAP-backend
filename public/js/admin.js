@@ -7826,3 +7826,37 @@ document.addEventListener('click', function(e) {
         if (!isNaN(page)) goToPage(page);
     }
 });
+
+// =========================
+// PAGINATION CONTROLS SETUP
+// =========================
+function setupPaginationControls(totalPages, currentPage) {
+    const paginationContainer = document.querySelector('.pagination');
+    if (!paginationContainer) return;
+
+    paginationContainer.innerHTML = '';
+
+    for (let i = 1; i <= totalPages; i++) {
+        const pageButton = document.createElement('button');
+        pageButton.className = 'page-btn';
+        pageButton.textContent = i;
+        if (i === currentPage) {
+            pageButton.classList.add('active');
+        }
+        pageButton.addEventListener('click', () => {
+            goToPage(i);
+        });
+        paginationContainer.appendChild(pageButton);
+    }
+}
+
+function goToPage(pageNumber) {
+    if (!Array.isArray(appState.members)) return;
+
+    const start = (pageNumber - 1) * membersPerPage;
+    const end = start + membersPerPage;
+    const paginated = appState.members.slice(start, end);
+    renderMembersTable(paginated);
+    updateMembersCount(start, end, appState.members.length);
+    setupPaginationControls(Math.ceil(appState.members.length / membersPerPage), pageNumber);
+}
