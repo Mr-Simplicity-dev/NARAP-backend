@@ -1122,72 +1122,71 @@ function displayMembers(members) {
 
 // Update pagination controls
 function updatePaginationControls() {
-    const paginationContainer = document.getElementById('paginationControls');
-    if (!paginationContainer) return;
+    const totalPages = Math.ceil(totalMembers / membersPerPage);
+    
+    // Update button states
+    const firstBtn = document.getElementById('firstPage');
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+    const lastBtn = document.getElementById('lastPage');
+    
+    if (firstBtn) firstBtn.disabled = currentPage === 1;
+    if (prevBtn) prevBtn.disabled = currentPage === 1;
+    if (nextBtn) nextBtn.disabled = currentPage === totalPages || totalPages === 0;
+    if (lastBtn) lastBtn.disabled = currentPage === totalPages || totalPages === 0;
+    
+    // Update page numbers
+    updatePageNumbers(totalPages);
+}
 
-    const totalPages = Math.ceil(filteredMembers.length / membersPerPage);
-    paginationContainer.innerHTML = '';
-
-    const createPageItem = (label, page, disabled = false, active = false) => {
-        const li = document.createElement('li');
-        li.className = 'page-item';
-        if (disabled) li.classList.add('disabled');
-        if (active) li.classList.add('active');
-
-        const btn = document.createElement('button');
-        btn.className = 'page-link';
-        btn.textContent = label;
-        btn.dataset.page = page;
-        li.appendChild(btn);
-
-        return li;
-    };
-
-    const addEllipsis = () => {
-        const li = document.createElement('li');
-        li.className = 'page-item disabled';
-        li.innerHTML = '<span class="page-link">...</span>';
-        return li;
-    };
-
-    const ul = document.createElement('ul');
-    ul.className = 'pagination justify-content-center';
-
-    // First & Prev
-    ul.appendChild(createPageItem('First', 1, currentPage === 1));
-    ul.appendChild(createPageItem('Previous', currentPage - 1, currentPage === 1));
-
-    const pageWindow = 2;
-    let startPage = Math.max(1, currentPage - pageWindow);
-    let endPage = Math.min(totalPages, currentPage + pageWindow);
-
+// Update page numbers display
+function updatePageNumbers(totalPages) {
+    const pageNumbersContainer = document.getElementById('pageNumbers');
+    if (!pageNumbersContainer) return;
+    
+    let pageNumbers = '';
+    const maxVisiblePages = 5;
+    
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    // Adjust start page if we're near the end
+    if (endPage - startPage < maxVisiblePages - 1) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    // Add first page and ellipsis if needed
     if (startPage > 1) {
-        ul.appendChild(createPageItem('1', 1));
-        if (startPage > 2) ul.appendChild(addEllipsis());
+        pageNumbers += `<span class="page-number" onclick="goToPage(1)">1</span>`;
+        if (startPage > 2) {
+            pageNumbers += `<span class="page-ellipsis">...</span>`;
+        }
     }
-
+    
+    // Add visible page numbers
     for (let i = startPage; i <= endPage; i++) {
-        ul.appendChild(createPageItem(i.toString(), i, false, i === currentPage));
+        const activeClass = i === currentPage ? 'active' : '';
+        pageNumbers += `<span class="page-number ${activeClass}" onclick="goToPage(${i})">${i}</span>`;
     }
-
+    
+    // Add last page and ellipsis if needed
     if (endPage < totalPages) {
-        if (endPage < totalPages - 1) ul.appendChild(addEllipsis());
-        ul.appendChild(createPageItem(totalPages.toString(), totalPages));
+        if (endPage < totalPages - 1) {
+            pageNumbers += `<span class="page-ellipsis">...</span>`;
+        }
+        pageNumbers += `<span class="page-number" onclick="goToPage(${totalPages})">${totalPages}</span>`;
     }
+    
+    pageNumbersContainer.innerHTML = pageNumbers;
+}
 
-    // Next & Last
-    ul.appendChild(createPageItem('Next', currentPage + 1, currentPage === totalPages));
-    ul.appendChild(createPageItem('Last', totalPages, currentPage === totalPages));
-
-    paginationContainer.appendChild(ul);
-
-    // Event Delegation (Safe bind)
-    paginationContainer.querySelectorAll('.page-link').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const page = parseInt(btn.dataset.page);
-            if (!isNaN(page)) goToPage(page);
-        });
-    });
+// Update members count display
+function updateMembersCount(startIndex, endIndex, total) {
+    const countElement = document.getElementById('membersCount');
+    if (countElement) {
+        const showing = Math.min(endIndex, total);
+        countElement.textContent = `Showing ${startIndex + 1}-${showing} of ${total} members`;
+    }
 }
 
 // Navigation functions
