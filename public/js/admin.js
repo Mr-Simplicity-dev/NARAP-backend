@@ -1175,9 +1175,10 @@ function updateMembersCount(startIndex, endIndex, total) {
 }
 
 // Navigation functions
+// AFTER (corrected)
 function goToPage(page) {
     if (page !== currentPage) {
-        loadUsers(page, membersPerPage, currentSearchTerm);
+        loadMembers(page, membersPerPage, currentSearchTerm); // ✅
     }
 }
 
