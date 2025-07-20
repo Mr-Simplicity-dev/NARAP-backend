@@ -1,17 +1,3 @@
-function updatePaginationButtonState(currentPage, totalPages) {
-    const firstPageBtn = document.getElementById('firstPageBtn');
-    const prevPageBtn = document.getElementById('prevPageBtn');
-    const nextPageBtn = document.getElementById('nextPageBtn');
-    const lastPageBtn = document.getElementById('lastPageBtn');
-
-    if (!firstPageBtn || !prevPageBtn || !nextPageBtn || !lastPageBtn) return;
-
-    firstPageBtn.disabled = currentPage === 1;
-    prevPageBtn.disabled = currentPage === 1;
-    nextPageBtn.disabled = currentPage === totalPages;
-    lastPageBtn.disabled = currentPage === totalPages;
-}
-
 // Global state 
 window.appState = {
     members: [],
@@ -7549,7 +7535,6 @@ function displayMemberVerification(member) {
 
 
 // Update form validation to make email optional
-// Update form validation to make email optional
 function validateMemberForm() {
     const name = document.getElementById('memberName')?.value?.trim();
     const email = document.getElementById('memberEmail')?.value?.trim();
@@ -7907,6 +7892,21 @@ function goToNextPage() {
 function goToLastPage() {
     const totalPages = Math.ceil(filteredMembers.length / membersPerPage);
     goToPage(totalPages);
+}
+
+
+function updatePaginationButtonState(currentPage, totalPages) {
+    const firstPageBtn = document.getElementById('firstPageBtn');
+    const prevPageBtn = document.getElementById('prevPageBtn');
+    const nextPageBtn = document.getElementById('nextPageBtn');
+    const lastPageBtn = document.getElementById('lastPageBtn');
+
+    if (!firstPageBtn || !prevPageBtn || !nextPageBtn || !lastPageBtn) return;
+
+    firstPageBtn.disabled = currentPage === 1;
+    prevPageBtn.disabled = currentPage === 1;
+    nextPageBtn.disabled = currentPage === totalPages;
+    lastPageBtn.disabled = currentPage === totalPages;
 }
 
 document.addEventListener('DOMContentLoaded', setupPaginationEventHandlers);
