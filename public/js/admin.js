@@ -7811,68 +7811,102 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// ===== Throttled Resize Handler =====
-const throttleResize = (() => {
-    let timeout;
-    return (callback, delay = 100) => {
-        clearTimeout(timeout);
-        timeout = setTimeout(callback, delay);
-    };
-})();
-
-window.addEventListener('resize', () => {
-    throttleResize(() => {
-        if (window.innerWidth >= 769) {
-            if (typeof closeSidebar === 'function') {
-                closeSidebar();
-            }
-        }
-    });
-});
-
-// ======================
-// PAGINATION
-// ======================
-
-document.addEventListener('click', function(e) {
-    if (e.target.classList.contains('page-number')) {
-        const page = parseInt(e.target.textContent.trim());
-        if (!isNaN(page)) goToPage(page);
-    }
-});
-
-
-// Improved pagination handlers
+// ===== PAGINATION FUNCTIONS =====
 function setupPaginationEventHandlers() {
     document.addEventListener('click', function(e) {
+        // Handle numbered page clicks
         if (e.target.classList.contains('page-number')) {
             const page = parseInt(e.target.textContent.trim());
             if (!isNaN(page)) goToPage(page);
         }
-        if (e.target.id === 'firstPage') {
-            goToPage(1);
+        
+        // Handle First Page button
+        if (e.target.closest('#firstPage')) {
+            const btn = document.getElementById('firstPage');
+            if (btn && !btn.disabled) goToPage(1);
         }
-        if (e.target.id === 'prevPage') {
-            if (currentPage > 1) goToPage(currentPage - 1);
+        
+        // Handle Previous Page button
+        if (e.target.closest('#prevPage')) {
+            const btn = document.getElementById('prevPage');
+            if (btn && !btn.disabled && currentPage > 1) {
+                goToPage(currentPage - 1);
+            }
         }
-        if (e.target.id === 'nextPage') {
-            if (currentPage < Math.ceil(filteredMembers.length / membersPerPage)) {
+        
+        // Handle Next Page button
+        if (e.target.closest('#nextPage')) {
+            const btn = document.getElementById('nextPage');
+            const totalPages = Math.ceil(filteredMembers.length / membersPerPage);
+            if (btn && !btn.disabled && currentPage < totalPages) {
                 goToPage(currentPage + 1);
             }
         }
-        if (e.target.id === 'lastPage') {
-            const last = Math.ceil(filteredMembers.length / membersPerPage);
-            goToPage(last);
+        
+        // Handle Last Page button
+        if (e.target.closest('#lastPage')) {
+            const btn = document.getElementById('lastPage');
+            const totalPages = Math.ceil(filteredMembers.length / membersPerPage);
+            if (btn && !btn.disabled) goToPage(totalPages);
         }
     });
 
+    // Page size selector
     const pageSizeSelector = document.getElementById('pageSize');
     if (pageSizeSelector) {
         pageSizeSelector.addEventListener('change', function() {
             membersPerPage = parseInt(this.value);
-            goToPage(1); // Reset to first page
+            goToPage(1);
         });
     }
+}
+
+function updatePaginationButtonState() {
+    const totalPages = Math.ceil(filteredMembers.length / membersPerPage);
+    const firstPageBtn = document.getElementById('firstPage');
+    const prevPageBtn = document.getElementById('prevPage');
+    const nextPageBtn = document.getElementById('nextPage');
+    const lastPageBtn = document.getElementById('lastPage');
+
+    if (!firstPageBtn || !prevPageBtn || !nextPageBtn || !lastPageBtn) return;
+
+    // Update button states
+    firstPageBtn.disabled = currentPage === 1;
+    prevPageBtn.disabled = currentPage === 1;
+    nextPageBtn.disabled = currentPage === totalPages || totalPages === 0;
+    lastPageBtn.disabled = currentPage === totalPages || totalPages === 0;
+}
+
+// ===== NAVIGATION FUNCTIONS =====
+function goToPage(page) {
+    if (page !== currentPage) {
+        currentPage = page;
+        loadMembers(page, membersPerPage, currentSearchTerm);
+    }
+    // Always update button states after page change
+    updatePaginationButtonState();
+}
+
+function goToFirstPage() {
+    goToPage(1);
+}
+
+function goToPrevPage() {
+    if (currentPage > 1) {
+        goToPage(currentPage - 1);
+    }
+}
+
+function goToNextPage() {
+    const totalPages = Math.ceil(filteredMembers.length / membersPerPage);
+    if (currentPage < totalPages) {
+        goToPage(currentPage + 1);
+    }
+}
+
+function goToLastPage() {
+    const totalPages = Math.ceil(filteredMembers.length / membersPerPage);
+    goToPage(totalPages);
 }
 
 document.addEventListener('DOMContentLoaded', setupPaginationEventHandlers);
