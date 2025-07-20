@@ -1,3 +1,17 @@
+function updatePaginationButtonState(currentPage, totalPages) {
+    const firstPageBtn = document.getElementById('firstPageBtn');
+    const prevPageBtn = document.getElementById('prevPageBtn');
+    const nextPageBtn = document.getElementById('nextPageBtn');
+    const lastPageBtn = document.getElementById('lastPageBtn');
+
+    if (!firstPageBtn || !prevPageBtn || !nextPageBtn || !lastPageBtn) return;
+
+    firstPageBtn.disabled = currentPage === 1;
+    prevPageBtn.disabled = currentPage === 1;
+    nextPageBtn.disabled = currentPage === totalPages;
+    lastPageBtn.disabled = currentPage === totalPages;
+}
+
 // Global state 
 window.appState = {
     members: [],
