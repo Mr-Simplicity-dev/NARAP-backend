@@ -1175,10 +1175,9 @@ function updateMembersCount(startIndex, endIndex, total) {
 }
 
 // Navigation functions
-// AFTER (corrected)
 function goToPage(page) {
     if (page !== currentPage) {
-        loadMembers(page, membersPerPage, currentSearchTerm); // ✅
+        loadUsers(page, membersPerPage, currentSearchTerm);
     }
 }
 
@@ -7825,3 +7824,315 @@ document.addEventListener('click', function(e) {
         if (!isNaN(page)) goToPage(page);
     }
 });
+
+
+        
+        // DOM Ready
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize members per page
+            membersPerPage = parseInt(document.getElementById('membersPerPage').value);
+            
+            // Load initial members
+            loadMembers();
+            
+            // Event listeners
+            document.getElementById('membersPerPage').addEventListener('change', function() {
+                membersPerPage = parseInt(this.value);
+                currentPage = 1;
+                loadMembers();
+            });
+            
+            document.getElementById('searchButton').addEventListener('click', function() {
+                currentSearchTerm = document.getElementById('searchInput').value;
+                currentPage = 1;
+                loadMembers();
+            });
+            
+            document.getElementById('resetButton').addEventListener('click', function() {
+                document.getElementById('searchInput').value = '';
+                currentSearchTerm = '';
+                currentPage = 1;
+                loadMembers();
+            });
+            
+            // Handle enter key in search
+            document.getElementById('searchInput').addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') {
+                    currentSearchTerm = this.value;
+                    currentPage = 1;
+                    loadMembers();
+                }
+            });
+            
+            // Event delegation for pagination
+            document.getElementById('pagination').addEventListener('click', function(e) {
+                if (e.target.classList.contains('page-link')) {
+                    e.preventDefault();
+                    const page = parseInt(e.target.getAttribute('data-page'));
+                    goToPage(page);
+                }
+            });
+            
+            // Event delegation for table actions
+            document.getElementById('membersTableBody').addEventListener('click', function(e) {
+                if (e.target.classList.contains('view-passport')) {
+                    const passportUrl = e.target.getAttribute('data-passport');
+                    document.getElementById('passportImage').src = passportUrl;
+                    const modal = new bootstrap.Modal(document.getElementById('passportModal'));
+                    modal.show();
+                }
+                
+                if (e.target.classList.contains('edit-btn')) {
+                    const memberId = e.target.getAttribute('data-id');
+                    alert(`Edit member with ID: ${memberId}`);
+                }
+                
+                if (e.target.classList.contains('delete-btn')) {
+                    const memberId = e.target.getAttribute('data-id');
+                    if (confirm(`Are you sure you want to delete member ${memberId}?`)) {
+                        // In a real app, this would be an API call
+                        alert(`Member ${memberId} deleted (simulated)`);
+                    }
+                }
+            });
+        });
+        
+        // Load members
+        async function loadMembers() {
+            const tableBody = document.getElementById('membersTableBody');
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            
+            // Show loading
+            loadingOverlay.style.display = 'flex';
+            
+            // Simulate API delay
+            await new Promise(resolve => setTimeout(resolve, 800));
+            
+            try {
+                // Generate sample data (in a real app, this would be an API call)
+                generateSampleData();
+                
+                // Filter members if search term exists
+                if (currentSearchTerm) {
+                    const searchTerm = currentSearchTerm.toLowerCase();
+                    filteredMembers = allMembers.filter(member => 
+                        member.name.toLowerCase().includes(searchTerm) ||
+                        member.email.toLowerCase().includes(searchTerm) ||
+                        member.phone.includes(searchTerm) ||
+                        member.id.toString().includes(searchTerm)
+                    );
+                } else {
+                    filteredMembers = [...allMembers];
+                }
+                
+                totalMembers = filteredMembers.length;
+                
+                // Paginate
+                const startIndex = (currentPage - 1) * membersPerPage;
+                const endIndex = Math.min(startIndex + membersPerPage, totalMembers);
+                const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
+                
+                // Render table
+                renderMembersTable(paginatedMembers);
+                
+                // Render pagination
+                renderPagination(Math.ceil(totalMembers / membersPerPage));
+                
+                // Update members count
+                updateMembersCount(startIndex + 1, endIndex, totalMembers);
+                
+            } catch (error) {
+                console.error('Load error:', error);
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center text-danger py-4">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Error loading members: ${error.message || 'Please try again later'}
+                        </td>
+                    </tr>
+                `;
+            } finally {
+                // Hide loading
+                loadingOverlay.style.display = 'none';
+            }
+        }
+        
+        // Generate sample data
+        function generateSampleData() {
+            if (allMembers.length > 0) return;
+            
+            const names = ['James Smith', 'Maria Garcia', 'Robert Johnson', 'Sarah Williams', 
+                'Michael Brown', 'Emily Davis', 'David Miller', 'Emma Wilson', 
+                'Christopher Moore', 'Olivia Taylor', 'Daniel Anderson', 'Sophia Thomas'];
+            
+            const domains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'example.com'];
+            
+            allMembers = [];
+            
+            for (let i = 1; i <= 1248; i++) {
+                const firstName = names[Math.floor(Math.random() * names.length)].split(' ')[0];
+                const lastName = names[Math.floor(Math.random() * names.length)].split(' ')[1];
+                const name = `${firstName} ${lastName}`;
+                const domain = domains[Math.floor(Math.random() * domains.length)];
+                const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${i % 10}@${domain}`;
+                
+                allMembers.push({
+                    id: i,
+                    name: name,
+                    email: email,
+                    phone: `+1 (${Math.floor(Math.random() * 900) + 100}) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`,
+                    createdAt: new Date(Date.now() - Math.floor(Math.random() * 1000*60*60*24*365)).toISOString().split('T')[0],
+                    passportPhoto: i % 4 === 0 ? null : `https://randomuser.me/api/portraits/${i % 2 === 0 ? 'women' : 'men'}/${i % 100}.jpg`
+                });
+            }
+        }
+        
+        // Render members table
+        function renderMembersTable(members) {
+            const tableBody = document.getElementById('membersTableBody');
+            
+            if (members.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-5">
+                            <i class="fas fa-user-slash fa-2x mb-3 text-muted"></i>
+                            <h5 class="mb-1">No members found</h5>
+                            <p class="text-muted mb-0">Try adjusting your search criteria</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tableBody.innerHTML = members.map(member => {
+                // Highlight search term in name
+                let displayName = member.name;
+                if (currentSearchTerm) {
+                    const regex = new RegExp(`(${currentSearchTerm})`, 'gi');
+                    displayName = member.name.replace(regex, '<span class="highlight">$1</span>');
+                }
+                
+                return `
+                    <tr>
+                        <td>${member.id}</td>
+                        <td>${displayName}</td>
+                        <td>${member.email}</td>
+                        <td>${member.phone}</td>
+                        <td>${member.createdAt}</td>
+                        <td>
+                            ${member.passportPhoto 
+                                ? `<a href="#" class="view-passport" data-passport="${member.passportPhoto}">
+                                    <img src="${member.passportPhoto}" alt="Passport" class="passport-thumb">
+                                </a>`
+                                : '<span class="text-muted">No photo</span>'}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-primary edit-btn me-1" data-id="${member.id}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger delete-btn" data-id="${member.id}">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // Render pagination
+        function renderPagination(totalPages) {
+            const paginationEl = document.getElementById('pagination');
+            
+            if (totalPages <= 1) {
+                paginationEl.innerHTML = '';
+                return;
+            }
+            
+            let paginationHTML = '';
+            
+            // Previous button
+            paginationHTML += `
+                <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" data-page="${currentPage - 1}">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+            `;
+            
+            // Always show first page
+            paginationHTML += `
+                <li class="page-item ${currentPage === 1 ? 'active' : ''}">
+                    <a class="page-link" href="#" data-page="1">1</a>
+                </li>
+            `;
+            
+            // Show ellipsis if needed
+            if (currentPage > 4) {
+                paginationHTML += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+            
+            // Calculate start and end pages
+            let startPage = Math.max(2, currentPage - 2);
+            let endPage = Math.min(totalPages - 1, currentPage + 2);
+            
+            // Adjust if near start
+            if (currentPage <= 4) {
+                endPage = Math.min(5, totalPages - 1);
+            }
+            
+            // Adjust if near end
+            if (currentPage >= totalPages - 3) {
+                startPage = Math.max(totalPages - 4, 2);
+            }
+            
+            // Middle pages
+            for (let i = startPage; i <= endPage; i++) {
+                paginationHTML += `
+                    <li class="page-item ${i === currentPage ? 'active' : ''}">
+                        <a class="page-link" href="#" data-page="${i}">${i}</a>
+                    </li>
+                `;
+            }
+            
+            // Show ellipsis if needed
+            if (endPage < totalPages - 1) {
+                paginationHTML += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+            
+            // Always show last page if there is more than 1 page
+            if (totalPages > 1) {
+                paginationHTML += `
+                    <li class="page-item ${currentPage === totalPages ? 'active' : ''}">
+                        <a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a>
+                    </li>
+                `;
+            }
+            
+            // Next button
+            paginationHTML += `
+                <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                    <a class="page-link" href="#" data-page="${currentPage + 1}">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+            `;
+            
+            paginationEl.innerHTML = paginationHTML;
+        }
+        
+        // Update members count
+        function updateMembersCount(start, end, total) {
+            const countEl = document.getElementById('membersCount');
+            if (countEl) {
+                countEl.textContent = `Showing ${start} to ${end} of ${total} members`;
+            }
+        }
+        
+        // Go to page
+        function goToPage(page) {
+            if (page < 1 || page > Math.ceil(totalMembers / membersPerPage)) return;
+            if (page !== currentPage) {
+                currentPage = page;
+                loadMembers();
+            }
+        }
