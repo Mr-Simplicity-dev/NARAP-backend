@@ -7827,36 +7827,38 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// =========================
-// PAGINATION CONTROLS SETUP
-// =========================
-function setupPaginationControls(totalPages, currentPage) {
-    const paginationContainer = document.querySelector('.pagination');
-    if (!paginationContainer) return;
 
-    paginationContainer.innerHTML = '';
-
-    for (let i = 1; i <= totalPages; i++) {
-        const pageButton = document.createElement('button');
-        pageButton.className = 'page-btn';
-        pageButton.textContent = i;
-        if (i === currentPage) {
-            pageButton.classList.add('active');
+// Improved pagination handlers
+function setupPaginationEventHandlers() {
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('page-number')) {
+            const page = parseInt(e.target.textContent.trim());
+            if (!isNaN(page)) goToPage(page);
         }
-        pageButton.addEventListener('click', () => {
-            goToPage(i);
+        if (e.target.id === 'firstPage') {
+            goToPage(1);
+        }
+        if (e.target.id === 'prevPage') {
+            if (currentPage > 1) goToPage(currentPage - 1);
+        }
+        if (e.target.id === 'nextPage') {
+            if (currentPage < Math.ceil(filteredMembers.length / membersPerPage)) {
+                goToPage(currentPage + 1);
+            }
+        }
+        if (e.target.id === 'lastPage') {
+            const last = Math.ceil(filteredMembers.length / membersPerPage);
+            goToPage(last);
+        }
+    });
+
+    const pageSizeSelector = document.getElementById('pageSize');
+    if (pageSizeSelector) {
+        pageSizeSelector.addEventListener('change', function() {
+            membersPerPage = parseInt(this.value);
+            goToPage(1); // Reset to first page
         });
-        paginationContainer.appendChild(pageButton);
     }
 }
 
-function goToPage(pageNumber) {
-    if (!Array.isArray(appState.members)) return;
-
-    const start = (pageNumber - 1) * membersPerPage;
-    const end = start + membersPerPage;
-    const paginated = appState.members.slice(start, end);
-    renderMembersTable(paginated);
-    updateMembersCount(start, end, appState.members.length);
-    setupPaginationControls(Math.ceil(appState.members.length / membersPerPage), pageNumber);
-}
+document.addEventListener('DOMContentLoaded', setupPaginationEventHandlers);
