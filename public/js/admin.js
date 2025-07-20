@@ -64,7 +64,7 @@ let currentCertificates = [];
 
 // Add these pagination variables near the top of your file
 let currentPage = 1; // Track current page state
-let membersPerPage = 25;
+let membersPerPage = 10;
 let totalMembers = 0;
 let allMembers = []; // Store all members
 let filteredMembers = []; // Store filtered members
@@ -1125,6 +1125,21 @@ function updatePaginationControls() {
     updatePageNumbers(totalPages);
 }
 
+// Update members count display
+function updateMembersCount(startIndex, endIndex, total) {
+    const countElement = document.getElementById('membersCount');
+    if (countElement) {
+        const showing = Math.min(endIndex, total);
+        countElement.textContent = `Showing ${startIndex + 1}-${showing} of ${total} members`;
+    }
+}
+
+// Change items per page
+function changeItemsPerPage(newLimit) {
+    membersPerPage = parseInt(newLimit);
+    loadMembers(1, newLimit, currentSearchTerm); // ✅ Fixed to use loadMembers
+}
+
 // Update page numbers display
 function updatePageNumbers(totalPages) {
     const pageNumbersContainer = document.getElementById('pageNumbers');
@@ -1143,7 +1158,7 @@ function updatePageNumbers(totalPages) {
     
     // Add first page and ellipsis if needed
     if (startPage > 1) {
-        pageNumbers += `<span class="page-number" onclick="goToPage(1)">1</span>`;
+        pageNumbers += `<span class="page-number" data-page="1">1</span>`;
         if (startPage > 2) {
             pageNumbers += `<span class="page-ellipsis">...</span>`;
         }
@@ -1152,7 +1167,7 @@ function updatePageNumbers(totalPages) {
     // Add visible page numbers
     for (let i = startPage; i <= endPage; i++) {
         const activeClass = i === currentPage ? 'active' : '';
-        pageNumbers += `<span class="page-number ${activeClass}" onclick="goToPage(${i})">${i}</span>`;
+        pageNumbers += `<span class="page-number ${activeClass}" data-page="${i}">${i}</span>`;
     }
     
     // Add last page and ellipsis if needed
@@ -1160,76 +1175,24 @@ function updatePageNumbers(totalPages) {
         if (endPage < totalPages - 1) {
             pageNumbers += `<span class="page-ellipsis">...</span>`;
         }
-        pageNumbers += `<span class="page-number" onclick="goToPage(${totalPages})">${totalPages}</span>`;
+        pageNumbers += `<span class="page-number" data-page="${totalPages}">${totalPages}</span>`;
     }
     
     pageNumbersContainer.innerHTML = pageNumbers;
 }
 
-// Update members count display
-function updateMembersCount(startIndex, endIndex, total) {
-    const countElement = document.getElementById('membersCount');
-    if (countElement) {
-        const showing = Math.min(endIndex, total);
-        countElement.textContent = `Showing ${startIndex + 1}-${showing} of ${total} members`;
-    }
-}
-
-// Navigation functions
-// AFTER (corrected)
-function goToPage(page) {
-    if (page !== currentPage) {
-        loadMembers(page, membersPerPage, currentSearchTerm); // ✅
-    }
-}
-
-function goToFirstPage() {
-    goToPage(1);
-}
-
-function goToPrevPage() {
-    if (currentPage > 1) {
-        goToPage(currentPage - 1);
-    }
-}
-
-function goToNextPage() {
-    const totalPages = Math.ceil(totalMembers / membersPerPage);
-    if (currentPage < totalPages) {
-        goToPage(currentPage + 1);
-    }
-}
-
-function goToLastPage() {
-    const totalPages = Math.ceil(totalMembers / membersPerPage);
-    goToPage(totalPages);
-}
-
-// Change items per page
-function changeItemsPerPage(newLimit) {
-    membersPerPage = parseInt(newLimit);
-    goToPage(1); // Reset to first page
-}
-
 // Search function
 function searchMembers(searchTerm) {
-    currentPage = 1; // Reset to first page when searching
-    loadUsers(1, membersPerPage, searchTerm);
+    currentSearchTerm = searchTerm;
+    loadMembers(1, membersPerPage, searchTerm); // ✅ Correct function name
 }
 
-// Refresh function
+// Refresh function  
 function refreshMembers() {
     allMembers = []; // Clear cache to force refresh
-    loadUsers(currentPage, membersPerPage, currentSearchTerm);
+    loadMembers(currentPage, membersPerPage, currentSearchTerm); // ✅ Correct function name
 }
 
-
-
-// 1. Add this state management at the top of your file
-const appState = {
-    members: [],
-    isInitialized: false
-};
 
 // 2. Modified loadMembers() with automatic loading support
 async function loadMembers() {
@@ -1305,10 +1268,6 @@ async function fetchMembers() {
         throw error;
     }
 }
-
-
-
-
 
 
 function renderMembersTable(members) {
@@ -1413,9 +1372,8 @@ async function handleLoginSuccess() {
 }
 
 // 5. Page load initialization
-async function loadMembers() {
+async function loadMembers(page = 1, limit = membersPerPage, searchTerm = '') {
     const tableBody = document.getElementById('membersTableBody');
-
     if (!tableBody) {
         console.error('Members table body not found');
         return [];
@@ -1433,53 +1391,76 @@ async function loadMembers() {
             </tr>
         `;
 
-        // Immediately fetch members after login
-        const members = await fetchMembers();
+        // Fetch members (only once if not already loaded or if searching)
+        if (!allMembers.length || searchTerm !== currentSearchTerm) {
+            const members = await fetchMembers();
+            allMembers = members;
+            appState.members = members;
+        }
 
-        // Update global state
-        appState.members = members;
-        allMembers = members;
-        filteredMembers = [...members];
-        totalMembers = members.length;
-        currentPage = 1;
+        // Update current search term
+        currentSearchTerm = searchTerm;
 
-        // Paginate members immediately
-        const paginatedMembers = members.slice(0, membersPerPage);
+        // Filter members based on search term
+        if (searchTerm) {
+            filteredMembers = allMembers.filter(member => 
+                member.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                member.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                member.membershipId?.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        } else {
+            filteredMembers = [...allMembers];
+        }
+
+        // Update pagination state
+        totalMembers = filteredMembers.length;
+        currentPage = page;
+        membersPerPage = limit;
+
+        // Calculate pagination
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
+        
+        // Update current members
         currentMembers = paginatedMembers;
 
-        // Render table immediately
+        // Render table
         renderMembersTable(paginatedMembers);
 
-        // Immediately display pagination and members count
+        // Update pagination controls and count
         updatePaginationControls();
-        updateMembersCount(0, Math.min(membersPerPage, totalMembers), totalMembers);
+        updateMembersCount(startIndex, endIndex, totalMembers);
 
-        // Log passport loading for debugging
+        // Log for debugging
+        console.log(`📊 Loaded page ${page}: ${paginatedMembers.length} members (${startIndex + 1}-${Math.min(endIndex, totalMembers)} of ${totalMembers})`);
+        
         paginatedMembers.forEach(member => {
             console.log('Passport loaded for:', member.name, member.passportPhoto || member.passport);
         });
 
-        showMessage(`Loaded ${members.length} members successfully`, 'success');
+        showMessage(`Loaded ${paginatedMembers.length} of ${totalMembers} members successfully`, 'success');
         return paginatedMembers;
 
     } catch (error) {
         console.error('Load members error:', error);
         showMessage('Failed to load members', 'error');
-
+        
         // Clear table on error
         renderMembersTable([]);
-
-        // Existing error handler
         handleLoadError(tableBody, error);
-
         throw error;
     }
 }
 
 
 // Add this pagination initialization function right after your DOMContentLoaded
+// Initialize pagination system
 function initializePagination() {
     console.log('🔧 Setting up pagination...');
+    
+    // Setup event handlers
+    setupPaginationEventHandlers();
     
     // Items per page change
     const perPageSelect = document.getElementById('membersPerPage');
@@ -1500,6 +1481,202 @@ function initializePagination() {
     }
     
     console.log('✅ Pagination initialized');
+}
+
+// Setup pagination event handlers
+function setupPaginationEventHandlers() {
+    document.addEventListener('click', function(e) {
+        // Handle First Page button
+        if (e.target.closest('#firstPage')) {
+            e.preventDefault();
+            const btn = document.getElementById('firstPage');
+            if (btn && !btn.disabled) {
+                goToFirstPage();
+            }
+        }
+        
+        // Handle Previous Page button
+        if (e.target.closest('#prevPage')) {
+            e.preventDefault();
+            const btn = document.getElementById('prevPage');
+            if (btn && !btn.disabled) {
+                goToPrevPage();
+            }
+        }
+        
+        // Handle Next Page button
+        if (e.target.closest('#nextPage')) {
+            e.preventDefault();
+            const btn = document.getElementById('nextPage');
+            if (btn && !btn.disabled) {
+                goToNextPage();
+            }
+        }
+        
+        // Handle Last Page button
+        if (e.target.closest('#lastPage')) {
+            e.preventDefault();
+            const btn = document.getElementById('lastPage');
+            if (btn && !btn.disabled) {
+                goToLastPage();
+            }
+        }
+        
+        // Handle numbered page clicks
+        if (e.target.classList.contains('page-number') && !e.target.classList.contains('active')) {
+            const page = parseInt(e.target.textContent.trim());
+            if (!isNaN(page)) {
+                goToPage(page);
+            }
+        }
+    });
+}
+
+// Navigation functions
+function goToPage(page) {
+    const totalPages = Math.ceil(totalMembers / membersPerPage);
+    
+    if (page >= 1 && page <= totalPages && page !== currentPage) {
+        console.log(`🔄 Going to page ${page}`);
+        loadMembers(page, membersPerPage, currentSearchTerm);
+    }
+}
+
+function goToFirstPage() {
+    console.log('🏠 Going to first page');
+    loadMembers(1, membersPerPage, currentSearchTerm);
+}
+
+function goToPrevPage() {
+    if (currentPage > 1) {
+        console.log('⬅️ Going to previous page');
+        loadMembers(currentPage - 1, membersPerPage, currentSearchTerm);
+    }
+}
+
+function goToNextPage() {
+    const totalPages = Math.ceil(totalMembers / membersPerPage);
+    if (currentPage < totalPages) {
+        console.log('➡️ Going to next page');
+        loadMembers(currentPage + 1, membersPerPage, currentSearchTerm);
+    }
+}
+
+function goToLastPage() {
+    const totalPages = Math.ceil(totalMembers / membersPerPage);
+    console.log('🏁 Going to last page');
+    loadMembers(totalPages, membersPerPage, currentSearchTerm);
+}
+
+
+// Update pagination controls
+function updatePaginationControls() {
+    const totalPages = Math.ceil(totalMembers / membersPerPage);
+    
+    console.log(`📊 Updating pagination: Page ${currentPage}/${totalPages}, Total: ${totalMembers}`);
+    
+    // Update button states
+    const firstBtn = document.getElementById('firstPage');
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+    const lastBtn = document.getElementById('lastPage');
+    
+    if (firstBtn) {
+        firstBtn.disabled = currentPage === 1;
+        console.log('🏠 First button disabled:', firstBtn.disabled);
+    }
+    
+    if (prevBtn) {
+        prevBtn.disabled = currentPage === 1;
+        console.log('⬅️ Previous button disabled:', prevBtn.disabled);
+    }
+    
+    if (nextBtn) {
+        nextBtn.disabled = currentPage === totalPages || totalPages === 0;
+        console.log('➡️ Next button disabled:', nextBtn.disabled);
+    }
+    
+    if (lastBtn) {
+        lastBtn.disabled = currentPage === totalPages || totalPages === 0;
+        console.log('🏁 Last button disabled:', lastBtn.disabled);
+    }
+    
+    // Update page numbers
+    updatePageNumbers(totalPages);
+    
+    // Update members count
+    const startIndex = (currentPage - 1) * membersPerPage;
+    const endIndex = startIndex + membersPerPage;
+    updateMembersCount(startIndex, endIndex, totalMembers);
+}
+
+// Update page numbers display
+function updatePageNumbers(totalPages) {
+    const pageNumbersContainer = document.getElementById('pageNumbers');
+    if (!pageNumbersContainer) return;
+    
+    let pageNumbers = '';
+    const maxVisiblePages = 5;
+    
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    // Adjust start page if we're near the end
+    if (endPage - startPage < maxVisiblePages - 1) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    // Add first page and ellipsis if needed
+    if (startPage > 1) {
+        pageNumbers += `<span class="page-number" data-page="1">1</span>`;
+        if (startPage > 2) {
+            pageNumbers += `<span class="page-ellipsis">...</span>`;
+        }
+    }
+    
+    // Add visible page numbers
+    for (let i = startPage; i <= endPage; i++) {
+        const activeClass = i === currentPage ? 'active' : '';
+        pageNumbers += `<span class="page-number ${activeClass}" data-page="${i}">${i}</span>`;
+    }
+    
+    // Add last page and ellipsis if needed
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            pageNumbers += `<span class="page-ellipsis">...</span>`;
+        }
+        pageNumbers += `<span class="page-number" data-page="${totalPages}">${totalPages}</span>`;
+    }
+    
+    pageNumbersContainer.innerHTML = pageNumbers;
+}
+
+// Update members count display
+function updateMembersCount(startIndex, endIndex, total) {
+    const countElement = document.getElementById('membersCount');
+    if (countElement) {
+        const showing = Math.min(endIndex, total);
+        countElement.textContent = `Showing ${startIndex + 1}-${showing} of ${total} members`;
+    }
+}
+
+// Change items per page
+function changeItemsPerPage(newLimit) {
+    membersPerPage = parseInt(newLimit);
+    currentPage = 1; // Reset to first page
+    loadMembers(currentPage, membersPerPage, currentSearchTerm);
+}
+
+// Search function
+function searchMembers(searchTerm) {
+    currentSearchTerm = searchTerm;
+    currentPage = 1; // Reset to first page when searching
+    loadMembers(currentPage, membersPerPage, searchTerm);
+}
+
+// Refresh function
+function refreshMembers() {
+    loadMembers(currentPage, membersPerPage, currentSearchTerm);
 }
 
 
@@ -7860,53 +8037,6 @@ function updatePaginationButtonState() {
     prevPageBtn.disabled = currentPage === 1;
     nextPageBtn.disabled = currentPage === totalPages || totalPages === 0;
     lastPageBtn.disabled = currentPage === totalPages || totalPages === 0;
-}
-
-// ===== NAVIGATION FUNCTIONS =====
-function goToPage(page) {
-    if (page !== currentPage) {
-        currentPage = page;
-        loadMembers(page, membersPerPage, currentSearchTerm);
-    }
-    // Always update button states after page change
-    updatePaginationButtonState();
-}
-
-function goToFirstPage() {
-    goToPage(1);
-}
-
-function goToPrevPage() {
-    if (currentPage > 1) {
-        goToPage(currentPage - 1);
-    }
-}
-
-function goToNextPage() {
-    const totalPages = Math.ceil(filteredMembers.length / membersPerPage);
-    if (currentPage < totalPages) {
-        goToPage(currentPage + 1);
-    }
-}
-
-function goToLastPage() {
-    const totalPages = Math.ceil(filteredMembers.length / membersPerPage);
-    goToPage(totalPages);
-}
-
-
-function updatePaginationButtonState(currentPage, totalPages) {
-    const firstPageBtn = document.getElementById('firstPageBtn');
-    const prevPageBtn = document.getElementById('prevPageBtn');
-    const nextPageBtn = document.getElementById('nextPageBtn');
-    const lastPageBtn = document.getElementById('lastPageBtn');
-
-    if (!firstPageBtn || !prevPageBtn || !nextPageBtn || !lastPageBtn) return;
-
-    firstPageBtn.disabled = currentPage === 1;
-    prevPageBtn.disabled = currentPage === 1;
-    nextPageBtn.disabled = currentPage === totalPages;
-    lastPageBtn.disabled = currentPage === totalPages;
 }
 
 document.addEventListener('DOMContentLoaded', setupPaginationEventHandlers);
