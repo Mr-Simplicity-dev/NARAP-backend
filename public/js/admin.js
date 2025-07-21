@@ -1557,12 +1557,7 @@ function updateMembersCount(startIndex, endIndex, total) {
     }
 }
 
-// Change items per page
-function changeItemsPerPage(newLimit) {
-    membersPerPage = parseInt(newLimit);
-    currentPage = 1; // Reset to first page
-    loadMembers(currentPage, membersPerPage, currentSearchTerm);
-}
+
 
 // Search function
 function searchMembers(searchTerm) {
