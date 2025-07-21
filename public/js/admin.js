@@ -1106,24 +1106,6 @@ function displayMembers(members) {
     }).join('');
 }
 
-// Update pagination controls
-function updatePaginationControls() {
-    const totalPages = Math.ceil(totalMembers / membersPerPage);
-    
-    // Update button states
-    const firstBtn = document.getElementById('firstPage');
-    const prevBtn = document.getElementById('prevPage');
-    const nextBtn = document.getElementById('nextPage');
-    const lastBtn = document.getElementById('lastPage');
-    
-    if (firstBtn) firstBtn.disabled = currentPage === 1;
-    if (prevBtn) prevBtn.disabled = currentPage === 1;
-    if (nextBtn) nextBtn.disabled = currentPage === totalPages || totalPages === 0;
-    if (lastBtn) lastBtn.disabled = currentPage === totalPages || totalPages === 0;
-    
-    // Update page numbers
-    updatePageNumbers(totalPages);
-}
 
 // Update members count display
 function updateMembersCount(startIndex, endIndex, total) {
@@ -1134,11 +1116,6 @@ function updateMembersCount(startIndex, endIndex, total) {
     }
 }
 
-// Change items per page
-function changeItemsPerPage(newLimit) {
-    membersPerPage = parseInt(newLimit);
-    loadMembers(1, newLimit, currentSearchTerm); // ✅ Fixed to use loadMembers
-}
 
 // Update page numbers display
 function updatePageNumbers(totalPages) {
@@ -1187,154 +1164,8 @@ function searchMembers(searchTerm) {
     loadMembers(1, membersPerPage, searchTerm); // ✅ Correct function name
 }
 
-// Refresh function  
-function refreshMembers() {
-    allMembers = []; // Clear cache to force refresh
-    loadMembers(currentPage, membersPerPage, currentSearchTerm); // ✅ Correct function name
-}
 
 
-// 2. Modified loadMembers() with automatic loading support
-async function loadMembers() {
-    const tableBody = document.getElementById('membersTableBody');
-    
-    if (!tableBody) {
-        console.error('Members table body not found');
-        return [];
-    }
-    
-    try {
-        // Show loading state with improved message
-        showMessage('Loading members...', 'info');
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="7" class="loading">
-                    <div class="spinner"></div>
-                    Loading members...
-                </td>
-            </tr>
-        `;
-        
-        // Load members with authentication
-        const members = await fetchMembers();
-        appState.members = members; // Store in global state
-        currentMembers = members; // Also store in currentMembers for compatibility
-        
-        // Use the new renderMembersTable function (without tableBody parameter)
-        renderMembersTable(members);
-        
-        showMessage(`Loaded ${members.length} members successfully`, 'success');
-        return members;
-        
-    } catch (error) {
-        console.error('Load members error:', error);
-        showMessage('Failed to load members', 'error');
-        
-        // Show empty table on error using the new function
-        renderMembersTable([]);
-        
-        // Also handle load error with your existing function
-        handleLoadError(tableBody, error);
-        throw error; // Propagate the error
-    }
-}
-
-
-// 3. New helper functions
-async function fetchMembers() {
-    try {
-        // Use backendUrl if defined, otherwise use relative path
-        const url = typeof backendUrl !== 'undefined' ? `${backendUrl}/api/members` : '/api/members';
-        
-        const response = await fetch(url, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Failed to fetch members: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('Fetched members:', data);
-        
-        // Return the members array
-        return data.members || data || [];
-        
-    } catch (error) {
-        console.error('Error fetching members:', error);
-        throw error;
-    }
-}
-
-
-function renderMembersTable(members) {
-    console.log('Rendering members table with', members.length, 'members');
-    
-    const tableBody = document.getElementById('membersTableBody');
-    if (!tableBody) {
-        console.error('Members table body not found');
-        return;
-    }
-    
-    // Clear existing content
-    tableBody.innerHTML = '';
-    
-    if (!members || members.length === 0) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="6" style="text-align: center; padding: 40px; color: #666;">
-                    <i class="fas fa-users" style="font-size: 48px; margin-bottom: 15px; opacity: 0.3;"></i>
-                    <div>No members found</div>
-                    <div style="font-size: 14px; margin-top: 10px;">Add your first member to get started</div>
-                </td>
-            </tr>
-        `;
-        return;
-    }
-    
-    // Render each member
-    members.forEach((member, index) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>
-                <input type="checkbox" class="member-checkbox" data-member-id="${member._id || member.id}">
-            </td>
-            <td>${escapeHtml(member.name || 'N/A')}</td>
-            <td>${escapeHtml(member.email || 'N/A')}</td>
-            <td>${escapeHtml(member.code || 'N/A')}</td>
-            <td>${escapeHtml(member.state || 'N/A')}</td>
-            <td>
-                <div class="btn-group" role="group">
-                    <button class="btn btn-sm btn-info view-member-btn" 
-                            data-member-id="${member._id || member.id}"
-                            title="View Member">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="btn btn-sm btn-warning edit-member-btn" 
-                            data-member-id="${member._id || member.id}"
-                            title="Edit Member">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger delete-member-btn" 
-                            data-member-id="${member._id || member.id}"
-                            title="Delete Member">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </td>
-        `;
-        tableBody.appendChild(row);
-    });
-    
-    // Setup event delegation for the newly created elements
-    setupEventDelegation();
-    
-    // Update member count
-    updateMemberCount(members.length);
-}
 
 // Helper function to update member count display
 function updateMemberCount(count) {
@@ -1371,7 +1202,9 @@ async function handleLoginSuccess() {
     }
 }
 
-// 5. Page load initialization
+
+
+// FIXED loadMembers function with passport support
 async function loadMembers(page = 1, limit = membersPerPage, searchTerm = '') {
     const tableBody = document.getElementById('membersTableBody');
     if (!tableBody) {
@@ -1393,7 +1226,7 @@ async function loadMembers(page = 1, limit = membersPerPage, searchTerm = '') {
 
         // Fetch members (only once if not already loaded or if searching)
         if (!allMembers.length || searchTerm !== currentSearchTerm) {
-            const members = await fetchMembers();
+            const members = await fetchMembersWithPassports(); // ✅ Fixed function name
             allMembers = members;
             appState.members = members;
         }
@@ -1406,7 +1239,8 @@ async function loadMembers(page = 1, limit = membersPerPage, searchTerm = '') {
             filteredMembers = allMembers.filter(member => 
                 member.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 member.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                member.membershipId?.toLowerCase().includes(searchTerm.toLowerCase())
+                member.membershipId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                member.code?.toLowerCase().includes(searchTerm.toLowerCase())
             );
         } else {
             filteredMembers = [...allMembers];
@@ -1428,15 +1262,15 @@ async function loadMembers(page = 1, limit = membersPerPage, searchTerm = '') {
         // Render table
         renderMembersTable(paginatedMembers);
 
-        // Update pagination controls and count
+        // Update pagination controls
         updatePaginationControls();
-        updateMembersCount(startIndex, endIndex, totalMembers);
 
         // Log for debugging
         console.log(`📊 Loaded page ${page}: ${paginatedMembers.length} members (${startIndex + 1}-${Math.min(endIndex, totalMembers)} of ${totalMembers})`);
         
+        // Log passport info
         paginatedMembers.forEach(member => {
-            console.log('Passport loaded for:', member.name, member.passportPhoto || member.passport);
+            console.log('Member loaded:', member.name, 'Passport:', member.passportPhoto || member.passport || 'No passport');
         });
 
         showMessage(`Loaded ${paginatedMembers.length} of ${totalMembers} members successfully`, 'success');
@@ -1453,8 +1287,53 @@ async function loadMembers(page = 1, limit = membersPerPage, searchTerm = '') {
     }
 }
 
+// FIXED fetchMembers function to include passports
+async function fetchMembersWithPassports() {
+    try {
+        const url = typeof backendUrl !== 'undefined' ? `${backendUrl}/api/members` : '/api/members';
+        
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch members: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Fetched members with passports:', data);
+        
+        // Ensure passport data is included
+        const members = (data.members || data || []).map(member => ({
+            ...member,
+            passportPhoto: member.passportPhoto || member.passport || null
+        }));
+        
+        return members;
+        
+    } catch (error) {
+        console.error('Error fetching members:', error);
+        throw error;
+    }
+}
 
-// Add this pagination initialization function right after your DOMContentLoaded
+// Keep your existing renderMembersTable and other helper functions
+function handleLoadError(tableBody, error) {
+    console.error('Load error:', error);
+    tableBody.innerHTML = `
+        <tr>
+            <td colspan="7" class="error">
+                Failed to load members. ${error.message}
+            </td>
+        </tr>
+    `;
+    showMessage('Failed to load members', 'error');
+}
+
+
 // Initialize pagination system
 function initializePagination() {
     console.log('🔧 Setting up pagination...');
@@ -1462,12 +1341,12 @@ function initializePagination() {
     // Setup event handlers
     setupPaginationEventHandlers();
     
-    // Items per page change
+    // ✅ Items per page dropdown - CORRECTED
     const perPageSelect = document.getElementById('membersPerPage');
     if (perPageSelect) {
         perPageSelect.addEventListener('change', function() {
             console.log('📄 Changing items per page to:', this.value);
-            changeItemsPerPage(this.value);
+            changeItemsPerPage(parseInt(this.value));
         });
     }
     
@@ -1482,6 +1361,24 @@ function initializePagination() {
     
     console.log('✅ Pagination initialized');
 }
+
+// ✅ CORRECTED changeItemsPerPage function
+function changeItemsPerPage(newLimit) {
+    console.log(`📄 Changing page size from ${membersPerPage} to ${newLimit}`);
+    
+    membersPerPage = parseInt(newLimit);
+    currentPage = 1; // Reset to first page
+    
+    // Update the dropdown to reflect the change
+    const perPageSelect = document.getElementById('membersPerPage');
+    if (perPageSelect && perPageSelect.value != newLimit) {
+        perPageSelect.value = newLimit;
+    }
+    
+    // Reload members with new page size
+    loadMembers(currentPage, membersPerPage, currentSearchTerm);
+}
+
 
 // Setup pagination event handlers
 function setupPaginationEventHandlers() {
@@ -1676,10 +1573,184 @@ function searchMembers(searchTerm) {
 
 // Refresh function
 function refreshMembers() {
+    allMembers = []; // Clear cache to force refresh
     loadMembers(currentPage, membersPerPage, currentSearchTerm);
 }
 
 
+// ===== ADD THESE NEW HELPER FUNCTIONS =====
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.toString().replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+function initializePagination() {
+    console.log('🔧 Setting up pagination...');
+    
+    // Setup event handlers
+    setupPaginationEventHandlers();
+    
+    // Items per page dropdown
+    const perPageSelect = document.getElementById('membersPerPage');
+    if (perPageSelect) {
+        perPageSelect.addEventListener('change', function() {
+            console.log('📄 Changing items per page to:', this.value);
+            changeItemsPerPage(parseInt(this.value));
+        });
+    }
+    
+    // Search functionality  
+    const searchInput = document.getElementById('memberSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(function() {
+            console.log('🔍 Searching members:', this.value);
+            searchMembers(this.value);
+        }, 300));
+    }
+    
+    console.log('✅ Pagination initialized');
+}
+
+// ===== ALSO ADD YOUR NAVIGATION FUNCTIONS =====
+function goToPage(page) {
+    const totalPages = Math.ceil(totalMembers / membersPerPage);
+    
+    if (page >= 1 && page <= totalPages && page !== currentPage) {
+        console.log(`🔄 Going to page ${page}`);
+        loadMembers(page, membersPerPage, currentSearchTerm);
+    }
+}
+
+function goToFirstPage() {
+    console.log('🏠 Going to first page');
+    loadMembers(1, membersPerPage, currentSearchTerm);
+}
+
+function goToPrevPage() {
+    if (currentPage > 1) {
+        console.log('⬅️ Going to previous page');
+        loadMembers(currentPage - 1, membersPerPage, currentSearchTerm);
+    }
+}
+
+function goToNextPage() {
+    const totalPages = Math.ceil(totalMembers / membersPerPage);
+    if (currentPage < totalPages) {
+        console.log('➡️ Going to next page');
+        loadMembers(currentPage + 1, membersPerPage, currentSearchTerm);
+    }
+}
+
+function goToLastPage() {
+    const totalPages = Math.ceil(totalMembers / membersPerPage);
+    console.log('🏁 Going to last page');
+    loadMembers(totalPages, membersPerPage, currentSearchTerm);
+}
+
+
+function renderMembersTable(members) {
+    console.log('🎨 Rendering members table with', members.length, 'members');
+    
+    const tableBody = document.getElementById('membersTableBody');
+    if (!tableBody) {
+        console.error('Members table body not found');
+        return;
+    }
+    
+    // Clear existing content
+    tableBody.innerHTML = '';
+    
+    if (!members || members.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 40px; color: #666;">
+                    <i class="fas fa-users" style="font-size: 48px; margin-bottom: 15px; opacity: 0.3;"></i>
+                    <div>No members found</div>
+                    <div style="font-size: 14px; margin-top: 10px;">Add your first member to get started</div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    // Render each member with passport support
+    members.forEach((member, index) => {
+        const row = document.createElement('tr');
+        
+        // Create passport image element
+        const passportImg = member.passportPhoto || member.passport ? 
+            `<img src="${member.passportPhoto || member.passport}" 
+                  alt="Passport" 
+                  class="passport-thumbnail" 
+                  style="width: 30px; height: 30px; border-radius: 4px; object-fit: cover;"
+                  onerror="this.style.display='none'">` : 
+            `<i class="fas fa-user-circle" style="font-size: 24px; color: #ccc;" title="No passport photo"></i>`;
+        
+        row.innerHTML = `
+            <td>
+                <input type="checkbox" class="member-checkbox" data-member-id="${member._id || member.id}">
+            </td>
+            <td>
+                <div class="member-info">
+                    ${passportImg}
+                    <span style="margin-left: 10px;">${escapeHtml(member.name || 'N/A')}</span>
+                </div>
+            </td>
+            <td>${escapeHtml(member.email || 'N/A')}</td>
+            <td>${escapeHtml(member.code || member.membershipId || 'N/A')}</td>
+            <td>${escapeHtml(member.state || 'N/A')}</td>
+            <td>
+                <span class="status-badge ${member.status?.toLowerCase() || 'active'}">
+                    ${escapeHtml(member.status || 'Active')}
+                </span>
+            </td>
+            <td>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-sm btn-info view-member-btn"
+                            data-member-id="${member._id || member.id}"
+                            title="View Member">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-warning edit-member-btn"
+                            data-member-id="${member._id || member.id}"
+                            title="Edit Member">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger delete-member-btn"
+                            data-member-id="${member._id || member.id}"
+                            title="Delete Member">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+    
+    // Setup event delegation for the newly created elements
+    setupEventDelegation();
+    
+    console.log('✅ Table rendered successfully');
+}
 
 
 // Improved error handling for images
