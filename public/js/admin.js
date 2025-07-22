@@ -407,6 +407,34 @@ async function login(event) {
             // Clear cache and initialize
             dataCache.clear();
             initializeDashboard();
+
+            // NEW SESSION RESTORATION LOGIC
+            const shouldRestore = sessionStorage.getItem('shouldRestoreMemberData');
+            if (shouldRestore) {
+                sessionStorage.removeItem('shouldRestoreMemberData');
+                
+                // Load admin interface
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('adminPanel').style.display = 'block';
+                
+                // Open add member modal automatically
+                setTimeout(() => {
+                    showAddMemberModal();
+                    showMessage('Please complete adding the member', 'info');
+                }, 500);
+            } else {
+                // Original UI transition
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('adminPanel').style.display = 'block';
+                
+                // Load critical data
+                await Promise.all([
+                    loadDashboard(),
+                    loadUsers(),
+                    loadCertificates()
+                ]);
+            }
+
             
         } else {
             throw new Error(data.message || 'Login failed');
