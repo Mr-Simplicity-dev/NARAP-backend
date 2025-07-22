@@ -3816,14 +3816,39 @@ function loadSystemInfo() {
 
 // Modal functions
 function showAddMemberModal() {
-    document.getElementById('addMemberModal').style.display = 'block';
+    const modal = document.getElementById('addMemberModal');
+    modal.style.display = 'block';
+    
+    // Check for restored data only when opening modal
+    const unsavedData = sessionStorage.getItem('unsavedMemberData');
+    if (unsavedData) {
+        try {
+            const formData = JSON.parse(unsavedData);
+            // Populate form fields (same as in DOMContentLoaded)
+            document.getElementById('memberName').value = formData.name || '';
+            document.getElementById('memberCode').value = formData.code || '';
+            // ... other fields ...
+            
+            showMessage('Your previous form data has been restored', 'info');
+            sessionStorage.removeItem('unsavedMemberData');
+        } catch (e) {
+            console.error('Error restoring form data:', e);
+            sessionStorage.removeItem('unsavedMemberData');
+        }
+    }
 }
 
 function closeAddMemberModal() {
-    document.getElementById('addMemberModal').style.display = 'none';
-    document.getElementById('addMemberForm').reset();
-    const strengthDiv = document.getElementById('passwordStrength');
-    if (strengthDiv) strengthDiv.innerHTML = '';
+    const modal = document.getElementById('addMemberModal');
+    modal.style.display = 'none';
+    
+    // Only reset if there's no pending data
+    if (!sessionStorage.getItem('unsavedMemberData')) {
+        document.getElementById('addMemberForm').reset();
+        const strengthDiv = document.getElementById('passwordStrength');
+        if (strengthDiv) strengthDiv.innerHTML = '';
+        clearImagePreviews();
+    }
 }
 
 function showEditMemberModal() {
