@@ -3876,7 +3876,6 @@ function closeConfirmModal() {
 }
 
 // Member management functions
-// Update the addMember function to handle optional email
 async function addMember() {
     try {
         const validation = validateMemberForm();
@@ -3902,7 +3901,7 @@ async function addMember() {
             memberData.email = email;
         }
         
-         showMessage('Adding member...', 'info');
+        showMessage('Adding member...', 'info');
         
         const response = await fetch(`${backendUrl}/api/addUser`, {
             method: 'POST',
@@ -3927,26 +3926,8 @@ async function addMember() {
         }
         
         const result = await response.json();
-            if (result.success) {
-            showMessage('Member added successfully!', 'success');
-
-            // Clear the form
-            document.getElementById('addMemberForm').reset();
-            clearImagePreviews();
-
-            // Reload members to show the new addition
-            await loadUsers();
-
-            // Close modal if it exists
-            const modal = document.getElementById('addMemberModal');
-            if (modal) {
-                modal.style.display = 'none';
-            }
-
-        } else {
-            showMessage(result.message || 'Failed to add member', 'error');
-        }
         
+        // SINGLE SUCCESS HANDLER (CORRECTED)
         if (result.success) {
             showMessage('Member added successfully!', 'success');
             
@@ -3962,7 +3943,6 @@ async function addMember() {
             if (modal) {
                 modal.style.display = 'none';
             }
-            
         } else {
             showMessage(result.message || 'Failed to add member', 'error');
         }
@@ -3972,7 +3952,6 @@ async function addMember() {
         showMessage('Failed to add member: ' + error.message, 'error');
     }
 }
-
 // Make sure the function is globally accessible
 window.addMember = addMember;
 
