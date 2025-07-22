@@ -3902,7 +3902,7 @@ async function addMember() {
             memberData.email = email;
         }
         
-        showMessage('Adding member...', 'info');
+         showMessage('Adding member...', 'info');
         
         const response = await fetch(`${backendUrl}/api/addUser`, {
             method: 'POST',
@@ -3911,7 +3911,41 @@ async function addMember() {
             body: JSON.stringify(memberData)
         });
         
+        // Handle session expiration (401 Unauthorized)
+        if (response.status === 401) {
+            // Save form data to session storage
+            sessionStorage.setItem('unsavedMemberData', JSON.stringify(memberData));
+            
+            // Show session expired message
+            showMessage('Your session has expired. Redirecting to login...', 'error');
+            
+            // Redirect after a short delay
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 2000);
+            return;
+        }
+        
         const result = await response.json();
+            if (result.success) {
+            showMessage('Member added successfully!', 'success');
+
+            // Clear the form
+            document.getElementById('addMemberForm').reset();
+            clearImagePreviews();
+
+            // Reload members to show the new addition
+            await loadUsers();
+
+            // Close modal if it exists
+            const modal = document.getElementById('addMemberModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+
+        } else {
+            showMessage(result.message || 'Failed to add member', 'error');
+        }
         
         if (result.success) {
             showMessage('Member added successfully!', 'success');
