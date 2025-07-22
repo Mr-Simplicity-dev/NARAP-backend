@@ -3955,6 +3955,47 @@ async function addMember() {
 // Make sure the function is globally accessible
 window.addMember = addMember;
 
+document.addEventListener('DOMContentLoaded', () => {
+    const unsavedData = sessionStorage.getItem('unsavedMemberData');
+    
+    if (unsavedData) {
+        try {
+            const formData = JSON.parse(unsavedData);
+            
+            // Populate form fields
+            document.getElementById('memberName').value = formData.name || '';
+            document.getElementById('memberCode').value = formData.code || '';
+            document.getElementById('memberPassword').value = formData.password || '';
+            document.getElementById('memberPosition').value = formData.position || '';
+            document.getElementById('memberState').value = formData.state || '';
+            document.getElementById('memberZone').value = formData.zone || '';
+            
+            // Handle optional email
+            if (formData.email) {
+                document.getElementById('memberEmail').value = formData.email || '';
+            }
+            
+            // Restore images if available
+            if (formData.passportPhoto) {
+                document.getElementById('passportPreview').src = formData.passportPhoto;
+            }
+            if (formData.signature) {
+                document.getElementById('signaturePreview').src = formData.signature;
+            }
+            
+            // Notify user
+            showMessage('Your previous form data has been restored', 'info');
+            
+            // Clear stored data
+            sessionStorage.removeItem('unsavedMemberData');
+            
+        } catch (e) {
+            console.error('Error restoring form data:', e);
+            sessionStorage.removeItem('unsavedMemberData');
+        }
+    }
+});
+
 
 
 async function updateMember(event) {
