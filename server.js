@@ -282,11 +282,30 @@ const startServer = async () => {
   try {
     await connectDB();
     
+    // Ensure upload directories exist
+    const fs = require('fs');
+    const path = require('path');
+    const uploadsDir = path.join(__dirname, 'uploads');
+    const passportsDir = path.join(uploadsDir, 'passports');
+    const signaturesDir = path.join(uploadsDir, 'signatures');
+    
+    [uploadsDir, passportsDir, signaturesDir].forEach(dir => {
+      try {
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+          console.log(`✅ Created uploads directory: ${dir}`);
+        }
+      } catch (error) {
+        console.error(`❌ Error creating uploads directory ${dir}:`, error);
+      }
+    });
+    
     app.listen(PORT, () => {
       console.log(`🚀 NARAP Backend Server running on port ${PORT}`);
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
       console.log(`📝 Health Check: http://localhost:${PORT}/api/health`);
+      console.log(`📁 Uploads directory: ${uploadsDir}`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);

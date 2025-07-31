@@ -11,9 +11,15 @@ const uploadsDir = path.join(__dirname, '../uploads');
 const passportsDir = path.join(uploadsDir, 'passports');
 const signaturesDir = path.join(uploadsDir, 'signatures');
 
+// Ensure all directories exist with proper error handling
 [uploadsDir, passportsDir, signaturesDir].forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+  try {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      console.log(`✅ Created directory: ${dir}`);
+    }
+  } catch (error) {
+    console.error(`❌ Error creating directory ${dir}:`, error);
   }
 });
 
