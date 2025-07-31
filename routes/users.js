@@ -532,6 +532,14 @@ const verifyMember = async (req, res) => {
       `${baseUrl}/api/uploads/passports/${member.passportPhoto || member.passport}` : null;
     const signatureUrl = member.signature ? 
       `${baseUrl}/api/uploads/signatures/${member.signature}` : null;
+    
+    console.log('🔍 Photo URL construction debug:');
+    console.log('  - Base URL:', baseUrl);
+    console.log('  - Member passportPhoto field:', member.passportPhoto);
+    console.log('  - Member passport field:', member.passport);
+    console.log('  - Final passportPhotoUrl:', passportPhotoUrl);
+    console.log('  - Member signature field:', member.signature);
+    console.log('  - Final signatureUrl:', signatureUrl);
 
     res.json({
       success: true,
@@ -585,6 +593,14 @@ const searchUser = async (req, res) => {
       `${baseUrl}/api/uploads/passports/${user.passportPhoto || user.passport}` : null;
     const signatureUrl = user.signature ? 
       `${baseUrl}/api/uploads/signatures/${user.signature}` : null;
+    
+    console.log('🔍 Legacy searchUser Photo URL construction debug:');
+    console.log('  - Base URL:', baseUrl);
+    console.log('  - User passportPhoto field:', user.passportPhoto);
+    console.log('  - User passport field:', user.passport);
+    console.log('  - Final passportPhotoUrl:', passportPhotoUrl);
+    console.log('  - User signature field:', user.signature);
+    console.log('  - Final signatureUrl:', signatureUrl);
 
     res.json({
       user: {
