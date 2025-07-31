@@ -293,7 +293,7 @@ const startServer = async () => {
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
       console.log(`📝 Health Check: http://localhost:${PORT}/api/health`);
-      console.log(`📁 Uploads directory: ${uploadsDir}`);
+      console.log(`📁 Storage type: ${storageInfo.type} (Cloud: ${storageInfo.isCloudDeployment})`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
