@@ -527,7 +527,9 @@ const verifyMember = async (req, res) => {
     await member.save();
     
     // Build proper URLs for photos
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://narap-backend.onrender.com' 
+      : `${req.protocol}://${req.get('host')}`;
     const passportPhotoUrl = member.passportPhoto || member.passport ? 
       `${baseUrl}/api/uploads/passports/${member.passportPhoto || member.passport}` : null;
     const signatureUrl = member.signature ? 
@@ -588,7 +590,9 @@ const searchUser = async (req, res) => {
     }
     
     // Build proper URLs for photos
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://narap-backend.onrender.com' 
+      : `${req.protocol}://${req.get('host')}`;
     const passportPhotoUrl = user.passportPhoto || user.passport ? 
       `${baseUrl}/api/uploads/passports/${user.passportPhoto || user.passport}` : null;
     const signatureUrl = user.signature ? 

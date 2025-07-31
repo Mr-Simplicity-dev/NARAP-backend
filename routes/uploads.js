@@ -55,4 +55,40 @@ router.get('/signatures/:filename', (req, res) => {
     res.sendFile(filePath);
 });
 
+// Debug route to list available files
+router.get('/debug/files', (req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    
+    const passportsDir = path.join(__dirname, '../uploads/passports');
+    const signaturesDir = path.join(__dirname, '../uploads/signatures');
+    
+    let passportFiles = [];
+    let signatureFiles = [];
+    
+    try {
+        if (fs.existsSync(passportsDir)) {
+            passportFiles = fs.readdirSync(passportsDir);
+        }
+    } catch (error) {
+        console.log('Error reading passports directory:', error);
+    }
+    
+    try {
+        if (fs.existsSync(signaturesDir)) {
+            signatureFiles = fs.readdirSync(signaturesDir);
+        }
+    } catch (error) {
+        console.log('Error reading signatures directory:', error);
+    }
+    
+    res.json({
+        success: true,
+        passports: passportFiles,
+        signatures: signatureFiles,
+        totalPassports: passportFiles.length,
+        totalSignatures: signatureFiles.length
+    });
+});
+
 module.exports = router; 
