@@ -15,6 +15,44 @@ const withDB = (handler) => {
   };
 };
 
+// Track usage analytics
+router.post('/', withDB(async (req, res) => {
+  try {
+    console.log('📊 Usage analytics received:', req.body);
+    
+    const { type, action, timestamp, userAgent, url } = req.body;
+    
+    // Validate required fields
+    if (!type || !action) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Type and action are required' 
+      });
+    }
+    
+    // Store analytics data (you can add a database model for this later)
+    // For now, just log it
+    console.log('📊 Analytics stored:', {
+      type,
+      action,
+      timestamp: timestamp || new Date().toISOString(),
+      userAgent,
+      url
+    });
+    
+    res.json({ 
+      success: true, 
+      message: 'Analytics data received successfully' 
+    });
+  } catch (error) {
+    console.error('Analytics tracking error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error processing analytics data' 
+    });
+  }
+}));
+
 // Get dashboard analytics
 router.get('/dashboard', withDB(async (req, res) => {
   try {
