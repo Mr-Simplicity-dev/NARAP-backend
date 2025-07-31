@@ -177,9 +177,9 @@ const addUser = async (req, res) => {
     } = req.body;
     
     // Validation
-    if (!name || !password || !code || !state || !zone) {
+    if (!name || !password || !code || !state || !zone || !email) {
       return res.status(400).json({
-        message: 'Name, password, code, state, and zone are required'
+        message: 'Name, password, code, state, zone, and email are required'
       });
     }
     
@@ -211,10 +211,8 @@ const addUser = async (req, res) => {
       cardGenerated: false
     };
     
-    // Add email if provided
-    if (email && email.trim()) {
-      userData.email = email.toLowerCase().trim();
-    }
+    // Add email (now required)
+    userData.email = email.toLowerCase().trim();
     
     // Add images if provided
     if (req.files && req.files.passportPhoto) {
