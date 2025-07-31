@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
+const cloudStorage = require('../cloud-storage');
 
 // Ensure upload directories exist
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -29,92 +30,91 @@ router.options('*', (req, res) => {
 });
 
 // Serve uploaded files
-router.get('/passports/:filename', (req, res) => {
+router.get('/passports/:filename', async (req, res) => {
     const filename = req.params.filename;
-    const filePath = path.join(__dirname, '../uploads/passports', filename);
-    console.log('🔍 Serving passport file:', { filename, filePath });
+    console.log('🔍 Serving passport file:', { filename });
     
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
-        console.log('❌ File not found:', filePath);
+    try {
+        const fileData = await cloudStorage.getFile(filename, 'passportPhoto');
+        
+        // Set CORS headers for image serving
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        res.setHeader('Content-Type', fileData.mimeType || 'image/jpeg');
+        res.setHeader('Content-Length', fileData.size);
+        
+        console.log('✅ Sending passport file:', filename);
+        res.send(fileData.buffer);
+    } catch (error) {
+        console.log('❌ File not found:', filename, error.message);
+        
+        // Get available files for debugging
+        const availableFiles = await cloudStorage.listFiles('passportPhoto');
+        
         return res.status(404).json({ 
             error: 'File not found',
             filename: filename,
-            path: filePath,
-            availableFiles: fs.existsSync(passportsDir) ? fs.readdirSync(passportsDir) : []
+            message: error.message,
+            availableFiles: availableFiles.passports,
+            storageInfo: cloudStorage.getStorageInfo()
         });
     }
-    
-    // Set CORS headers for image serving
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    
-    console.log('✅ Sending passport file:', filename);
-    res.sendFile(filePath);
 });
 
-router.get('/signatures/:filename', (req, res) => {
+router.get('/signatures/:filename', async (req, res) => {
     const filename = req.params.filename;
-    const filePath = path.join(__dirname, '../uploads/signatures', filename);
-    console.log('🔍 Serving signature file:', { filename, filePath });
+    console.log('🔍 Serving signature file:', { filename });
     
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
-        console.log('❌ File not found:', filePath);
+    try {
+        const fileData = await cloudStorage.getFile(filename, 'signature');
+        
+        // Set CORS headers for image serving
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        res.setHeader('Content-Type', fileData.mimeType || 'image/jpeg');
+        res.setHeader('Content-Length', fileData.size);
+        
+        console.log('✅ Sending signature file:', filename);
+        res.send(fileData.buffer);
+    } catch (error) {
+        console.log('❌ File not found:', filename, error.message);
+        
+        // Get available files for debugging
+        const availableFiles = await cloudStorage.listFiles('signature');
+        
         return res.status(404).json({ 
             error: 'File not found',
             filename: filename,
-            path: filePath,
-            availableFiles: fs.existsSync(signaturesDir) ? fs.readdirSync(signaturesDir) : []
+            message: error.message,
+            availableFiles: availableFiles.signatures,
+            storageInfo: cloudStorage.getStorageInfo()
         });
     }
-    
-    // Set CORS headers for image serving
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    
-    console.log('✅ Sending signature file:', filename);
-    res.sendFile(filePath);
 });
 
 // Debug route to list available files
-router.get('/debug/files', (req, res) => {
+router.get('/debug/files', async (req, res) => {
     try {
-        let passportFiles = [];
-        let signatureFiles = [];
-        
-        if (fs.existsSync(passportsDir)) {
-            passportFiles = fs.readdirSync(passportsDir);
-        }
-        
-        if (fs.existsSync(signaturesDir)) {
-            signatureFiles = fs.readdirSync(signaturesDir);
-        }
+        const files = await cloudStorage.listFiles();
+        const storageInfo = cloudStorage.getStorageInfo();
         
         res.json({
             success: true,
-            directories: {
-                uploads: fs.existsSync(uploadsDir),
-                passports: fs.existsSync(passportsDir),
-                signatures: fs.existsSync(signaturesDir)
-            },
-            passports: passportFiles,
-            signatures: signatureFiles,
-            totalPassports: passportFiles.length,
-            totalSignatures: signatureFiles.length,
-            paths: {
-                uploads: uploadsDir,
-                passports: passportsDir,
-                signatures: signaturesDir
-            }
+            storage: storageInfo,
+            passports: files.passports,
+            signatures: files.signatures,
+            totalPassports: files.passports.length,
+            totalSignatures: files.signatures.length,
+            total: files.total
         });
     } catch (error) {
         console.error('Error in debug/files:', error);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: error.message,
+            storageInfo: cloudStorage.getStorageInfo()
         });
     }
 });

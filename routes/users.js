@@ -5,6 +5,7 @@ const multer = require('multer');
 const fs = require('fs');
 const User = require('../models/User');
 const bcrypt = require('bcrypt');
+const cloudStorage = require('../cloud-storage');
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -23,26 +24,9 @@ const signaturesDir = path.join(uploadsDir, 'signatures');
   }
 });
 
-// Configure Multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    if (file.fieldname === 'passportPhoto') {
-      cb(null, passportsDir);
-    } else if (file.fieldname === 'signature') {
-      cb(null, signaturesDir);
-    } else {
-      cb(null, uploadsDir);
-    }
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
-  }
-});
-
+// Configure Multer for file uploads (memory storage for cloud compatibility)
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(),
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -224,18 +208,30 @@ const addUser = async (req, res) => {
     
     // Add images if provided
     if (req.files && req.files.passportPhoto) {
-      const passportPath = req.files.passportPhoto[0].path.replace(/\\/g, '/'); // Convert Windows path to Unix
-      const passportFilename = passportPath.split('/').pop(); // Extract just the filename
-      userData.passportPhoto = passportFilename;
-      userData.passport = passportFilename;
-      userData.cardGenerated = true;
+      try {
+        const passportFile = req.files.passportPhoto[0];
+        const passportResult = await cloudStorage.saveFile(passportFile, 'passportPhoto');
+        userData.passportPhoto = passportResult.filename;
+        userData.passport = passportResult.filename;
+        userData.cardGenerated = true;
+        console.log('✅ Passport photo saved:', passportResult.filename);
+      } catch (error) {
+        console.error('❌ Error saving passport photo:', error);
+        throw new Error('Failed to save passport photo');
+      }
     }
     
     if (req.files && req.files.signature) {
-      const signaturePath = req.files.signature[0].path.replace(/\\/g, '/'); // Convert Windows path to Unix
-      const signatureFilename = signaturePath.split('/').pop(); // Extract just the filename
-      userData.signature = signatureFilename;
-      userData.cardGenerated = true;
+      try {
+        const signatureFile = req.files.signature[0];
+        const signatureResult = await cloudStorage.saveFile(signatureFile, 'signature');
+        userData.signature = signatureResult.filename;
+        userData.cardGenerated = true;
+        console.log('✅ Signature saved:', signatureResult.filename);
+      } catch (error) {
+        console.error('❌ Error saving signature:', error);
+        throw new Error('Failed to save signature');
+      }
     }
     
     const user = new User(userData);

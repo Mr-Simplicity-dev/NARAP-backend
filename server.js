@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const cloudStorage = require('./cloud-storage');
 const path = require('path');
 require('dotenv').config();
 
@@ -282,23 +283,10 @@ const startServer = async () => {
   try {
     await connectDB();
     
-    // Ensure upload directories exist
-    const fs = require('fs');
-    const path = require('path');
-    const uploadsDir = path.join(__dirname, 'uploads');
-    const passportsDir = path.join(uploadsDir, 'passports');
-    const signaturesDir = path.join(uploadsDir, 'signatures');
-    
-    [uploadsDir, passportsDir, signaturesDir].forEach(dir => {
-      try {
-        if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true });
-          console.log(`✅ Created uploads directory: ${dir}`);
-        }
-      } catch (error) {
-        console.error(`❌ Error creating uploads directory ${dir}:`, error);
-      }
-    });
+          // Initialize cloud storage
+      console.log('🔧 Initializing storage system...');
+      const storageInfo = cloudStorage.getStorageInfo();
+      console.log('📊 Storage info:', storageInfo);
     
     app.listen(PORT, () => {
       console.log(`🚀 NARAP Backend Server running on port ${PORT}`);
