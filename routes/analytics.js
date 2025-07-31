@@ -5,52 +5,65 @@ const Certificate = require('../models/Certificate');
 
 // Database wrapper function
 const withDB = (handler) => {
-  return async (req, res) => {
-    try {
-      await handler(req, res);
-    } catch (error) {
-      console.error('Database error:', error);
-      res.status(500).json({ message: 'Database error' });
-    }
-  };
+    return async (req, res, next) => {
+        try {
+            await handler(req, res, next);
+        } catch (error) {
+            console.error('Database error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Database operation failed',
+                error: error.message
+            });
+        }
+    };
 };
 
-// Track usage analytics
+// OPTIONS handler for CORS preflight requests
+router.options('/', (req, res) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    res.status(204).end();
+});
+
+// POST endpoint for analytics data
 router.post('/', withDB(async (req, res) => {
-  try {
-    console.log('📊 Usage analytics received:', req.body);
+    // Set CORS headers explicitly
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
     
-    const { type, action, timestamp, userAgent, url } = req.body;
-    
-    // Validate required fields
-    if (!type || !action) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Type and action are required' 
-      });
+    try {
+        const { type, action, timestamp, userAgent, url } = req.body;
+        
+        console.log('📊 Analytics data received:', { type, action, timestamp, userAgent, url });
+        
+        // For now, just log the analytics data
+        // You can add a database model for this later
+        console.log('📊 Analytics stored:', {
+            type,
+            action,
+            timestamp: timestamp || new Date().toISOString(),
+            userAgent,
+            url,
+            ip: req.ip
+        });
+        
+        res.json({
+            success: true,
+            message: 'Analytics data recorded successfully',
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Analytics error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to record analytics data',
+            error: error.message
+        });
     }
-    
-    // Store analytics data (you can add a database model for this later)
-    // For now, just log it
-    console.log('📊 Analytics stored:', {
-      type,
-      action,
-      timestamp: timestamp || new Date().toISOString(),
-      userAgent,
-      url
-    });
-    
-    res.json({ 
-      success: true, 
-      message: 'Analytics data received successfully' 
-    });
-  } catch (error) {
-    console.error('Analytics tracking error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error processing analytics data' 
-    });
-  }
 }));
 
 // Get dashboard analytics
