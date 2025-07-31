@@ -150,6 +150,35 @@ app.use((error, req, res, next) => {
   });
 });
 
+// Clear all database data function
+async function clearAllDatabaseData() {
+  try {
+    console.log('🗑️ Clearing all database data...');
+    const User = require('./models/User');
+    const Certificate = require('./models/Certificate');
+    
+    // Clear all users
+    const userResult = await User.deleteMany({});
+    console.log(`✅ Deleted ${userResult.deletedCount} users`);
+    
+    // Clear all certificates
+    const certificateResult = await Certificate.deleteMany({});
+    console.log(`✅ Deleted ${certificateResult.deletedCount} certificates`);
+    
+    const totalDeleted = userResult.deletedCount + certificateResult.deletedCount;
+    console.log(`✅ Database cleared successfully. Total records deleted: ${totalDeleted}`);
+    
+    return {
+      usersDeleted: userResult.deletedCount,
+      certificatesDeleted: certificateResult.deletedCount,
+      totalDeleted: totalDeleted
+    };
+  } catch (error) {
+    console.error('❌ Error clearing database:', error);
+    throw error;
+  }
+}
+
 // Database cleanup function
 async function cleanupDatabaseCertificates() {
   try {
@@ -189,6 +218,24 @@ async function cleanupDatabaseCertificates() {
     throw error;
   }
 }
+
+// Clear all database data endpoint
+app.post('/api/clear-database', async (req, res) => {
+  try {
+    const result = await clearAllDatabaseData();
+    res.json({
+      success: true,
+      message: `Successfully cleared database. Deleted ${result.totalDeleted} records (${result.usersDeleted} users, ${result.certificatesDeleted} certificates)`,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to clear database',
+      error: error.message
+    });
+  }
+});
 
 // Cleanup certificates endpoint
 app.post('/api/cleanup-certificates', async (req, res) => {
