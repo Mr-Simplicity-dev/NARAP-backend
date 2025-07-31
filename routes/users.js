@@ -526,6 +526,13 @@ const verifyMember = async (req, res) => {
     member.lastVerification = new Date();
     await member.save();
     
+    // Build proper URLs for photos
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const passportPhotoUrl = member.passportPhoto || member.passport ? 
+      `${baseUrl}/api/uploads/passports/${member.passportPhoto || member.passport}` : null;
+    const signatureUrl = member.signature ? 
+      `${baseUrl}/api/uploads/signatures/${member.signature}` : null;
+
     res.json({
       success: true,
       message: 'Member found successfully',
@@ -537,8 +544,8 @@ const verifyMember = async (req, res) => {
         position: member.position || 'MEMBER',
         state: member.state,
         zone: member.zone,
-        passportPhoto: member.passportPhoto || member.passport,
-        signature: member.signature,
+        passportPhoto: passportPhotoUrl,
+        signature: signatureUrl,
         dateAdded: member.dateAdded || member.createdAt,
         isActive: member.isActive !== false
       }
@@ -572,6 +579,13 @@ const searchUser = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
+    // Build proper URLs for photos
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const passportPhotoUrl = user.passportPhoto || user.passport ? 
+      `${baseUrl}/api/uploads/passports/${user.passportPhoto || user.passport}` : null;
+    const signatureUrl = user.signature ? 
+      `${baseUrl}/api/uploads/signatures/${user.signature}` : null;
+
     res.json({
       user: {
         _id: user._id,
@@ -581,8 +595,8 @@ const searchUser = async (req, res) => {
         position: user.position || 'MEMBER',
         state: user.state,
         zone: user.zone,
-        passportPhoto: user.passportPhoto || user.passport,
-        signature: user.signature,
+        passportPhoto: passportPhotoUrl,
+        signature: signatureUrl,
         dateAdded: user.dateAdded || user.createdAt,
         createdAt: user.createdAt
       }
@@ -626,6 +640,64 @@ router.get('/debug/users', withDB(async (req, res) => {
   } catch (error) {
     console.error('Debug error:', error);
     res.status(500).json({ success: false, message: 'Debug error' });
+  }
+}));
+
+// Route to update member passport photo by code
+router.put('/updateMemberPhoto/:code', upload.single('passportPhoto'), handleMulterError, withDB(async (req, res) => {
+  try {
+    const { code } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'No passport photo file provided' 
+      });
+    }
+    
+    // Find member by code
+    const member = await User.findOne({ 
+      code: { $regex: new RegExp(`^${code}$`, 'i') }
+    });
+    
+    if (!member) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Member not found with this code' 
+      });
+    }
+    
+    // Update passport photo
+    const passportPath = req.file.path.replace(/\\/g, '/');
+    const passportFilename = passportPath.split('/').pop();
+    
+    member.passportPhoto = passportFilename;
+    member.passport = passportFilename;
+    member.cardGenerated = true;
+    
+    await member.save();
+    
+    console.log('✅ Member passport photo updated:', {
+      name: member.name,
+      code: member.code,
+      passportPhoto: member.passportPhoto
+    });
+    
+    res.json({
+      success: true,
+      message: 'Member passport photo updated successfully',
+      data: {
+        name: member.name,
+        code: member.code,
+        passportPhoto: member.passportPhoto
+      }
+    });
+  } catch (error) {
+    console.error('Update member photo error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error while updating member photo' 
+    });
   }
 }));
 
