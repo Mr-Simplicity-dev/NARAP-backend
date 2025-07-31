@@ -277,6 +277,9 @@ const updateUser = async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
     
+    console.log('🔄 Update user request:', { id, updateData });
+    console.log('📁 Files received:', req.files);
+    
     // Remove sensitive fields
     delete updateData.password;
     delete updateData._id;
@@ -298,6 +301,7 @@ const updateUser = async (req, res) => {
     // Update cardGenerated status if images are provided
     if (req.files && req.files.passportPhoto && req.files.signature) {
       updateData.cardGenerated = true;
+      console.log('✅ Both passport and signature provided, setting cardGenerated to true');
     }
     
     if (req.files && req.files.passportPhoto) {
@@ -305,12 +309,14 @@ const updateUser = async (req, res) => {
       const passportFilename = passportPath.split('/').pop(); // Extract just the filename
       updateData.passportPhoto = passportFilename;
       updateData.passport = passportFilename;
+      console.log('📸 Passport photo updated:', passportFilename);
     }
     
     if (req.files && req.files.signature) {
       const signaturePath = req.files.signature[0].path.replace(/\\/g, '/'); // Convert Windows path to Unix
       const signatureFilename = signaturePath.split('/').pop(); // Extract just the filename
       updateData.signature = signatureFilename;
+      console.log('✍️ Signature updated:', signatureFilename);
     }
     
     const user = await User.findByIdAndUpdate(
@@ -330,7 +336,7 @@ const updateUser = async (req, res) => {
       signature: user.signature
     });
     
-    res.json({ 
+    const responseData = { 
       message: 'User updated successfully', 
       user,
       data: {
@@ -340,7 +346,10 @@ const updateUser = async (req, res) => {
         passportPhoto: user.passportPhoto,
         signature: user.signature
       }
-    });
+    };
+    
+    console.log('📤 Sending response:', responseData);
+    res.json(responseData);
   } catch (error) {
     console.error('Update user error:', error);
     if (error.code === 11000) {
