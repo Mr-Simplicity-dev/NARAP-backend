@@ -37,7 +37,13 @@ router.get('/passports/:filename', async (req, res) => {
     try {
         const fileData = await cloudStorage.getFile(filename, 'passportPhoto');
         
-        // Set CORS headers for image serving
+        // If it's a Cloudinary file, redirect to the URL
+        if (fileData.storageType === 'cloudinary' && fileData.url) {
+            console.log('✅ Redirecting to Cloudinary URL:', fileData.url);
+            return res.redirect(fileData.url);
+        }
+        
+        // For local/memory files, serve the buffer
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -69,7 +75,13 @@ router.get('/signatures/:filename', async (req, res) => {
     try {
         const fileData = await cloudStorage.getFile(filename, 'signature');
         
-        // Set CORS headers for image serving
+        // If it's a Cloudinary file, redirect to the URL
+        if (fileData.storageType === 'cloudinary' && fileData.url) {
+            console.log('✅ Redirecting to Cloudinary URL:', fileData.url);
+            return res.redirect(fileData.url);
+        }
+        
+        // For local/memory files, serve the buffer
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type');

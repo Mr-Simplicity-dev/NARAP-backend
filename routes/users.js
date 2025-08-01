@@ -282,6 +282,12 @@ const updateUser = async (req, res) => {
     console.log('🔄 Update user request:', { id, updateData });
     console.log('📁 Files received:', req.files);
     
+    // Get existing user to handle file cleanup
+    const existingUser = await User.findById(id);
+    if (!existingUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
     // Remove sensitive fields
     delete updateData.password;
     delete updateData._id;
@@ -300,25 +306,51 @@ const updateUser = async (req, res) => {
       }
     }
     
-    // Update cardGenerated status if images are provided
+    // Handle passport photo update
+    if (req.files && req.files.passportPhoto) {
+      try {
+        // Delete old passport photo if it exists
+        if (existingUser.passportPhoto) {
+          await cloudStorage.deleteFile(existingUser.passportPhoto, 'passportPhoto');
+          console.log('🗑️ Deleted old passport photo:', existingUser.passportPhoto);
+        }
+        
+        // Save new passport photo
+        const passportFile = req.files.passportPhoto[0];
+        const passportResult = await cloudStorage.saveFile(passportFile, 'passportPhoto');
+        updateData.passportPhoto = passportResult.filename;
+        updateData.passport = passportResult.filename;
+        console.log('✅ New passport photo saved:', passportResult.filename);
+      } catch (error) {
+        console.error('❌ Error updating passport photo:', error);
+        throw new Error('Failed to update passport photo');
+      }
+    }
+    
+    // Handle signature update
+    if (req.files && req.files.signature) {
+      try {
+        // Delete old signature if it exists
+        if (existingUser.signature) {
+          await cloudStorage.deleteFile(existingUser.signature, 'signature');
+          console.log('🗑️ Deleted old signature:', existingUser.signature);
+        }
+        
+        // Save new signature
+        const signatureFile = req.files.signature[0];
+        const signatureResult = await cloudStorage.saveFile(signatureFile, 'signature');
+        updateData.signature = signatureResult.filename;
+        console.log('✅ New signature saved:', signatureResult.filename);
+      } catch (error) {
+        console.error('❌ Error updating signature:', error);
+        throw new Error('Failed to update signature');
+      }
+    }
+    
+    // Update cardGenerated status if both images are provided
     if (req.files && req.files.passportPhoto && req.files.signature) {
       updateData.cardGenerated = true;
       console.log('✅ Both passport and signature provided, setting cardGenerated to true');
-    }
-    
-    if (req.files && req.files.passportPhoto) {
-      const passportPath = req.files.passportPhoto[0].path.replace(/\\/g, '/'); // Convert Windows path to Unix
-      const passportFilename = passportPath.split('/').pop(); // Extract just the filename
-      updateData.passportPhoto = passportFilename;
-      updateData.passport = passportFilename;
-      console.log('📸 Passport photo updated:', passportFilename);
-    }
-    
-    if (req.files && req.files.signature) {
-      const signaturePath = req.files.signature[0].path.replace(/\\/g, '/'); // Convert Windows path to Unix
-      const signatureFilename = signaturePath.split('/').pop(); // Extract just the filename
-      updateData.signature = signatureFilename;
-      console.log('✍️ Signature updated:', signatureFilename);
     }
     
     const user = await User.findByIdAndUpdate(
@@ -370,10 +402,37 @@ const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
     
-    const user = await User.findByIdAndDelete(id);
+    // Get user before deletion to handle file cleanup
+    const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+    
+    // Delete associated files from storage
+    try {
+      if (user.passportPhoto) {
+        await cloudStorage.deleteFile(user.passportPhoto, 'passportPhoto');
+        console.log('🗑️ Deleted passport photo:', user.passportPhoto);
+      }
+      
+      if (user.signature) {
+        await cloudStorage.deleteFile(user.signature, 'signature');
+        console.log('🗑️ Deleted signature:', user.signature);
+      }
+    } catch (fileError) {
+      console.error('⚠️ Warning: Error deleting files:', fileError);
+      // Continue with user deletion even if file deletion fails
+    }
+    
+    // Delete user from database
+    await User.findByIdAndDelete(id);
+    
+    console.log('✅ User deleted successfully:', {
+      name: user.name,
+      code: user.code,
+      passportPhoto: user.passportPhoto,
+      signature: user.signature
+    });
     
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
@@ -406,13 +465,39 @@ const bulkDeleteUsers = async (req, res) => {
       return res.status(400).json({ message: 'User IDs array is required' });
     }
     
+    // Get users before deletion to handle file cleanup
+    const users = await User.find({ _id: { $in: userIds } });
+    
+    // Delete associated files from storage
+    let deletedFiles = 0;
+    for (const user of users) {
+      try {
+        if (user.passportPhoto) {
+          await cloudStorage.deleteFile(user.passportPhoto, 'passportPhoto');
+          deletedFiles++;
+        }
+        
+        if (user.signature) {
+          await cloudStorage.deleteFile(user.signature, 'signature');
+          deletedFiles++;
+        }
+      } catch (fileError) {
+        console.error(`⚠️ Warning: Error deleting files for user ${user._id}:`, fileError);
+        // Continue with other files even if some fail
+      }
+    }
+    
+    // Delete users from database
     const result = await User.deleteMany({
       _id: { $in: userIds }
     });
     
+    console.log(`✅ Bulk delete completed: ${result.deletedCount} users, ${deletedFiles} files`);
+    
     res.json({
-      message: `Successfully deleted ${result.deletedCount} users`,
-      deletedCount: result.deletedCount
+      message: `Successfully deleted ${result.deletedCount} users and ${deletedFiles} files`,
+      deletedCount: result.deletedCount,
+      deletedFiles: deletedFiles
     });
   } catch (error) {
     console.error('Bulk delete error:', error);
@@ -694,31 +779,45 @@ router.put('/updateMemberPhoto/:code', upload.single('passportPhoto'), handleMul
       });
     }
     
-    // Update passport photo
-    const passportPath = req.file.path.replace(/\\/g, '/');
-    const passportFilename = passportPath.split('/').pop();
+    // Delete old passport photo if it exists
+    if (member.passportPhoto) {
+      try {
+        await cloudStorage.deleteFile(member.passportPhoto, 'passportPhoto');
+        console.log('🗑️ Deleted old passport photo:', member.passportPhoto);
+      } catch (fileError) {
+        console.error('⚠️ Warning: Error deleting old passport photo:', fileError);
+        // Continue with new photo upload even if old photo deletion fails
+      }
+    }
     
-    member.passportPhoto = passportFilename;
-    member.passport = passportFilename;
-    member.cardGenerated = true;
-    
-    await member.save();
-    
-    console.log('✅ Member passport photo updated:', {
-      name: member.name,
-      code: member.code,
-      passportPhoto: member.passportPhoto
-    });
-    
-    res.json({
-      success: true,
-      message: 'Member passport photo updated successfully',
-      data: {
+    // Save new passport photo using Cloudinary
+    try {
+      const passportResult = await cloudStorage.saveFile(req.file, 'passportPhoto');
+      member.passportPhoto = passportResult.filename;
+      member.passport = passportResult.filename;
+      member.cardGenerated = true;
+      
+      await member.save();
+      
+      console.log('✅ Member passport photo updated:', {
         name: member.name,
         code: member.code,
         passportPhoto: member.passportPhoto
-      }
-    });
+      });
+      
+      res.json({
+        success: true,
+        message: 'Member passport photo updated successfully',
+        data: {
+          name: member.name,
+          code: member.code,
+          passportPhoto: member.passportPhoto
+        }
+      });
+    } catch (fileError) {
+      console.error('❌ Error saving new passport photo:', fileError);
+      throw new Error('Failed to save passport photo');
+    }
   } catch (error) {
     console.error('Update member photo error:', error);
     res.status(500).json({ 

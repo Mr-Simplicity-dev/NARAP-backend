@@ -3,11 +3,27 @@ const path = require('path');
 
 // Cloud storage configuration
 const STORAGE_TYPE = process.env.STORAGE_TYPE || 'local'; // 'local', 'cloudinary', 'aws-s3'
-const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
-const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
-const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
+const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || 'NARAP_IMAGES';
+const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '219556848713984';
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || '243__4G0WJVVPXmUULxAcZdjPJg';
 
-// Base64 storage for cloud deployments (temporary solution)
+// Initialize Cloudinary if credentials are available
+let cloudinary = null;
+if (CLOUDINARY_CLOUD_NAME && CLOUDINARY_API_KEY && CLOUDINARY_API_SECRET) {
+  try {
+    cloudinary = require('cloudinary').v2;
+    cloudinary.config({
+      cloud_name: CLOUDINARY_CLOUD_NAME,
+      api_key: CLOUDINARY_API_KEY,
+      api_secret: CLOUDINARY_API_SECRET
+    });
+    console.log('✅ Cloudinary initialized successfully');
+  } catch (error) {
+    console.error('❌ Cloudinary initialization failed:', error.message);
+  }
+}
+
+// Base64 storage for cloud deployments (fallback)
 const base64Storage = new Map();
 
 class CloudStorage {
@@ -17,14 +33,17 @@ class CloudStorage {
                             process.env.RENDER || 
                             process.env.VERCEL ||
                             process.env.HEROKU;
+    this.useCloudinary = cloudinary !== null && this.isCloudDeployment;
     
-    console.log(`🔧 Storage initialized: ${this.storageType} (Cloud: ${this.isCloudDeployment})`);
+    console.log(`🔧 Storage initialized: ${this.storageType} (Cloud: ${this.isCloudDeployment}, Cloudinary: ${this.useCloudinary})`);
   }
 
   // Save file to appropriate storage
   async saveFile(file, fieldName) {
     try {
-      if (this.isCloudDeployment) {
+      if (this.useCloudinary) {
+        return await this.saveToCloudinary(file, fieldName);
+      } else if (this.isCloudDeployment) {
         return await this.saveToCloud(file, fieldName);
       } else {
         return await this.saveToLocal(file, fieldName);
@@ -81,6 +100,10 @@ class CloudStorage {
     const ext = path.extname(file.originalname);
     const filename = file.fieldname + '-' + uniqueSuffix + ext;
 
+    console.log(`📤 Saving file to cloud storage: ${filename} (${fieldName})`);
+    console.log(`📊 File size: ${file.buffer.length} bytes`);
+    console.log(`📋 MIME type: ${file.mimetype}`);
+
     // For now, use base64 storage as a temporary solution
     // In production, you should use Cloudinary, AWS S3, or similar
     const base64Data = file.buffer.toString('base64');
@@ -94,6 +117,8 @@ class CloudStorage {
     });
 
     console.log(`✅ File saved to cloud storage: ${filename}`);
+    console.log(`📊 Total files in cloud storage: ${base64Storage.size}`);
+    
     return {
       filename: filename,
       path: null,
@@ -103,10 +128,60 @@ class CloudStorage {
     };
   }
 
+  // Save file to Cloudinary
+  async saveToCloudinary(file, fieldName) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    const filename = file.fieldname + '-' + uniqueSuffix + ext;
+
+    console.log(`📤 Saving file to Cloudinary: ${filename} (${fieldName})`);
+    console.log(`📊 File size: ${file.buffer.length} bytes`);
+    console.log(`📋 MIME type: ${file.mimetype}`);
+
+    try {
+      const result = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: `NARAP/${fieldName}`,
+            public_id: filename,
+            resource_type: 'auto',
+            overwrite: true,
+            use_filename: true,
+            unique_filename: false,
+            transformation: [{ width: 500, height: 500, crop: 'fill' }],
+          },
+          (error, result) => {
+            if (error) {
+              console.error('❌ Cloudinary upload error:', error);
+              reject(error);
+            } else {
+              console.log(`✅ File uploaded to Cloudinary: ${result.secure_url}`);
+              resolve(result);
+            }
+          }
+        );
+        uploadStream.end(file.buffer);
+      });
+
+      return {
+        filename: filename,
+        path: result.secure_url,
+        url: result.secure_url,
+        storageType: 'cloudinary',
+        cloudinaryId: result.public_id
+      };
+    } catch (error) {
+      console.error('❌ Cloudinary upload failed:', error);
+      throw error;
+    }
+  }
+
   // Get file from storage
   async getFile(filename, fieldName) {
     try {
-      if (this.isCloudDeployment) {
+      if (this.useCloudinary) {
+        return await this.getFromCloudinary(filename, fieldName);
+      } else if (this.isCloudDeployment) {
         return await this.getFromCloud(filename, fieldName);
       } else {
         return await this.getFromLocal(filename, fieldName);
@@ -149,12 +224,27 @@ class CloudStorage {
 
   // Get file from cloud storage
   async getFromCloud(filename, fieldName) {
+    console.log(`🔍 Looking for file in cloud storage: ${filename} (${fieldName})`);
+    console.log(`📊 Current cloud storage size: ${base64Storage.size} files`);
+    
     const fileData = base64Storage.get(filename);
     
     if (!fileData) {
-      throw new Error(`File not found in cloud storage: ${filename}`);
+      // Log available files for debugging
+      const availableFiles = [];
+      for (const [key, value] of base64Storage.entries()) {
+        if (value.fieldName === fieldName) {
+          availableFiles.push(key);
+        }
+      }
+      
+      console.log(`❌ File not found in cloud storage: ${filename}`);
+      console.log(`📋 Available ${fieldName} files:`, availableFiles);
+      
+      throw new Error(`File not found in cloud storage: ${filename}. Available ${fieldName} files: ${availableFiles.join(', ')}`);
     }
 
+    console.log(`✅ File found in cloud storage: ${filename}`);
     const buffer = Buffer.from(fileData.data, 'base64');
     
     return {
@@ -166,10 +256,39 @@ class CloudStorage {
     };
   }
 
+  // Get file from Cloudinary
+  async getFromCloudinary(filename, fieldName) {
+    console.log(`🔍 Looking for file in Cloudinary: ${filename} (${fieldName})`);
+    try {
+      // Try to get the resource directly by public_id
+      const publicId = `NARAP/${fieldName}/${filename}`;
+      const result = await cloudinary.api.resource(publicId, {
+        resource_type: 'image'
+      });
+
+      console.log(`✅ File found in Cloudinary: ${result.secure_url}`);
+
+      // For serving files, we return the URL directly since Cloudinary serves files
+      return {
+        buffer: null, // Cloudinary serves files directly
+        size: result.bytes,
+        path: result.secure_url,
+        url: result.secure_url,
+        storageType: 'cloudinary',
+        mimeType: result.format
+      };
+    } catch (error) {
+      console.error('❌ Cloudinary get failed:', error);
+      throw new Error(`File not found in Cloudinary: ${filename}`);
+    }
+  }
+
   // Delete file from storage
   async deleteFile(filename, fieldName) {
     try {
-      if (this.isCloudDeployment) {
+      if (this.useCloudinary) {
+        return await this.deleteFromCloudinary(filename);
+      } else if (this.isCloudDeployment) {
         return await this.deleteFromCloud(filename);
       } else {
         return await this.deleteFromLocal(filename, fieldName);
@@ -213,10 +332,28 @@ class CloudStorage {
     return deleted;
   }
 
+  // Delete file from Cloudinary
+  async deleteFromCloudinary(filename) {
+    console.log(`🗑️ Deleting file from Cloudinary: ${filename}`);
+    try {
+      const result = await cloudinary.uploader.destroy(filename, {
+        type: 'upload',
+        resource_type: 'image',
+      });
+      console.log(`✅ File deleted from Cloudinary: ${result.result}`);
+      return true;
+    } catch (error) {
+      console.error('❌ Cloudinary delete failed:', error);
+      return false;
+    }
+  }
+
   // List files in storage
   async listFiles(fieldName = null) {
     try {
-      if (this.isCloudDeployment) {
+      if (this.useCloudinary) {
+        return await this.listCloudinaryFiles(fieldName);
+      } else if (this.isCloudDeployment) {
         return await this.listCloudFiles(fieldName);
       } else {
         return await this.listLocalFiles(fieldName);
@@ -271,6 +408,37 @@ class CloudStorage {
     return files;
   }
 
+  // List files in Cloudinary
+  async listCloudinaryFiles(fieldName = null) {
+    console.log(`📋 Listing files in Cloudinary for ${fieldName}`);
+    try {
+      const result = await cloudinary.api.resources_by_tag(
+        `NARAP/${fieldName}`,
+        { max_results: 100 } // Adjust as needed
+      );
+
+      const files = {
+        passports: [],
+        signatures: [],
+        total: result.total_count
+      };
+
+      result.resources.forEach(resource => {
+        if (resource.public_id.includes('passportPhoto')) {
+          files.passports.push(resource.public_id);
+        } else if (resource.public_id.includes('signature')) {
+          files.signatures.push(resource.public_id);
+        }
+      });
+
+      console.log(`✅ Found ${files.total} files in Cloudinary for ${fieldName}`);
+      return files;
+    } catch (error) {
+      console.error('❌ Cloudinary list failed:', error);
+      throw error;
+    }
+  }
+
   // Get storage info
   getStorageInfo() {
     return {
@@ -279,7 +447,8 @@ class CloudStorage {
       environment: process.env.NODE_ENV || 'development',
       render: !!process.env.RENDER,
       vercel: !!process.env.VERCEL,
-      heroku: !!process.env.HEROKU
+      heroku: !!process.env.HEROKU,
+      useCloudinary: this.useCloudinary
     };
   }
 }

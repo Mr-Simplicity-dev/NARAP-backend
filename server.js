@@ -200,6 +200,27 @@ async function clearAllDatabaseData() {
   }
 }
 
+// Clear all certificates function
+async function clearAllCertificates() {
+  try {
+    console.log('🗑️ Clearing all certificates...');
+    const Certificate = require('./models/Certificate');
+    
+    // Clear all certificates
+    const certificateResult = await Certificate.deleteMany({});
+    console.log(`✅ Deleted ${certificateResult.deletedCount} certificates`);
+    
+    console.log(`✅ Certificates cleared successfully. Total certificates deleted: ${certificateResult.deletedCount}`);
+    
+    return {
+      certificatesDeleted: certificateResult.deletedCount
+    };
+  } catch (error) {
+    console.error('❌ Error clearing certificates:', error);
+    throw error;
+  }
+}
+
 // Database cleanup function
 async function cleanupDatabaseCertificates() {
   try {
@@ -258,6 +279,24 @@ app.post('/api/clear-database', async (req, res) => {
   }
 });
 
+// Clear all certificates endpoint
+app.post('/api/clear-certificates', async (req, res) => {
+  try {
+    const result = await clearAllCertificates();
+    res.json({
+      success: true,
+      message: `Successfully cleared certificates. Deleted ${result.certificatesDeleted} certificates`,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to clear certificates',
+      error: error.message
+    });
+  }
+});
+
 // Cleanup certificates endpoint
 app.post('/api/cleanup-certificates', async (req, res) => {
   try {
@@ -302,20 +341,28 @@ const startServer = async () => {
 };
 
 // Handle graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.log('🛑 SIGTERM received, shutting down gracefully');
-  mongoose.connection.close(() => {
+  try {
+    await mongoose.connection.close();
     console.log('✅ MongoDB connection closed');
     process.exit(0);
-  });
+  } catch (error) {
+    console.error('❌ Error closing MongoDB connection:', error);
+    process.exit(1);
+  }
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('🛑 SIGINT received, shutting down gracefully');
-  mongoose.connection.close(() => {
+  try {
+    await mongoose.connection.close();
     console.log('✅ MongoDB connection closed');
     process.exit(0);
-  });
+  } catch (error) {
+    console.error('❌ Error closing MongoDB connection:', error);
+    process.exit(1);
+  }
 });
 
 // Start the server

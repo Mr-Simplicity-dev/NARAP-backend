@@ -25,8 +25,8 @@ function createTestImage() {
   }
 }
 
-async function testNewUpload() {
-  console.log('🚀 Testing New Upload to Cloud Storage');
+async function testCloudinaryIntegration() {
+  console.log('🚀 Testing Cloudinary Integration');
   console.log('📍 Backend URL:', BACKEND_URL);
   
   try {
@@ -36,7 +36,8 @@ async function testNewUpload() {
     if (storageResponse.ok) {
       const storageData = await storageResponse.json();
       console.log('✅ Storage info retrieved');
-      console.log('📊 Current files:', {
+      console.log('📊 Storage details:', storageData.storage);
+      console.log('📁 Current files:', {
         passports: storageData.passports.length,
         signatures: storageData.signatures.length,
         total: storageData.total
@@ -49,17 +50,17 @@ async function testNewUpload() {
     console.log('\n🔍 Step 2: Creating test image...');
     createTestImage();
     
-    // Step 3: Upload new member with photo
-    console.log('\n🔍 Step 3: Uploading new member with photo...');
+    // Step 3: Upload new member with photo to Cloudinary
+    console.log('\n🔍 Step 3: Uploading new member with photo to Cloudinary...');
     const formData = new FormData();
-    formData.append('name', 'Debug Test User');
+    formData.append('name', 'Cloudinary Test User');
     formData.append('password', 'testpass123');
-    formData.append('code', 'DEBUG001');
-    formData.append('state', 'Debug State');
-    formData.append('zone', 'Debug Zone');
+    formData.append('code', 'CLOUDINARY001');
+    formData.append('state', 'Cloudinary State');
+    formData.append('zone', 'Cloudinary Zone');
     formData.append('passportPhoto', fs.createReadStream(TEST_IMAGE_PATH));
     
-    console.log('📤 Sending upload request...');
+    console.log('📤 Sending upload request to Cloudinary...');
     const uploadResponse = await fetch(`${BACKEND_URL}/api/users/addUser`, {
       method: 'POST',
       body: formData
@@ -86,6 +87,11 @@ async function testNewUpload() {
         console.log('✅ Photo is accessible!');
         console.log(`📊 Content-Type: ${photoResponse.headers.get('content-type')}`);
         console.log(`📊 Content-Length: ${photoResponse.headers.get('content-length')}`);
+        
+        // Check if it's a redirect to Cloudinary
+        if (photoResponse.redirected) {
+          console.log('✅ Photo redirected to Cloudinary successfully!');
+        }
       } else {
         const errorData = await photoResponse.json().catch(() => ({}));
         console.log('❌ Photo not accessible:', photoResponse.status);
@@ -140,11 +146,11 @@ async function testNewUpload() {
       console.log('❌ Upload failed:', errorData);
     }
     
-    console.log('\n🎉 Test completed!');
+    console.log('\n🎉 Cloudinary integration test completed!');
     
   } catch (error) {
     console.error('❌ Test failed:', error.message);
   }
 }
 
-testNewUpload(); 
+testCloudinaryIntegration(); 
