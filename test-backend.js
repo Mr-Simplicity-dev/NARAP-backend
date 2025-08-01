@@ -1,6 +1,6 @@
 const http = require('http');
 
-const BASE_URL = 'http://localhost:5000';
+const BASE_URL = process.env.BACKEND_URL || 'https://narap-backend.onrender.com';
 
 // Test health endpoint
 function testHealth() {
@@ -48,10 +48,11 @@ function testLogin() {
       password: 'admin123'
     });
 
+    const url = new URL(`${BASE_URL}/api/auth/login`);
     const options = {
-      hostname: 'localhost',
-      port: 5000,
-      path: '/api/auth/login',
+      hostname: url.hostname,
+      port: url.port || (url.protocol === 'https:' ? 443 : 80),
+      path: url.pathname,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

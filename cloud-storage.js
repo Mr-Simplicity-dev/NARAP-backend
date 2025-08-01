@@ -3,7 +3,7 @@ const path = require('path');
 
 // Cloud storage configuration
 const STORAGE_TYPE = process.env.STORAGE_TYPE || 'local'; // 'local', 'cloudinary', 'aws-s3'
-const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || 'NARAP_IMAGES';
+const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || 'dh5wjtvlf';
 const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '219556848713984';
 const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || '243__4G0WJVVPXmUULxAcZdjPJg';
 
@@ -137,6 +137,7 @@ class CloudStorage {
     console.log(`📤 Saving file to Cloudinary: ${filename} (${fieldName})`);
     console.log(`📊 File size: ${file.buffer.length} bytes`);
     console.log(`📋 MIME type: ${file.mimetype}`);
+    console.log(`☁️ Cloud name: ${CLOUDINARY_CLOUD_NAME}`);
 
     try {
       const result = await new Promise((resolve, reject) => {
@@ -172,7 +173,10 @@ class CloudStorage {
       };
     } catch (error) {
       console.error('❌ Cloudinary upload failed:', error);
-      throw error;
+      
+      // If Cloudinary fails, fall back to local storage
+      console.log('🔄 Falling back to local storage...');
+      return await this.saveToLocal(file, fieldName);
     }
   }
 

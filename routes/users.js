@@ -622,8 +622,10 @@ const verifyMember = async (req, res) => {
     member.lastVerification = new Date();
     await member.save();
     
-    // Build proper URLs for photos - always use HTTPS for security
-    const baseUrl = 'https://narap-backend.onrender.com';
+    // Build proper URLs for photos - use environment variable or construct from request
+    const baseUrl = process.env.BACKEND_URL || 
+      `${req.protocol}://${req.get('host')}` || 
+      'https://narap-backend.onrender.com';
     const passportPhotoUrl = member.passportPhoto || member.passport ? 
       `${baseUrl}/api/uploads/passports/${member.passportPhoto || member.passport}` : null;
     const signatureUrl = member.signature ? 
@@ -683,8 +685,10 @@ const searchUser = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // Build proper URLs for photos - always use HTTPS for security
-    const baseUrl = 'https://narap-backend.onrender.com';
+    // Build proper URLs for photos - use environment variable or construct from request
+    const baseUrl = process.env.BACKEND_URL || 
+      `${req.protocol}://${req.get('host')}` || 
+      'https://narap-backend.onrender.com';
     const passportPhotoUrl = user.passportPhoto || user.passport ? 
       `${baseUrl}/api/uploads/passports/${user.passportPhoto || user.passport}` : null;
     const signatureUrl = user.signature ? 

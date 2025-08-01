@@ -4,7 +4,7 @@ const FormData = require('form-data');
 const fetch = require('node-fetch');
 
 // Test configuration
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://narap-backend.onrender.com';
 const TEST_IMAGE_PATH = path.join(__dirname, 'test-image.jpg');
 
 // Create a simple test image if it doesn't exist
