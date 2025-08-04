@@ -132,7 +132,25 @@ const getMembers = async (req, res) => {
     const members = await User.find({ isActive: { $ne: false } })
       .select('-password')
       .sort({ dateAdded: -1 });
-    res.json({ success: true, members });
+    
+    const formattedMembers = members.map(member => ({
+      _id: member._id,
+      name: member.name,
+      email: member.email,
+      code: member.code,
+      position: member.position,
+      state: member.state,
+      zone: member.zone,
+      passportPhoto: member.passportPhoto || member.passport,
+      signature: member.signature,
+      dateAdded: member.dateAdded || member.createdAt,
+      isActive: member.isActive,
+      cardGenerated: member.cardGenerated,
+      createdAt: member.createdAt,
+      updatedAt: member.updatedAt
+    }));
+    
+    res.json({ success: true, members: formattedMembers });
   } catch (error) {
     console.error('Get members error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
