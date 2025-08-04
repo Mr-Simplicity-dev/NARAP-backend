@@ -340,6 +340,35 @@ const startServer = async () => {
   }
 };
 
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Promise Rejection:');
+  console.error('Promise:', promise);
+  console.error('Reason:', reason);
+  
+  // Log additional details if available
+  if (reason instanceof Error) {
+    console.error('Stack trace:', reason.stack);
+  }
+  
+  // Don't exit the process, just log the error
+  // This prevents the server from crashing due to unhandled rejections
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:');
+  console.error('Error:', error.message);
+  console.error('Stack trace:', error.stack);
+  
+  // For uncaught exceptions, we should exit the process
+  // But give it a chance to clean up first
+  setTimeout(() => {
+    console.error('🛑 Forcing process exit due to uncaught exception');
+    process.exit(1);
+  }, 1000);
+});
+
 // Handle graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('🛑 SIGTERM received, shutting down gracefully');

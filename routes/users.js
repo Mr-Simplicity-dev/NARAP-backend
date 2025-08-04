@@ -210,6 +210,7 @@ const addUser = async (req, res) => {
     if (req.files && req.files.passportPhoto) {
       try {
         const passportFile = req.files.passportPhoto[0];
+        console.log('📤 Saving passport photo:', passportFile.originalname);
         const passportResult = await cloudStorage.saveFile(passportFile, 'passportPhoto');
         userData.passportPhoto = passportResult.filename;
         userData.passport = passportResult.filename;
@@ -217,20 +218,23 @@ const addUser = async (req, res) => {
         console.log('✅ Passport photo saved:', passportResult.filename);
       } catch (error) {
         console.error('❌ Error saving passport photo:', error);
-        throw new Error('Failed to save passport photo');
+        // Don't throw error, just log it and continue without the photo
+        console.log('⚠️ Continuing without passport photo due to save error');
       }
     }
     
     if (req.files && req.files.signature) {
       try {
         const signatureFile = req.files.signature[0];
+        console.log('📤 Saving signature:', signatureFile.originalname);
         const signatureResult = await cloudStorage.saveFile(signatureFile, 'signature');
         userData.signature = signatureResult.filename;
         userData.cardGenerated = true;
         console.log('✅ Signature saved:', signatureResult.filename);
       } catch (error) {
         console.error('❌ Error saving signature:', error);
-        throw new Error('Failed to save signature');
+        // Don't throw error, just log it and continue without the signature
+        console.log('⚠️ Continuing without signature due to save error');
       }
     }
     

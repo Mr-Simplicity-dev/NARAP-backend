@@ -141,6 +141,11 @@ class CloudStorage {
 
     try {
       const result = await new Promise((resolve, reject) => {
+        // Add timeout to prevent hanging uploads
+        const timeout = setTimeout(() => {
+          reject(new Error('Cloudinary upload timeout after 30 seconds'));
+        }, 30000);
+
         const uploadStream = cloudinary.uploader.upload_stream(
           {
             folder: `NARAP/${fieldName}`,
@@ -152,6 +157,7 @@ class CloudStorage {
             transformation: [{ width: 500, height: 500, crop: 'fill' }],
           },
           (error, result) => {
+            clearTimeout(timeout);
             if (error) {
               console.error('❌ Cloudinary upload error:', error);
               reject(error);
@@ -161,6 +167,14 @@ class CloudStorage {
             }
           }
         );
+
+        // Handle upload stream errors
+        uploadStream.on('error', (error) => {
+          clearTimeout(timeout);
+          console.error('❌ Upload stream error:', error);
+          reject(error);
+        });
+
         uploadStream.end(file.buffer);
       });
 
@@ -176,7 +190,12 @@ class CloudStorage {
       
       // If Cloudinary fails, fall back to local storage
       console.log('🔄 Falling back to local storage...');
-      return await this.saveToLocal(file, fieldName);
+      try {
+        return await this.saveToLocal(file, fieldName);
+      } catch (fallbackError) {
+        console.error('❌ Fallback to local storage also failed:', fallbackError);
+        throw new Error(`File upload failed: ${error.message}`);
+      }
     }
   }
 
@@ -340,14 +359,31 @@ class CloudStorage {
   async deleteFromCloudinary(filename) {
     console.log(`🗑️ Deleting file from Cloudinary: ${filename}`);
     try {
-      const result = await cloudinary.uploader.destroy(filename, {
-        type: 'upload',
-        resource_type: 'image',
+      const result = await new Promise((resolve, reject) => {
+        // Add timeout to prevent hanging deletes
+        const timeout = setTimeout(() => {
+          reject(new Error('Cloudinary delete timeout after 15 seconds'));
+        }, 15000);
+
+        cloudinary.uploader.destroy(filename, {
+          type: 'upload',
+          resource_type: 'image',
+        }, (error, result) => {
+          clearTimeout(timeout);
+          if (error) {
+            console.error('❌ Cloudinary delete error:', error);
+            reject(error);
+          } else {
+            console.log(`✅ File deleted from Cloudinary: ${result.result}`);
+            resolve(result);
+          }
+        });
       });
-      console.log(`✅ File deleted from Cloudinary: ${result.result}`);
+      
       return true;
     } catch (error) {
       console.error('❌ Cloudinary delete failed:', error);
+      // Don't throw error, just return false to indicate failure
       return false;
     }
   }
