@@ -29,27 +29,56 @@ const base64Storage = new Map();
 class CloudStorage {
   constructor() {
     this.storageType = STORAGE_TYPE;
+    
+    // Improved cloud deployment detection
     this.isCloudDeployment = process.env.NODE_ENV === 'production' || 
                             process.env.RENDER || 
                             process.env.VERCEL ||
-                            process.env.HEROKU;
-    this.useCloudinary = cloudinary !== null && this.isCloudDeployment;
+                            process.env.HEROKU ||
+                            process.env.PORT || // Render sets PORT
+                            process.env.RAILWAY_STATIC_URL || // Railway sets this
+                            process.env.VERCEL_URL; // Vercel sets this
+    
+    // Force Cloudinary usage if credentials are available and we're in production
+    this.useCloudinary = cloudinary !== null && (this.isCloudDeployment || process.env.NODE_ENV === 'production');
+    
+    // If Cloudinary is available, prefer it over local storage
+    if (cloudinary !== null && this.storageType === 'local') {
+      this.storageType = 'cloudinary';
+    }
     
     console.log(`🔧 Storage initialized: ${this.storageType} (Cloud: ${this.isCloudDeployment}, Cloudinary: ${this.useCloudinary})`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🌐 Platform: ${process.env.RENDER ? 'Render' : process.env.VERCEL ? 'Vercel' : process.env.HEROKU ? 'Heroku' : 'Local'}`);
   }
 
   // Save file to appropriate storage
   async saveFile(file, fieldName) {
     try {
-      if (this.useCloudinary) {
+      // Prioritize Cloudinary if available
+      if (this.useCloudinary && cloudinary !== null) {
+        console.log('📤 Using Cloudinary for file upload');
         return await this.saveToCloudinary(file, fieldName);
       } else if (this.isCloudDeployment) {
+        console.log('📤 Using cloud storage (base64) for file upload');
         return await this.saveToCloud(file, fieldName);
       } else {
+        console.log('📤 Using local storage for file upload');
         return await this.saveToLocal(file, fieldName);
       }
     } catch (error) {
       console.error('❌ File save error:', error);
+      
+      // If Cloudinary fails, try fallback to cloud storage
+      if (this.useCloudinary && this.isCloudDeployment) {
+        console.log('🔄 Cloudinary failed, falling back to cloud storage...');
+        try {
+          return await this.saveToCloud(file, fieldName);
+        } catch (fallbackError) {
+          console.error('❌ Cloud storage fallback also failed:', fallbackError);
+        }
+      }
+      
       throw error;
     }
   }
@@ -202,15 +231,30 @@ class CloudStorage {
   // Get file from storage
   async getFile(filename, fieldName) {
     try {
-      if (this.useCloudinary) {
+      // Prioritize Cloudinary if available
+      if (this.useCloudinary && cloudinary !== null) {
+        console.log('🔍 Looking for file in Cloudinary');
         return await this.getFromCloudinary(filename, fieldName);
       } else if (this.isCloudDeployment) {
+        console.log('🔍 Looking for file in cloud storage (base64)');
         return await this.getFromCloud(filename, fieldName);
       } else {
+        console.log('🔍 Looking for file in local storage');
         return await this.getFromLocal(filename, fieldName);
       }
     } catch (error) {
       console.error('❌ File get error:', error);
+      
+      // If Cloudinary fails, try fallback to cloud storage
+      if (this.useCloudinary && this.isCloudDeployment) {
+        console.log('🔄 Cloudinary get failed, trying cloud storage fallback...');
+        try {
+          return await this.getFromCloud(filename, fieldName);
+        } catch (fallbackError) {
+          console.error('❌ Cloud storage fallback also failed:', fallbackError);
+        }
+      }
+      
       throw error;
     }
   }
