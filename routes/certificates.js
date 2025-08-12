@@ -2,6 +2,25 @@ const express = require('express');
 const router = express.Router();
 const Certificate = require('../models/Certificate');
 
+const multer = require('multer');
+const {
+  getCertificates,
+  getCertificate,
+  createCertificate,
+  updateCertificate,
+  deleteCertificate,
+  exportCertificates,
+  importCertificates // Add this import
+} = require('../controllers/certificateController');
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+// Add this new route
+router.post('/import', 
+  upload.single('file'), 
+  importCertificates
+);
+
 // Database wrapper for consistent error handling
 const withDB = (handler) => {
   return async (req, res) => {
@@ -515,6 +534,7 @@ router.delete('/:id', withDB(deleteCertificate));
 router.post('/bulk-delete', withDB(bulkDeleteCertificates));
 router.post('/search', withDB(searchCertificates));
 router.get('/export', withDB(exportCertificates));
+router.post('/import', upload.single('file'), withDB(importCertificates));
 
 // Public routes (no authentication required)
 router.post('/verify', withDB(verifyCertificate));
