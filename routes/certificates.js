@@ -15,12 +15,6 @@ const {
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Add this new route
-router.post('/import', 
-  upload.single('file'), 
-  importCertificates
-);
-
 // Database wrapper for consistent error handling
 const withDB = (handler) => {
   return async (req, res) => {
