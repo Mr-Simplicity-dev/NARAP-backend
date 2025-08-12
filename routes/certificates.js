@@ -309,6 +309,118 @@ const searchCertificates = async (req, res) => {
   }
 };
 
+const importCertificates = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No CSV file uploaded' 
+      });
+    }
+
+    // Parse CSV
+    const csvData = req.file.buffer.toString();
+    const [headerLine, ...dataLines] = csvData.split('\n');
+    
+    // Validate headers
+    const requiredHeaders = [
+      'Certificate Number',
+      'Recipient',
+      'Email',
+      'Title',
+      'Type',
+      'Status',
+      'Issue Date',
+      'Valid Until',
+      'Issued By'
+    ];
+
+    if (!requiredHeaders.every(h => headerLine.includes(h))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid CSV format. Please use the exported template.',
+        expectedFormat: requiredHeaders.join(', ')
+      });
+    }
+
+    // Process data
+    const results = {
+      imported: 0,
+      updated: 0,
+      errors: []
+    };
+
+    for (const line of dataLines.filter(l => l.trim())) {
+      const [
+        number,
+        recipient,
+        email,
+        title,
+        type,
+        status,
+        issueDate,
+        validUntil,
+        issuedBy
+      ] = line.split(',').map(field => field?.trim());
+
+      try {
+        // Find user (using your existing user lookup logic)
+        const user = await User.findOne({ 
+          $or: [
+            { email },
+            { code: email } // Fallback to code if email not found
+          ]
+        });
+
+        const certificateData = {
+          number,
+          recipient,
+          email,
+          title,
+          type,
+          status,
+          issueDate: issueDate ? new Date(issueDate) : null,
+          validUntil: validUntil ? new Date(validUntil) : null,
+          issuedBy,
+          userId: user?._id || null,
+          lastUpdated: new Date()
+        };
+
+        // Upsert logic
+        const result = await Certificate.findOneAndUpdate(
+          { number },
+          certificateData,
+          { upsert: true, new: true }
+        );
+
+        result.upserted ? results.imported++ : results.updated++;
+      } catch (error) {
+        results.errors.push({
+          certificate: number,
+          error: error.message,
+          line: line
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Import completed: ${results.imported} new, ${results.updated} updated`,
+      details: results.errors.length ? {
+        errorCount: results.errors.length,
+        sampleErrors: results.errors.slice(0, 3)
+      } : undefined
+    });
+
+  } catch (error) {
+    console.error('❌ Certificate import error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Import failed',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
 
 // Export certificates
 const exportCertificates = async (req, res) => {
