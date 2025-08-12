@@ -3,13 +3,19 @@ const router = express.Router();
 const User = require('../models/User');
 const Certificate = require('../models/Certificate');
 
-// List of all Nigerian states + FCT
+// Fixed list of all Nigerian states + FCT
 const allStatesList = [
   "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno",
   "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "FCT", "Gombe", "Imo",
   "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara", "Lagos", "Nasarawa",
   "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba",
   "Yobe", "Zamfara"
+];
+
+// Default known positions (will be merged with dynamic ones from DB)
+const defaultPositionsList = [
+  "President", "Vice President", "Secretary", "Assistant Secretary", "Treasurer",
+  "Financial Secretary", "PRO", "Member"
 ];
 
 // Database wrapper function
@@ -70,67 +76,71 @@ router.post('/', withDB(async (req, res) => {
     }
 }));
 
-// Get dashboard analytics (FIXED)
+// Get dashboard analytics (FINAL SORTED VERSION)
 router.get('/dashboard', withDB(async (req, res) => {
   try {
-    const startTime = Date.now(); // Manual query timer
+    const startTime = Date.now();
     
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    // Execute all queries in parallel
     const [
       totalCounts,
       certificateStatus,
       stateAggregation,
       positionAggregation,
+      distinctPositionsFromDB,
       recentActivity
     ] = await Promise.all([
-      // Basic counts
       Promise.all([
         User.countDocuments(),
         Certificate.countDocuments()
       ]),
-      
-      // Certificate status
       Promise.all([
         Certificate.countDocuments({ status: 'active' }),
         Certificate.countDocuments({ status: 'revoked' })
       ]),
-      
-      // States aggregation
       User.aggregate([
         { $match: { state: { $exists: true, $ne: '' } } },
         { $group: { _id: { $trim: { input: "$state" } }, value: { $sum: 1 } } },
         { $sort: { value: -1 } },
         { $project: { name: '$_id', value: 1, _id: 0 } }
       ]).allowDiskUse(true),
-      
-      // Positions aggregation
       User.aggregate([
         { $match: { position: { $exists: true, $ne: '' } } },
         { $group: { _id: { $trim: { input: "$position" } }, value: { $sum: 1 } } },
         { $sort: { value: -1 } },
         { $project: { name: '$_id', value: 1, _id: 0 } }
       ]),
-      
-      // Recent activity
+      User.distinct("position"), // Dynamic positions from DB
       Promise.all([
         User.countDocuments({ dateAdded: { $gte: sevenDaysAgo } }),
         Certificate.countDocuments({ dateIssued: { $gte: sevenDaysAgo } })
       ])
     ]);
 
-    // Merge stateAggregation with all states list to ensure all states appear
+    // Merge states with fixed list
     const stateMap = new Map(stateAggregation.map(s => [s.name.toLowerCase(), s.value]));
     const usersByState = allStatesList.map(stateName => ({
       name: stateName,
       value: stateMap.get(stateName.toLowerCase()) || 0
     }));
 
-    const queryTime = Date.now() - startTime; // Capture timing
+    // Merge positions (defaults + DB distinct) → then sort by value descending
+    const mergedPositionsList = Array.from(
+      new Set([...defaultPositionsList, ...distinctPositionsFromDB.filter(Boolean)])
+    );
+    const positionMap = new Map(positionAggregation.map(p => [p.name.toLowerCase(), p.value]));
+    const usersByPosition = mergedPositionsList
+      .map(posName => ({
+        name: posName,
+        value: positionMap.get(posName.toLowerCase()) || 0
+      }))
+      .sort((a, b) => b.value - a.value); // Sort descending by value
 
-    const responseData = {
+    const queryTime = Date.now() - startTime;
+
+    res.json({
       success: true,
       data: {
         totalUsers: totalCounts[0],
@@ -139,7 +149,7 @@ router.get('/dashboard', withDB(async (req, res) => {
         activeCertificates: certificateStatus[0],
         revokedCertificates: certificateStatus[1],
         usersByState,
-        usersByPosition: positionAggregation,
+        usersByPosition,
         recentUsers: recentActivity[0],
         recentCertificates: recentActivity[1],
         systemHealth: {
@@ -152,9 +162,7 @@ router.get('/dashboard', withDB(async (req, res) => {
           queryTime: `${queryTime}ms`
         }
       }
-    };
-
-    res.json(responseData);
+    });
   } catch (error) {
     console.error('Analytics error:', error);
     res.status(500).json({ 
