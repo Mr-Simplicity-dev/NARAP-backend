@@ -61,10 +61,10 @@ router.post('/', withDB(async (req, res) => {
     }
 }));
 
-// Get dashboard analytics (OPTIMIZED)
+// Get dashboard analytics (FIXED)
 router.get('/dashboard', withDB(async (req, res) => {
   try {
-    console.time('DashboardAnalytics'); // Performance tracking
+    const startTime = Date.now(); // Manual query timer
     
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -89,12 +89,12 @@ router.get('/dashboard', withDB(async (req, res) => {
         Certificate.countDocuments({ status: 'revoked' })
       ]),
       
-      // Optimized state aggregation
+      // FIXED: State aggregation formatted for frontend
       User.aggregate([
-        { $match: { state: { $exists: true } } }, // Only documents with state
-        { $group: { _id: '$state', count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-        { $project: { state: '$_id', count: 1, _id: 0 } }
+        { $match: { state: { $exists: true, $ne: '' } } },
+        { $group: { _id: { $trim: { input: "$state" } }, value: { $sum: 1 } } },
+        { $sort: { value: -1 } },
+        { $project: { name: '$_id', value: 1, _id: 0 } }
       ]).allowDiskUse(true),
       
       // Users by position
@@ -110,7 +110,7 @@ router.get('/dashboard', withDB(async (req, res) => {
       ])
     ]);
 
-    console.timeEnd('DashboardAnalytics');
+    const queryTime = Date.now() - startTime; // Capture timing
 
     const responseData = {
       success: true,
@@ -131,7 +131,7 @@ router.get('/dashboard', withDB(async (req, res) => {
           timestamp: new Date()
         },
         performance: {
-          queryTime: `${console.timeEnd('DashboardAnalytics')}ms`
+          queryTime: `${queryTime}ms`
         }
       }
     };
