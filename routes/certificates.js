@@ -297,6 +297,115 @@ const searchCertificates = async (req, res) => {
   }
 };
 
+const importCertificates = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    // Parse CSV file
+    const csvData = req.file.buffer.toString();
+    const lines = csvData.split('\n');
+    const headers = lines[0].split(',').map(h => h.trim());
+    
+    // Validate headers match expected format
+    const expectedHeaders = [
+      'Certificate Number',
+      'Recipient',
+      'Email',
+      'Title',
+      'Type',
+      'Status',
+      'Issue Date',
+      'Valid Until',
+      'Issued By'
+    ];
+    
+    if (!expectedHeaders.every(h => headers.includes(h))) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid CSV format. Please use the exported template.' 
+      });
+    }
+
+    // Process each certificate
+    const results = {
+      success: 0,
+      skipped: 0,
+      errors: []
+    };
+
+    for (let i = 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      
+      const values = lines[i].split(',');
+      try {
+        const certificateData = {
+          number: values[0]?.trim(),
+          recipient: values[1]?.trim(),
+          email: values[2]?.trim(),
+          title: values[3]?.trim(),
+          type: values[4]?.trim(),
+          status: values[5]?.trim(),
+          issueDate: values[6] ? new Date(values[6]) : null,
+          validUntil: values[7] ? new Date(values[7]) : null,
+          issuedBy: values[8]?.trim(),
+          importedAt: new Date()
+        };
+
+        // Check if certificate already exists
+        const exists = await Certificate.findOne({ number: certificateData.number });
+        if (exists) {
+          results.skipped++;
+          continue;
+        }
+
+        // Find user by email or code (assuming email is in the CSV)
+        const user = await User.findOne({ 
+          $or: [
+            { email: certificateData.email },
+            { code: certificateData.email } // Fallback to code if email not found
+          ] 
+        });
+
+        if (user) {
+          certificateData.userId = user._id;
+        }
+
+        await Certificate.create(certificateData);
+        results.success++;
+      } catch (error) {
+        results.errors.push({
+          line: i + 1,
+          error: error.message,
+          data: lines[i]
+        });
+      }
+    }
+
+    // Prepare response
+    const response = {
+      success: true,
+      message: `Import completed: ${results.success} added, ${results.skipped} skipped`,
+      details: results
+    };
+
+    if (results.errors.length > 0) {
+      response.warning = `${results.errors.length} records failed`;
+    }
+
+    res.json(response);
+
+  } catch (error) {
+    console.error('Import certificates error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error during import',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 // Export certificates
 const exportCertificates = async (req, res) => {
   try {
