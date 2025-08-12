@@ -756,6 +756,8 @@ router.delete('/deleteAllUsers', withDB(deleteAllUsers));
 router.post('/users/bulk-delete', withDB(bulkDeleteUsers));
 router.post('/users/search', withDB(searchUsers));
 router.get('/users/export', withDB(exportUsers));
+router.post('/users/import', upload.single('file'), withDB(importMembers));
+
 
 // Public routes (no authentication required)
 router.post('/members/verify', withDB(verifyMember));
