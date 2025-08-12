@@ -31,18 +31,18 @@ const withDB = (handler) => {
 };
 
 // Get all certificates
-const getCertificates = async (req, res) => {
-  try {
-    const certificates = await Certificate.find()
-      .populate('userId', 'name email code')
-      .sort({ createdAt: -1 });
+//const getCertificates = async (req, res) => {
+  //try {
+    //const certificates = await Certificate.find()
+      //.populate('userId', 'name email code')
+      //.sort({ createdAt: -1 });
     
-    res.json(certificates);
-  } catch (error) {
-    console.error('Get certificates error:', error);
-    res.status(500).json({ message: 'Server error while fetching certificates' });
-  }
-};
+    //res.json(certificates);
+  //} catch (error) {
+    //console.error('Get certificates error:', error);
+    //res.status(500).json({ message: 'Server error while fetching certificates' });
+  //}
+//};
 
 // Create certificate
 const createCertificate = async (req, res) => {
