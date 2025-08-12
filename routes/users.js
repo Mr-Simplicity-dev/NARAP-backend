@@ -758,6 +758,156 @@ router.post('/users/search', withDB(searchUsers));
 router.get('/users/export', withDB(exportUsers));
 router.post('/users/import', upload.single('file'), withDB(importMembers));
 
+// Minimal CSV parser (no commas inside fields support)
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+  if (lines.length < 2) return { headers: [], rows: [] };
+
+  // Strip BOM and normalize headers
+  const headerLine = lines[0].replace(/^\uFEFF/, '');
+  const headers = headerLine.split(',').map(h => h.trim().toLowerCase());
+
+  const rows = lines.slice(1).map((line, idx) => {
+    const cols = line.split(',');
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = (cols[i] || '').trim());
+    obj.__line = idx + 2; // for error reporting
+    return obj;
+  });
+
+  return { headers, rows };
+}
+
+// Map common/expected header names to model fields (case-insensitive)
+const headerMap = {
+  name: ['name', 'full name', 'member name'],
+  email: ['email', 'e-mail'],
+  phone: ['phone', 'phone number', 'mobile'],
+  code: ['code', 'member code', 'narap code'],
+  state: ['state'],
+  position: ['position', 'role'],
+  address: ['address'],
+  city: ['city', 'town'],
+  lga: ['lga', 'local government area'],
+  passportUrl: ['passport url', 'passport', 'photo', 'passport_photo', 'passportphoto', 'passporturl']
+};
+
+function pickField(row, headers, key) {
+  const candidates = headerMap[key] || [key];
+  const found = candidates.find(alias => headers.includes(alias));
+  return found ? row[found] || '' : '';
+}
+
+async function importMembers(req, res) {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ success: false, message: "No CSV file uploaded. Use field name 'file'." });
+    }
+
+    const csvText = req.file.buffer.toString('utf8');
+    const { headers, rows } = parseCSV(csvText);
+
+    if (!headers.length) {
+      return res.status(400).json({ success: false, message: 'Empty or invalid CSV content.' });
+    }
+
+    // Normalize headers to lowercase once
+    const normalizedHeaders = headers.map(h => h.toLowerCase());
+
+    const results = {
+      processed: 0,
+      imported: 0,
+      updated: 0,
+      skipped: 0,
+      errors: []
+    };
+
+    for (const row of rows) {
+      try {
+        const name = pickField(row, normalizedHeaders, 'name');
+        const emailRaw = pickField(row, normalizedHeaders, 'email');
+        const code = pickField(row, normalizedHeaders, 'code');
+        const phone = pickField(row, normalizedHeaders, 'phone');
+        const state = pickField(row, normalizedHeaders, 'state');
+        const position = pickField(row, normalizedHeaders, 'position');
+        const address = pickField(row, normalizedHeaders, 'address');
+        const city = pickField(row, normalizedHeaders, 'city');
+        const lga = pickField(row, normalizedHeaders, 'lga');
+        const passportUrl = pickField(row, normalizedHeaders, 'passportUrl');
+
+        // Basic validation: need at least name + (email or code)
+        if (!name || (!emailRaw && !code)) {
+          results.skipped++;
+          results.errors.push({
+            line: row.__line,
+            reason: 'Missing required identifier (need name + email or code)'
+          });
+          continue;
+        }
+
+        const email = emailRaw ? emailRaw.toLowerCase() : '';
+
+        // Build filter for upsert
+        let filter = null;
+        if (email) filter = { email };
+        else if (code) filter = { code };
+        else {
+          results.skipped++;
+          results.errors.push({ line: row.__line, reason: 'No unique key (email/code) provided' });
+          continue;
+        }
+
+        // Build update payload
+        const update = {
+          ...(name && { name }),
+          ...(email && { email }),
+          ...(code && { code }),
+          ...(phone && { phone }),
+          ...(state && { state }),
+          ...(position && { position }),
+          ...(address && { address }),
+          ...(city && { city }),
+          ...(lga && { lga }),
+          ...(passportUrl && { passportUrl }),
+          lastUpdated: new Date()
+        };
+
+        const options = { upsert: true, new: true, setDefaultsOnInsert: true };
+
+        // Find existing first to count imported vs updated
+        const existing = await User.findOne(filter).select('_id');
+
+        await User.findOneAndUpdate(filter, { $set: update }, options);
+
+        if (existing) results.updated++;
+        else results.imported++;
+
+        results.processed++;
+      } catch (err) {
+        results.errors.push({
+          line: row.__line,
+          reason: err.message
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: `Import complete. ${results.imported} new, ${results.updated} updated, ${results.skipped} skipped.`,
+      summary: results.errors.length
+        ? { errorCount: results.errors.length, sample: results.errors.slice(0, 5) }
+        : undefined
+    });
+  } catch (error) {
+    console.error('❌ Import members error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while importing members',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+}
+
 
 // Public routes (no authentication required)
 router.post('/members/verify', withDB(verifyMember));
