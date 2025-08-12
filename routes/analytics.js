@@ -19,99 +19,126 @@ const withDB = (handler) => {
     };
 };
 
-// Get dashboard analytics (OPTIMIZED VERSION)
+// OPTIONS handler for CORS preflight requests
+router.options('/', (req, res) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    res.status(204).end();
+});
+
+// POST endpoint for analytics data
+router.post('/', withDB(async (req, res) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    
+    try {
+        const { type, action, timestamp, userAgent, url } = req.body;
+        
+        console.log('📊 Analytics data received:', { type, action, timestamp, userAgent, url });
+        console.log('📊 Analytics stored:', {
+            type,
+            action,
+            timestamp: timestamp || new Date().toISOString(),
+            userAgent,
+            url,
+            ip: req.ip
+        });
+        
+        res.json({
+            success: true,
+            message: 'Analytics data recorded successfully',
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Analytics error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to record analytics data',
+            error: error.message
+        });
+    }
+}));
+
+// Get dashboard analytics (OPTIMIZED)
 router.get('/dashboard', withDB(async (req, res) => {
   try {
-    console.time('AnalyticsQueryTime'); // Start performance timer
+    console.time('DashboardAnalytics'); // Performance tracking
     
-    // Get the date range first since it's used in multiple queries
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    // Run all parallel queries at once
+    // Execute all queries in parallel
     const [
-      totalUsers,
-      totalCertificates,
-      activeCertificates,
-      revokedCertificates,
+      totalCounts,
+      certificateStatus,
+      usersByState,
       usersByPosition,
-      recentUsers,
-      recentCertificates,
-      usersByState
+      recentActivity
     ] = await Promise.all([
-      User.countDocuments(),
-      Certificate.countDocuments(),
-      Certificate.countDocuments({ status: 'active' }),
-      Certificate.countDocuments({ status: 'revoked' }),
+      // Basic counts
+      Promise.all([
+        User.countDocuments(),
+        Certificate.countDocuments()
+      ]),
+      
+      // Certificate status
+      Promise.all([
+        Certificate.countDocuments({ status: 'active' }),
+        Certificate.countDocuments({ status: 'revoked' })
+      ]),
+      
+      // Optimized state aggregation
+      User.aggregate([
+        { $match: { state: { $exists: true } } }, // Only documents with state
+        { $group: { _id: '$state', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $project: { state: '$_id', count: 1, _id: 0 } }
+      ]).allowDiskUse(true),
+      
+      // Users by position
       User.aggregate([
         { $group: { _id: '$position', count: { $sum: 1 } } },
         { $sort: { count: -1 } }
       ]),
-      User.countDocuments({ dateAdded: { $gte: sevenDaysAgo } }),
-      Certificate.countDocuments({ dateIssued: { $gte: sevenDaysAgo } }),
-      // OPTIMIZED State aggregation
-      User.aggregate([
-        { 
-          $project: {
-            state: { $ifNull: ["$state", "Unknown"] } 
-          } 
-        },
-        { 
-          $group: { 
-            _id: "$state", 
-            count: { $sum: 1 } 
-          } 
-        },
-        { $sort: { count: -1 } },
-        { 
-          $project: {
-            state: "$_id",
-            count: 1,
-            _id: 0
-          }
-        }
-      ]).allowDiskUse(true) // Enable for large datasets
+      
+      // Recent activity
+      Promise.all([
+        User.countDocuments({ dateAdded: { $gte: sevenDaysAgo } }),
+        Certificate.countDocuments({ dateIssued: { $gte: sevenDaysAgo } })
+      ])
     ]);
 
-    console.timeEnd('AnalyticsQueryTime'); // Log query time
-    
-    // Transform usersByPosition for consistent response format
-    const formattedPositions = usersByPosition.map(item => ({
-      position: item._id,
-      count: item.count
-    }));
+    console.timeEnd('DashboardAnalytics');
 
-    const response = {
+    const responseData = {
       success: true,
       data: {
-        totals: {
-          users: totalUsers,
-          certificates: totalCertificates
+        totalUsers: totalCounts[0],
+        totalMembers: totalCounts[0],
+        totalCertificates: totalCounts[1],
+        activeCertificates: certificateStatus[0],
+        revokedCertificates: certificateStatus[1],
+        usersByState,
+        usersByPosition,
+        recentUsers: recentActivity[0],
+        recentCertificates: recentActivity[1],
+        systemHealth: {
+          database: 'connected',
+          uptime: process.uptime(),
+          memory: process.memoryUsage(),
+          timestamp: new Date()
         },
-        certificates: {
-          active: activeCertificates,
-          revoked: revokedCertificates
-        },
-        distribution: {
-          byState: usersByState,
-          byPosition: formattedPositions
-        },
-        recentActivity: {
-          users: recentUsers,
-          certificates: recentCertificates,
-          since: sevenDaysAgo.toISOString()
-        },
-        meta: {
-          generatedAt: new Date().toISOString(),
-          responseTime: `${console.timeEnd('AnalyticsQueryTime')}ms`
+        performance: {
+          queryTime: `${console.timeEnd('DashboardAnalytics')}ms`
         }
       }
     };
 
-    res.json(response);
-
+    res.json(responseData);
   } catch (error) {
-    console.error('❌ Analytics error:', error);
+    console.error('Analytics error:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Error fetching analytics data',
