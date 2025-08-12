@@ -3,6 +3,15 @@ const router = express.Router();
 const User = require('../models/User');
 const Certificate = require('../models/Certificate');
 
+// List of all Nigerian states + FCT
+const allStatesList = [
+  "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno",
+  "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "FCT", "Gombe", "Imo",
+  "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara", "Lagos", "Nasarawa",
+  "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba",
+  "Yobe", "Zamfara"
+];
+
 // Database wrapper function
 const withDB = (handler) => {
     return async (req, res, next) => {
@@ -73,8 +82,8 @@ router.get('/dashboard', withDB(async (req, res) => {
     const [
       totalCounts,
       certificateStatus,
-      usersByState,
-      usersByPosition,
+      stateAggregation,
+      positionAggregation,
       recentActivity
     ] = await Promise.all([
       // Basic counts
@@ -89,7 +98,7 @@ router.get('/dashboard', withDB(async (req, res) => {
         Certificate.countDocuments({ status: 'revoked' })
       ]),
       
-      // FIXED: State aggregation formatted for frontend
+      // States aggregation
       User.aggregate([
         { $match: { state: { $exists: true, $ne: '' } } },
         { $group: { _id: { $trim: { input: "$state" } }, value: { $sum: 1 } } },
@@ -97,10 +106,12 @@ router.get('/dashboard', withDB(async (req, res) => {
         { $project: { name: '$_id', value: 1, _id: 0 } }
       ]).allowDiskUse(true),
       
-      // Users by position
+      // Positions aggregation
       User.aggregate([
-        { $group: { _id: '$position', count: { $sum: 1 } } },
-        { $sort: { count: -1 } }
+        { $match: { position: { $exists: true, $ne: '' } } },
+        { $group: { _id: { $trim: { input: "$position" } }, value: { $sum: 1 } } },
+        { $sort: { value: -1 } },
+        { $project: { name: '$_id', value: 1, _id: 0 } }
       ]),
       
       // Recent activity
@@ -109,6 +120,13 @@ router.get('/dashboard', withDB(async (req, res) => {
         Certificate.countDocuments({ dateIssued: { $gte: sevenDaysAgo } })
       ])
     ]);
+
+    // Merge stateAggregation with all states list to ensure all states appear
+    const stateMap = new Map(stateAggregation.map(s => [s.name.toLowerCase(), s.value]));
+    const usersByState = allStatesList.map(stateName => ({
+      name: stateName,
+      value: stateMap.get(stateName.toLowerCase()) || 0
+    }));
 
     const queryTime = Date.now() - startTime; // Capture timing
 
@@ -121,7 +139,7 @@ router.get('/dashboard', withDB(async (req, res) => {
         activeCertificates: certificateStatus[0],
         revokedCertificates: certificateStatus[1],
         usersByState,
-        usersByPosition,
+        usersByPosition: positionAggregation,
         recentUsers: recentActivity[0],
         recentCertificates: recentActivity[1],
         systemHealth: {
