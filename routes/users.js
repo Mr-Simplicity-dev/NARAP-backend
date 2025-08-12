@@ -782,13 +782,11 @@ function parseCSV(text) {
 const headerMap = {
   name: ['name', 'full name', 'member name'],
   email: ['email', 'e-mail'],
-  phone: ['phone', 'phone number', 'mobile'],
   code: ['code', 'member code', 'narap code'],
   state: ['state'],
-  position: ['position', 'role'],
+  position: ['position', 'position'],
   address: ['address'],
-  city: ['city', 'town'],
-  lga: ['lga', 'local government area'],
+  zone: ['zone', 'zone'],
   passportUrl: ['passport url', 'passport', 'photo', 'passport_photo', 'passportphoto', 'passporturl']
 };
 
@@ -827,20 +825,18 @@ async function importMembers(req, res) {
         const name = pickField(row, normalizedHeaders, 'name');
         const emailRaw = pickField(row, normalizedHeaders, 'email');
         const code = pickField(row, normalizedHeaders, 'code');
-        const phone = pickField(row, normalizedHeaders, 'phone');
         const state = pickField(row, normalizedHeaders, 'state');
         const position = pickField(row, normalizedHeaders, 'position');
         const address = pickField(row, normalizedHeaders, 'address');
-        const city = pickField(row, normalizedHeaders, 'city');
-        const lga = pickField(row, normalizedHeaders, 'lga');
+        const zone = pickField(row, normalizedHeaders, 'zone');
         const passportUrl = pickField(row, normalizedHeaders, 'passportUrl');
 
-        // Basic validation: need at least name + (email or code)
+        // Basic validation: need at least name + (state or code)
         if (!name || (!emailRaw && !code)) {
           results.skipped++;
           results.errors.push({
             line: row.__line,
-            reason: 'Missing required identifier (need name + email or code)'
+            reason: 'Missing required identifier (need name + state or code)'
           });
           continue;
         }
@@ -862,12 +858,9 @@ async function importMembers(req, res) {
           ...(name && { name }),
           ...(email && { email }),
           ...(code && { code }),
-          ...(phone && { phone }),
           ...(state && { state }),
           ...(position && { position }),
-          ...(address && { address }),
-          ...(city && { city }),
-          ...(lga && { lga }),
+          ...(zone && { zone }),
           ...(passportUrl && { passportUrl }),
           lastUpdated: new Date()
         };
