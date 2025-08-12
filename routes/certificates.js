@@ -5,7 +5,6 @@ const Certificate = require('../models/Certificate');
 const multer = require('multer');
 const {
   getCertificates,
-  getCertificate,
   createCertificate,
   updateCertificate,
   deleteCertificate,
