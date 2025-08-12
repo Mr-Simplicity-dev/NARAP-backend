@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Certificate = require('../models/Certificate');
-const User = require('../models/User'); // ✅ FIX: Needed by importCertificates
+const User = require('../models/User'); 
 
 const multer = require('multer');
 // const {
@@ -332,7 +332,6 @@ const importCertificates = async (req, res) => {
       'Type',
       'Status',
       'Issue Date',
-      'Valid Until',
       'Issued By'
     ];
 
@@ -358,7 +357,6 @@ const importCertificates = async (req, res) => {
       type: idx('Type'),
       status: idx('Status'),
       issueDate: idx('Issue Date'),
-      validUntil: idx('Valid Until'),
       issuedBy: idx('Issued By')
     };
 
@@ -376,7 +374,6 @@ const importCertificates = async (req, res) => {
       const type = parts[col.type] || 'membership';
       const status = (parts[col.status] || 'active').toLowerCase();
       const issueDate = parts[col.issueDate] ? new Date(parts[col.issueDate]) : null;
-      const validUntil = parts[col.validUntil] ? new Date(parts[col.validUntil]) : null;
       const issuedBy = parts[col.issuedBy] || '';
 
       const number = rawNumber.toUpperCase().trim();
@@ -404,7 +401,6 @@ const importCertificates = async (req, res) => {
         type,
         status: status || 'active',
         issueDate: issueDate || undefined,
-        validUntil: validUntil || undefined,
         issuedBy: issuedBy || undefined,
         userId: user?._id || null,
         lastUpdated: new Date()
