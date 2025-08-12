@@ -1,16 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const Certificate = require('../models/Certificate');
+const User = require('../models/User'); // ✅ FIX: Needed by importCertificates
 
 const multer = require('multer');
-//const {
-  //getCertificates,
-  //createCertificate,
-  //updateCertificate,
-  //deleteCertificate,
-  //exportCertificates,
-  //importCertificates // Add this import
-//} = require('../controllers/certificateController');
+// const {
+//   getCertificates,
+//   createCertificate,
+//   updateCertificate,
+//   deleteCertificate,
+//   exportCertificates,
+//   importCertificates // Add this import
+// } = require('../controllers/certificateController');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -36,7 +37,6 @@ const getCertificates = async (req, res) => {
     const certificates = await Certificate.find()
       .populate('userId', 'name email code')
       .sort({ createdAt: -1 });
-    
     res.json(certificates);
   } catch (error) {
     console.error('Get certificates error:', error);
@@ -58,27 +58,26 @@ const createCertificate = async (req, res) => {
       validUntil,
       userId
     } = req.body;
-    
-    // Validation
+
     if (!number || !recipient || !title) {
       return res.status(400).json({
         message: 'Certificate number, recipient, and title are required'
       });
     }
-    
+
+    const normalizedNumber = number.toUpperCase().trim();
+
     // Check if certificate number already exists
-    const existingCert = await Certificate.findOne({ 
-      number: number.toUpperCase() 
-    });
+    const existingCert = await Certificate.findOne({ number: normalizedNumber });
     if (existingCert) {
-      return res.status(400).json({ 
-        message: 'Certificate number already exists' 
+      return res.status(400).json({
+        message: 'Certificate number already exists'
       });
     }
-    
+
     const certificateData = {
-      number: number.toUpperCase().trim(),
-      certificateNumber: number.toUpperCase().trim(), // Add certificateNumber field
+      number: normalizedNumber,
+      certificateNumber: normalizedNumber,
       recipient: recipient.trim(),
       title: title.trim(),
       type,
@@ -87,15 +86,14 @@ const createCertificate = async (req, res) => {
       validUntil: validUntil ? new Date(validUntil) : null,
       userId: userId || null
     };
-    
-    // Add email if provided
+
     if (email && email.trim()) {
       certificateData.email = email.toLowerCase().trim();
     }
-    
+
     const certificate = new Certificate(certificateData);
     await certificate.save();
-    
+
     res.status(201).json({
       message: 'Certificate issued successfully',
       certificate
@@ -118,22 +116,22 @@ const revokeCertificate = async (req, res) => {
   try {
     const { id } = req.params;
     const { reason, revokedBy = 'Admin' } = req.body;
-    
+
     console.log(`🚫 Revoking certificate ${id} with reason: ${reason}`);
-    
+
     if (!reason || reason.trim() === '') {
       return res.status(400).json({ message: 'Revocation reason is required' });
     }
-    
+
     const certificate = await Certificate.findById(id);
     if (!certificate) {
       return res.status(404).json({ message: 'Certificate not found' });
     }
-    
+
     if (certificate.status === 'revoked') {
       return res.status(400).json({ message: 'Certificate is already revoked' });
     }
-    
+
     const updatedCertificate = await Certificate.findByIdAndUpdate(
       id,
       {
@@ -144,9 +142,9 @@ const revokeCertificate = async (req, res) => {
       },
       { new: true, runValidators: true }
     );
-    
+
     console.log('✅ Certificate revoked successfully:', updatedCertificate.number);
-    
+
     res.json({
       success: true,
       message: 'Certificate revoked successfully',
@@ -154,9 +152,9 @@ const revokeCertificate = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Revoke certificate error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error while revoking certificate' 
+      message: 'Server error while revoking certificate'
     });
   }
 };
@@ -165,19 +163,19 @@ const revokeCertificate = async (req, res) => {
 const restoreCertificate = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const certificate = await Certificate.findById(id);
     if (!certificate) {
       return res.status(404).json({ message: 'Certificate not found' });
     }
-    
+
     certificate.status = 'active';
     certificate.revokedAt = null;
     certificate.revokedBy = null;
     certificate.revokedReason = null;
-    
+
     await certificate.save();
-    
+
     res.json({
       success: true,
       message: 'Certificate restored successfully',
@@ -185,9 +183,9 @@ const restoreCertificate = async (req, res) => {
     });
   } catch (error) {
     console.error('Restore certificate error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error while restoring certificate' 
+      message: 'Server error while restoring certificate'
     });
   }
 };
@@ -196,35 +194,34 @@ const restoreCertificate = async (req, res) => {
 const deleteCertificate = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     console.log(`🗑️ Deleting certificate ${id}`);
-    
+
     const certificate = await Certificate.findById(id);
     if (!certificate) {
       return res.status(404).json({ message: 'Certificate not found' });
     }
-    
-    // Store certificate info before deletion for logging
+
     const certificateInfo = {
       number: certificate.number,
       recipient: certificate.recipient,
       title: certificate.title
     };
-    
+
     await Certificate.findByIdAndDelete(id);
-    
+
     console.log('✅ Certificate deleted successfully:', certificateInfo.number);
-    
-    res.json({ 
+
+    res.json({
       success: true,
       message: 'Certificate deleted successfully',
       deletedCertificate: certificateInfo
     });
   } catch (error) {
     console.error('❌ Delete certificate error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error while deleting certificate' 
+      message: 'Server error while deleting certificate'
     });
   }
 };
@@ -233,15 +230,15 @@ const deleteCertificate = async (req, res) => {
 const bulkDeleteCertificates = async (req, res) => {
   try {
     const { certificateIds } = req.body;
-    
+
     if (!Array.isArray(certificateIds) || certificateIds.length === 0) {
       return res.status(400).json({ message: 'Certificate IDs array is required' });
     }
-    
+
     const result = await Certificate.deleteMany({
       _id: { $in: certificateIds }
     });
-    
+
     res.json({
       message: `Successfully deleted ${result.deletedCount} certificates`,
       deletedCount: result.deletedCount
@@ -256,10 +253,9 @@ const bulkDeleteCertificates = async (req, res) => {
 const searchCertificates = async (req, res) => {
   try {
     const { query, filters = {} } = req.body;
-    
+
     let searchCriteria = {};
-    
-    // Text search across multiple fields
+
     if (query && query.trim()) {
       const searchRegex = new RegExp(query.trim(), 'i');
       searchCriteria.$or = [
@@ -270,20 +266,16 @@ const searchCertificates = async (req, res) => {
         { description: searchRegex }
       ];
     }
-    
-    // Apply filters
+
     if (filters.status) {
       searchCriteria.status = filters.status;
     }
-    
     if (filters.type) {
       searchCriteria.type = filters.type;
     }
-    
     if (filters.dateFrom) {
       searchCriteria.issueDate = { $gte: new Date(filters.dateFrom) };
     }
-    
     if (filters.dateTo) {
       if (searchCriteria.issueDate) {
         searchCriteria.issueDate.$lte = new Date(filters.dateTo);
@@ -291,12 +283,12 @@ const searchCertificates = async (req, res) => {
         searchCriteria.issueDate = { $lte: new Date(filters.dateTo) };
       }
     }
-    
+
     const certificates = await Certificate.find(searchCriteria)
       .populate('userId', 'name email code')
       .sort({ createdAt: -1 })
       .limit(100);
-    
+
     res.json({
       certificates,
       count: certificates.length,
@@ -309,20 +301,29 @@ const searchCertificates = async (req, res) => {
   }
 };
 
+// ✅ FIXED: Robust(er) CSV import (keeps your style; minimal changes)
 const importCertificates = async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'No CSV file uploaded' 
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({
+        success: false,
+        message: 'No CSV file uploaded'
       });
     }
 
-    // Parse CSV
-    const csvData = req.file.buffer.toString();
-    const [headerLine, ...dataLines] = csvData.split('\n');
-    
-    // Validate headers
+    // Parse CSV (simple split; assumes no commas inside fields)
+    const csvData = req.file.buffer.toString('utf8');
+    const lines = csvData.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'CSV appears empty or has no data rows'
+      });
+    }
+
+    // Header handling (strip BOM, case-insensitive check)
+    const headerLine = lines[0].replace(/^\uFEFF/, '');
+    const headers = headerLine.split(',').map(h => h.trim());
     const requiredHeaders = [
       'Certificate Number',
       'Recipient',
@@ -335,7 +336,11 @@ const importCertificates = async (req, res) => {
       'Issued By'
     ];
 
-    if (!requiredHeaders.every(h => headerLine.includes(h))) {
+    const hasAllHeaders = requiredHeaders.every(reqH =>
+      headers.some(h => h.toLowerCase() === reqH.toLowerCase())
+    );
+
+    if (!hasAllHeaders) {
       return res.status(400).json({
         success: false,
         message: 'Invalid CSV format. Please use the exported template.',
@@ -343,75 +348,86 @@ const importCertificates = async (req, res) => {
       });
     }
 
-    // Process data
-    const results = {
-      imported: 0,
-      updated: 0,
-      errors: []
+    const idx = (name) => headers.findIndex(h => h.toLowerCase() === name.toLowerCase());
+
+    const col = {
+      number: idx('Certificate Number'),
+      recipient: idx('Recipient'),
+      email: idx('Email'),
+      title: idx('Title'),
+      type: idx('Type'),
+      status: idx('Status'),
+      issueDate: idx('Issue Date'),
+      validUntil: idx('Valid Until'),
+      issuedBy: idx('Issued By')
     };
 
-    for (const line of dataLines.filter(l => l.trim())) {
-      const [
+    const results = { imported: 0, updated: 0, processed: 0, errors: [] };
+
+    for (const line of lines.slice(1)) {
+      const parts = line.split(',').map(s => (s || '').trim());
+      if (parts.length === 0 || parts.every(p => !p)) continue;
+
+      // Pull fields
+      const rawNumber = parts[col.number] || '';
+      const recipient = parts[col.recipient] || '';
+      const email = (parts[col.email] || '').toLowerCase();
+      const title = parts[col.title] || '';
+      const type = parts[col.type] || 'membership';
+      const status = (parts[col.status] || 'active').toLowerCase();
+      const issueDate = parts[col.issueDate] ? new Date(parts[col.issueDate]) : null;
+      const validUntil = parts[col.validUntil] ? new Date(parts[col.validUntil]) : null;
+      const issuedBy = parts[col.issuedBy] || '';
+
+      const number = rawNumber.toUpperCase().trim();
+      if (!number) {
+        results.errors.push({ row: parts, reason: 'Certificate Number is required' });
+        continue;
+      }
+
+      // Find target user by email or code (fallback: code in email column)
+      let user = null;
+      if (email) {
+        user = await User.findOne({ $or: [{ email }, { code: email }] }).select('_id');
+      }
+
+      // Determine if exists first to count imported vs updated
+      const existing = await Certificate.findOne({ number }).select('_id');
+
+      // Build data
+      const certificateData = {
         number,
+        certificateNumber: number,
         recipient,
         email,
         title,
         type,
-        status,
-        issueDate,
-        validUntil,
-        issuedBy
-      ] = line.split(',').map(field => field?.trim());
+        status: status || 'active',
+        issueDate: issueDate || undefined,
+        validUntil: validUntil || undefined,
+        issuedBy: issuedBy || undefined,
+        userId: user?._id || null,
+        lastUpdated: new Date()
+      };
 
-      try {
-        // Find user (using your existing user lookup logic)
-        const user = await User.findOne({ 
-          $or: [
-            { email },
-            { code: email } // Fallback to code if email not found
-          ]
-        });
+      // Upsert (preserve createdAt)
+      await Certificate.findOneAndUpdate(
+        { number },
+        { $set: certificateData },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
 
-        const certificateData = {
-          number,
-          recipient,
-          email,
-          title,
-          type,
-          status,
-          issueDate: issueDate ? new Date(issueDate) : null,
-          validUntil: validUntil ? new Date(validUntil) : null,
-          issuedBy,
-          userId: user?._id || null,
-          lastUpdated: new Date()
-        };
+      if (existing) results.updated++;
+      else results.imported++;
 
-        // Upsert logic
-        const result = await Certificate.findOneAndUpdate(
-          { number },
-          certificateData,
-          { upsert: true, new: true }
-        );
-
-        result.upserted ? results.imported++ : results.updated++;
-      } catch (error) {
-        results.errors.push({
-          certificate: number,
-          error: error.message,
-          line: line
-        });
-      }
+      results.processed++;
     }
 
-    res.json({
+    return res.json({
       success: true,
-      message: `Import completed: ${results.imported} new, ${results.updated} updated`,
-      details: results.errors.length ? {
-        errorCount: results.errors.length,
-        sampleErrors: results.errors.slice(0, 3)
-      } : undefined
+      message: `Import completed: ${results.imported} new, ${results.updated} updated.`,
+      summary: { processed: results.processed, errors: results.errors.slice(0, 5) }
     });
-
   } catch (error) {
     console.error('❌ Certificate import error:', error);
     res.status(500).json({
@@ -428,23 +444,22 @@ const exportCertificates = async (req, res) => {
     const certificates = await Certificate.find()
       .populate('userId', 'name email code')
       .sort({ createdAt: -1 });
-    
-    // Convert to CSV format
+
     const csvHeader = 'Certificate Number,Recipient,Email,Title,Type,Status,Issue Date,Valid Until,Issued By\n';
     const csvData = certificates.map(cert => {
       return [
         cert.number,
         cert.recipient,
-        cert.email,
-        cert.title,
-        cert.type,
-        cert.status,
+        cert.email || '',
+        cert.title || '',
+        cert.type || '',
+        cert.status || '',
         cert.issueDate ? cert.issueDate.toISOString().split('T')[0] : '',
         cert.validUntil ? cert.validUntil.toISOString().split('T')[0] : '',
-        cert.issuedBy
+        cert.issuedBy || ''
       ].join(',');
     }).join('\n');
-    
+
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=narap_certificates.csv');
     res.send(csvHeader + csvData);
@@ -458,39 +473,37 @@ const exportCertificates = async (req, res) => {
 const verifyCertificate = async (req, res) => {
   try {
     const { certificateNumber } = req.body;
-    
+
     console.log('🔍 Frontend certificate verification request for:', certificateNumber);
-    
+
     if (!certificateNumber) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Certificate number is required' 
+        message: 'Certificate number is required'
       });
     }
-    
-    // Search for certificate by number (case insensitive)
-    const certificate = await Certificate.findOne({ 
+
+    const certificate = await Certificate.findOne({
       number: { $regex: new RegExp(`^${certificateNumber}$`, 'i') }
     }).populate('userId', 'name email code');
-    
+
     if (!certificate) {
       console.log('❌ Certificate not found for number:', certificateNumber);
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Certificate not found with this number. Please verify the certificate number and try again.' 
+        message: 'Certificate not found with this number. Please verify the certificate number and try again.'
       });
     }
-    
-    // Check if certificate is expired
+
     let status = certificate.status;
     if (certificate.validUntil && new Date() > certificate.validUntil && status === 'active') {
       status = 'expired';
       certificate.status = 'expired';
       await certificate.save();
     }
-    
+
     console.log('✅ Certificate found:', certificate.number, status);
-    
+
     res.json({
       success: true,
       message: 'Certificate verified successfully',
@@ -511,9 +524,9 @@ const verifyCertificate = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Certificate verification error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error while verifying certificate' 
+      message: 'Server error while verifying certificate'
     });
   }
 };
@@ -527,9 +540,9 @@ router.delete('/:id', withDB(deleteCertificate));
 router.post('/bulk-delete', withDB(bulkDeleteCertificates));
 router.post('/search', withDB(searchCertificates));
 router.get('/export', withDB(exportCertificates));
-router.post('/import', upload.single('file'), withDB(importCertificates));
+router.post('/import', upload.single('file'), withDB(importCertificates)); // expects 'file' field
 
 // Public routes (no authentication required)
 router.post('/verify', withDB(verifyCertificate));
 
-module.exports = router; 
+module.exports = router;
