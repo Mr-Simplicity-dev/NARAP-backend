@@ -44,7 +44,7 @@ const getCertificates = async (req, res) => {
   }
 };
 
-// Create certificate
+// Create certificate (upsert by number)
 const createCertificate = async (req, res) => {
   try {
     const {
@@ -52,64 +52,83 @@ const createCertificate = async (req, res) => {
       recipient,
       email,
       title,
+      position,                 // optional; can be used as fallback for title
       type = 'membership',
       description,
-      issueDate,
-      validUntil,
+      issueDate,                // ✅ required
+      validUntil,               // optional
+      expiryDate,               // optional alias for validUntil
       userId
     } = req.body;
 
-    if (!number || !recipient || !title) {
+    // ✅ Validation: require number, recipient, issueDate (NOT title)
+    if (!number || !recipient || !issueDate) {
       return res.status(400).json({
-        message: 'Certificate number, recipient, and title are required'
+        message: 'Certificate number, recipient, and issueDate are required'
       });
     }
 
-    const normalizedNumber = number.toUpperCase().trim();
+    const normalizedNumber = String(number).toUpperCase().trim();
 
-    // Check if certificate number already exists
+    // Look up existing certificate
     const existingCert = await Certificate.findOne({ number: normalizedNumber });
-    if (existingCert) {
-      return res.status(400).json({
-        message: 'Certificate number already exists'
-      });
-    }
+
+    // Prepare fields (title optional; fallback to position or 'Membership')
+    const titleFinal =
+      (title && String(title).trim()) ||
+      (position && String(position).trim()) ||
+      'Membership';
+
+    const validUntilFinal = validUntil || expiryDate || null;
 
     const certificateData = {
       number: normalizedNumber,
       certificateNumber: normalizedNumber,
-      recipient: recipient.trim(),
-      title: title.trim(),
+      recipient: String(recipient).trim(),
+      title: titleFinal,
       type,
-      description: description?.trim(),
-      issueDate: issueDate ? new Date(issueDate) : new Date(),
-      validUntil: validUntil ? new Date(validUntil) : null,
+      description: description ? String(description).trim() : '',
+      issueDate: new Date(issueDate),
+      validUntil: validUntilFinal ? new Date(validUntilFinal) : null,
       userId: userId || null
     };
 
-    if (email && email.trim()) {
-      certificateData.email = email.toLowerCase().trim();
+    if (email && String(email).trim()) {
+      certificateData.email = String(email).toLowerCase().trim();
+    }
+
+    // ✅ Upsert behavior: update if exists, else create
+    if (existingCert) {
+      Object.assign(existingCert, certificateData);
+      await existingCert.save();
+      return res.status(200).json({
+        message: 'Certificate updated successfully',
+        updated: true,
+        certificate: existingCert
+      });
     }
 
     const certificate = new Certificate(certificateData);
     await certificate.save();
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Certificate issued successfully',
+      created: true,
       certificate
     });
   } catch (error) {
     console.error('Issue certificate error:', error);
     if (error.code === 11000) {
-      res.status(400).json({ message: 'Certificate number already exists' });
+      // Duplicate key (should be rare now that we upsert, but kept for safety)
+      return res.status(400).json({ message: 'Certificate number already exists' });
     } else if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(err => err.message);
-      res.status(400).json({ message: messages.join(', ') });
-    } else {
-      res.status(500).json({ message: 'Server error while issuing certificate' });
+      return res.status(400).json({ message: messages.join(', ') });
     }
+    return res.status(500).json({ message: 'Server error while issuing certificate' });
   }
 };
+
 
 // Revoke certificate
 const revokeCertificate = async (req, res) => {
@@ -302,6 +321,7 @@ const searchCertificates = async (req, res) => {
 };
 
 // ✅ FIXED: Robust(er) CSV import (keeps your style; minimal changes)
+
 const importCertificates = async (req, res) => {
   try {
     if (!req.file || !req.file.buffer) {
@@ -311,7 +331,6 @@ const importCertificates = async (req, res) => {
       });
     }
 
-    // Parse CSV (simple split; assumes no commas inside fields)
     const csvData = req.file.buffer.toString('utf8');
     const lines = csvData.split(/\r?\n/).filter(l => l.trim());
     if (lines.length < 2) {
@@ -321,44 +340,55 @@ const importCertificates = async (req, res) => {
       });
     }
 
-    // Header handling (strip BOM, case-insensitive check)
+    // Header handling (strip BOM)
     const headerLine = lines[0].replace(/^\uFEFF/, '');
-    const headers = headerLine.split(',').map(h => h.trim());
-    const requiredHeaders = [
-      'Certificate Number',
-      'Recipient',
-      'Email',
-      'Title',
-      'Type',
-      'Status',
-      'Issue Date',
-      'Issued By'
-    ];
+    const rawHeaders = headerLine.split(',').map(h => String(h || '').trim().toLowerCase());
 
-    const hasAllHeaders = requiredHeaders.every(reqH =>
-      headers.some(h => h.toLowerCase() === reqH.toLowerCase())
-    );
+    // Aliases
+    const aliases = {
+      number: ['certificate number','certificatenumber','certificateid','certificate id','number','cert no','cert no.'],
+      recipient: ['recipient','name','member_name','member','recipient name'],
+      email: ['email','email_address','e-mail','mail'],
+      title: ['title','position','role'],
+      type: ['type'],
+      status: ['status'],
+      issueDate: ['issue date','issue_date','issuedate','date_issued','date issue','issued on','issued'],
+      validUntil: ['valid until','expiry date','expiry','expiry_date','expirydate','date_expiry','date expiry'],
+      issuedBy: ['issued by','issuer','authorizing body']
+    };
 
-    if (!hasAllHeaders) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid CSV format. Please use the exported template.',
-        expectedFormat: requiredHeaders.join(', ')
-      });
-    }
-
-    const idx = (name) => headers.findIndex(h => h.toLowerCase() === name.toLowerCase());
+    const findIdx = (key) => {
+      const opts = [key].concat(aliases[key] || []);
+      for (const k of opts) {
+        const idx = rawHeaders.indexOf(String(k).toLowerCase());
+        if (idx !== -1) return idx;
+      }
+      return -1;
+    };
 
     const col = {
-      number: idx('Certificate Number'),
-      recipient: idx('Recipient'),
-      email: idx('Email'),
-      title: idx('Title'),
-      type: idx('Type'),
-      status: idx('Status'),
-      issueDate: idx('Issue Date'),
-      issuedBy: idx('Issued By')
+      number: findIdx('number'),
+      recipient: findIdx('recipient'),
+      email: findIdx('email'),
+      title: findIdx('title'),
+      type: findIdx('type'),
+      status: findIdx('status'),
+      issueDate: findIdx('issueDate'),
+      validUntil: findIdx('validUntil'),
+      issuedBy: findIdx('issuedBy')
     };
+
+    // Minimal required
+    const missing = [];
+    if (col.number === -1) missing.push('Certificate Number');
+    if (col.recipient === -1) missing.push('Recipient');
+    if (col.issueDate === -1) missing.push('Issue Date');
+    if (missing.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid CSV format. Missing required columns: ' + missing.join(', ')
+      });
+    }
 
     const results = { imported: 0, updated: 0, processed: 0, errors: [] };
 
@@ -366,47 +396,48 @@ const importCertificates = async (req, res) => {
       const parts = line.split(',').map(s => (s || '').trim());
       if (parts.length === 0 || parts.every(p => !p)) continue;
 
-      // Pull fields
       const rawNumber = parts[col.number] || '';
       const recipient = parts[col.recipient] || '';
-      const email = (parts[col.email] || '').toLowerCase();
-      const title = parts[col.title] || '';
-      const type = parts[col.type] || 'membership';
-      const status = (parts[col.status] || 'active').toLowerCase();
-      const issueDate = parts[col.issueDate] ? new Date(parts[col.issueDate]) : null;
-      const issuedBy = parts[col.issuedBy] || '';
+      const email = (col.email > -1 ? parts[col.email] : '').toLowerCase();
+      const title = (col.title > -1 ? parts[col.title] : '');
+      const type = (col.type > -1 ? parts[col.type] : 'membership');
+      const status = (col.status > -1 ? parts[col.status] : 'active').toLowerCase();
+      const issueDateStr = parts[col.issueDate] || '';
+      const validUntilStr = (col.validUntil > -1 ? parts[col.validUntil] : '');
+      const issuedBy = (col.issuedBy > -1 ? parts[col.issuedBy] : '');
 
       const number = rawNumber.toUpperCase().trim();
-      if (!number) {
-        results.errors.push({ row: parts, reason: 'Certificate Number is required' });
+      if (!number || !recipient || !issueDateStr) {
+        results.errors.push({ row: parts, reason: 'Missing required fields (Certificate Number, Recipient, Issue Date)' });
         continue;
       }
 
-      // Find target user by email or code (fallback: code in email column)
+      const issueDate = new Date(issueDateStr);
+      const validUntil = validUntilStr ? new Date(validUntilStr) : null;
+
+      // Try to link user by email if present
       let user = null;
       if (email) {
         user = await User.findOne({ $or: [{ email }, { code: email }] }).select('_id');
       }
 
-      // Determine if exists first to count imported vs updated
       const existing = await Certificate.findOne({ number }).select('_id');
 
-      // Build data
       const certificateData = {
         number,
         certificateNumber: number,
         recipient,
-        email,
-        title,
+        email: email || undefined,
+        title: title || 'Membership',
         type,
         status: status || 'active',
         issueDate: issueDate || undefined,
+        validUntil: validUntil || null,
         issuedBy: issuedBy || undefined,
         userId: user?._id || null,
         lastUpdated: new Date()
       };
 
-      // Upsert (preserve createdAt)
       await Certificate.findOneAndUpdate(
         { number },
         { $set: certificateData },
@@ -422,7 +453,7 @@ const importCertificates = async (req, res) => {
     return res.json({
       success: true,
       message: `Import completed: ${results.imported} new, ${results.updated} updated.`,
-      summary: { processed: results.processed, errors: results.errors.slice(0, 5) }
+      summary: { processed: results.processed, errors: results.errors.slice(0, 10) }
     });
   } catch (error) {
     console.error('❌ Certificate import error:', error);
@@ -433,6 +464,7 @@ const importCertificates = async (req, res) => {
     });
   }
 };
+;
 
 // Export certificates
 const exportCertificates = async (req, res) => {
