@@ -120,6 +120,23 @@ const healthRoutes = require('./routes/health');
 
 // API routes
 app.use('/api/auth', authRoutes);
+
+// --- Email placeholder handling (make email optional) ---
+const PLACEHOLDER_EMAIL_RE = /^(nill|null|n\/a|na|none|nil|\-|\s*)$/i;
+function normalizeEmailField(obj){
+  if (obj && Object.prototype.hasOwnProperty.call(obj, 'email')) {
+    const t = String(obj.email ?? '').trim();
+    if (!t || PLACEHOLDER_EMAIL_RE.test(t)) {
+      delete obj.email; // treat as optional
+    }
+  }
+}
+// Normalize email on all /api/users requests (works for urlencoded/multipart because fields land in req.body)
+app.use('/api/users', (req, res, next) => {
+  try { if (req.body) normalizeEmailField(req.body); } catch(_) {}
+  next();
+});
+
 app.use('/api/users', userRoutes);
 app.use('/api/certificates', certificateRoutes);
 app.use('/api/analytics', analyticsRoutes);
