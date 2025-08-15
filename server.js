@@ -145,6 +145,29 @@ app.get('/', (req, res) => {
 });
 
 // 404 handler
+
+// Lightweight lookup: check if a user exists by code or email (no multipart parsing needed)
+app.get('/api/users/exists', async (req, res) => {
+  try {
+    const User = require('./models/User');
+    const { code, email } = req.query;
+    if (!code && !email) {
+      return res.status(400).json({ success: false, message: 'Provide code or email' });
+    }
+    const query = [];
+    if (code) query.push({ code: String(code).trim() });
+    if (email) query.push({ email: String(email).trim() });
+    const user = await User.findOne({ $or: query }).select('_id code email');
+    if (user) {
+      return res.json({ success: true, exists: true, id: String(user._id), code: user.code, email: user.email });
+    }
+    return res.json({ success: true, exists: false });
+  } catch (err) {
+    console.error('exists lookup error:', err);
+    return res.status(500).json({ success: false, message: 'Lookup failed' });
+  }
+});
+
 app.use('*', (req, res) => {
   res.status(404).json({
     error: 'Endpoint not found',
