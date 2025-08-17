@@ -421,6 +421,8 @@ app.get('/', (req, res) => {
 // ===== Activity live stream (SSE) =====
 const __activityClients = new Set();
 function __broadcastActivity(act){
+  try { global.__broadcastActivity = __broadcastActivity; } catch(_) {}
+
   try {
     const payload = `data: ${JSON.stringify(act)}\n\n`;
     for (const res of __activityClients) {
@@ -503,6 +505,112 @@ app.get('/api/activity/stream', (req, res) => {
   });
 })();
 // ===== End Activity endpoints =====
+// ===== Activity Hooks: auto-log on DB changes =====
+(function(){
+  if (global.__activityHooksAttached) return;
+  global.__activityHooksAttached = true;
+
+  const mongoose = require('mongoose');
+
+  // Get Activity model consistently (reuse schema if already defined)
+  function getActivityModel(){
+    if (mongoose.models.Activity) return mongoose.models.Activity;
+    const ActivitySchema = new mongoose.Schema({
+      ts: { type: Date, default: Date.now, index: true },
+      date: { type: String },
+      time: { type: String },
+      entity: { type: String, default: 'system', index: true },
+      action: { type: String, default: 'unknown', index: true },
+      data: { type: mongoose.Schema.Types.Mixed, default: {} },
+    }, { timestamps: false, strict: false });
+    return mongoose.model('Activity', ActivitySchema);
+  }
+
+  const Activity = getActivityModel();
+
+  // Import your domain models
+  let User, Certificate;
+  try { User = require('./models/User'); } catch(_){}
+  try { Certificate = require('./models/Certificate'); } catch(_){}
+
+  async function createAct(entity, action, data){
+    try {
+      const now = new Date();
+      const doc = await Activity.create({
+        entity, action,
+        data: data || {},
+        ts: now,
+        date: now.toLocaleDateString(),
+        time: now.toLocaleTimeString(),
+      });
+      try { global.__broadcastActivity && global.__broadcastActivity(doc); } catch(_){}
+      return doc;
+    } catch(err){
+      console.error('Activity hook create error:', err?.message || err);
+    }
+  }
+
+  // ---- Members (User) hooks ----
+  if (User && User.schema && !User.schema.__activityHooked) {
+    User.schema.pre('save', function(next){ this.__wasNew = this.isNew; next(); });
+    User.schema.post('save', function(doc){
+      const action = doc.__wasNew ? 'added' : 'updated';
+      createAct('member', action, {
+        id: doc._id, name: doc.name || doc.fullName,
+        code: doc.code, state: doc.state, email: doc.email
+      });
+    });
+    User.schema.post('findOneAndUpdate', async function(res){
+      try {
+        const doc = res || await this.model.findOne(this.getQuery()).lean();
+        if (doc) createAct('member','updated', {
+          id: doc._id, name: doc.name || doc.fullName,
+          code: doc.code, state: doc.state, email: doc.email
+        });
+      } catch(_){}
+    });
+    User.schema.post('findOneAndDelete', function(res){
+      if (res) createAct('member','deleted', {
+        id: res._id, name: res.name || res.fullName,
+        code: res.code, state: res.state
+      });
+    });
+    User.schema.__activityHooked = true;
+  }
+
+  // ---- Certificates hooks ----
+  if (Certificate && Certificate.schema && !Certificate.schema.__activityHooked) {
+    Certificate.schema.pre('save', function(next){ this.__wasNew = this.isNew; next(); });
+    Certificate.schema.post('save', function(doc){
+      const action = doc.__wasNew ? 'added' : 'updated';
+      createAct('certificate', action, {
+        id: doc._id,
+        number: doc.certificateNumber || doc.number,
+        member: doc.recipient || doc.memberName || doc.name
+      });
+    });
+    Certificate.schema.post('findOneAndUpdate', async function(res){
+      try {
+        const doc = res || await this.model.findOne(this.getQuery()).lean();
+        if (doc) createAct('certificate','updated', {
+          id: doc._id,
+          number: doc.certificateNumber || doc.number,
+          member: doc.recipient || doc.memberName || doc.name
+        });
+      } catch(_){}
+    });
+    Certificate.schema.post('findOneAndDelete', function(res){
+      if (res) createAct('certificate','deleted', {
+        id: res._id,
+        number: res.certificateNumber || res.number,
+        member: res.recipient || res.memberName || res.name
+      });
+    });
+    Certificate.schema.__activityHooked = true;
+  }
+})();
+// ===== End Activity Hooks =====
+
 // 404 handler
 
 // Lightweight lookup: check if a user exists by code or email (no multipart parsing needed)
