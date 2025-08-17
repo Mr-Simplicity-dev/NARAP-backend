@@ -240,7 +240,7 @@ async function syncCertificatesForStateChange(userId, oldState, newState) {
           }
         }
       ];
-      if (typeof Certificate?.updateMany === 'function') {
+      if (typeof Certificate !== 'undefined' && Certificate && typeof Certificate.updateMany === 'function') {
         await Certificate.updateMany({ userId }, pipeline);
         return;
       }
@@ -249,7 +249,7 @@ async function syncCertificatesForStateChange(userId, oldState, newState) {
     }
 
     // Fallback: manual JS loop
-    if (typeof Certificate?.find === 'function') {
+    if (typeof Certificate !== 'undefined' && Certificate && typeof Certificate.find === 'function') {
       const certs = await Certificate.find({ userId });
       for (const c of certs) {
         let dirty = false;
@@ -271,32 +271,22 @@ async function syncCertificatesForStateChange(userId, oldState, newState) {
 
 // Override PUT/PATCH user update to apply certificate sync when state changes.
 // IMPORTANT: place BEFORE app.use('/api/users', userRoutes);
+
 app.put('/api/users/:id', async (req, res, next) => {
   try {
-    const id = req.params.id;
-    if (typeof User?.findById !== 'function') return next(); // delegate if model not present
+    // If body is empty (e.g., multipart handled later), delegate to original userRoutes
+    if (!req.body || Object.keys(req.body).length === 0) return next();
 
+    const id = req.params.id;
     const prev = await User.findById(id);
     if (!prev) return res.status(404).json({ message: 'User not found' });
 
     const nextData = req.body || {};
-    // Apply state normalization again here defensively (in case route is hit directly)
-    try { normalizeStateField(nextData); } catch(_){}
+    try { if (typeof normalizeStateField === 'function') normalizeStateField(nextData); } catch(_){}
 
-    // Perform update
-    let updated = null;
-    if (typeof User.findByIdAndUpdate === 'function') {
-      updated = await User.findByIdAndUpdate(id, nextData, { new: true });
-    } else {
-      // minimal fallback
-      Object.assign(prev, nextData);
-      if (typeof prev.save === 'function') updated = await prev.save();
-      else updated = prev;
-    }
-
+    let updated = await User.findByIdAndUpdate(id, nextData, { new: true });
     if (!updated) return res.status(500).json({ message: 'Update failed' });
 
-    // If state changed, sync certificates
     const oldState = (prev.state || prev.State || '').toString().toUpperCase();
     const newState = (updated.state || updated.State || '').toString().toUpperCase();
     if (oldState && newState && oldState !== newState) {
@@ -310,26 +300,20 @@ app.put('/api/users/:id', async (req, res, next) => {
   }
 });
 
+
 app.patch('/api/users/:id', async (req, res, next) => {
   try {
-    const id = req.params.id;
-    if (typeof User?.findById !== 'function') return next();
+    // If body is empty (e.g., multipart handled later), delegate to original userRoutes
+    if (!req.body || Object.keys(req.body).length === 0) return next();
 
+    const id = req.params.id;
     const prev = await User.findById(id);
     if (!prev) return res.status(404).json({ message: 'User not found' });
 
     const nextData = req.body || {};
-    try { normalizeStateField(nextData); } catch(_){}
+    try { if (typeof normalizeStateField === 'function') normalizeStateField(nextData); } catch(_){}
 
-    let updated = null;
-    if (typeof User.findByIdAndUpdate === 'function') {
-      updated = await User.findByIdAndUpdate(id, nextData, { new: true });
-    } else {
-      Object.assign(prev, nextData);
-      if (typeof prev.save === 'function') updated = await prev.save();
-      else updated = prev;
-    }
-
+    let updated = await User.findByIdAndUpdate(id, nextData, { new: true });
     if (!updated) return res.status(500).json({ message: 'Update failed' });
 
     const oldState = (prev.state || prev.State || '').toString().toUpperCase();
