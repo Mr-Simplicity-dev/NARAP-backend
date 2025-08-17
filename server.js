@@ -419,15 +419,23 @@ app.get('/', (req, res) => {
 
 // ===== Activity endpoints (MongoDB-backed, persistent) =====
 // ===== Activity live stream (SSE) =====
-const __activityClients = new Set();
+const __activityClients = new Set(); // of {res, ents:Set, acts:Set}
 function __broadcastActivity(act){
-  try { global.__broadcastActivity = __broadcastActivity; } catch(_) {}
-
   try {
-    const payload = `data: ${JSON.stringify(act)}\n\n`;
-    for (const res of __activityClients) {
-      try { res.write(payload); } catch(_){}
+    const payload = `data: ${JSON.stringify(act)}
+
+`;
+    for (const client of __activityClients) {
+      try {
+        const { res, ents, acts } = client;
+        const e = String(act.entity || '').toLowerCase();
+        const a = String(act.action || '').toLowerCase();
+        const passEnt = !ents || !ents.size || ents.has(e);
+        const passAct = !acts || !acts.size || acts.has(a);
+        if (passEnt && passAct) res.write(payload);
+      } catch(_){}
     }
+    try { global.__broadcastActivity = __broadcastActivity; } catch(_){}
   } catch(_){}
 }
 app.get('/api/activity/stream', (req, res) => {
@@ -440,8 +448,13 @@ app.get('/api/activity/stream', (req, res) => {
     });
     res.flushHeaders && res.flushHeaders();
     res.write('retry: 5000\n\n');
-    __activityClients.add(res);
-    req.on('close', () => { __activityClients.delete(res); });
+
+    const ents = new Set(String(req.query.entities||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean));
+    const acts = new Set(String(req.query.actions||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean));
+
+    const client = { res, ents, acts };
+    __activityClients.add(client);
+    req.on('close', () => { __activityClients.delete(client); });
   } catch (err) {
     console.error('SSE error:', err);
     try { res.end(); } catch(_){}
