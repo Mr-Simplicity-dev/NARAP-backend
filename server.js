@@ -270,11 +270,11 @@ async function syncCertificatesForStateChange(userId, oldState, newState) {
 }
 
 // Override PUT/PATCH user update to apply certificate sync when state changes.
-// IMPORTANT: place BEFORE app.use('/api/users', userRoutes);
-
-app.put('/api/users/:id', async (req, res, next) => {
+// IMPORTANT: place BEFORE 
+// ---- Unified update handler for users (supports PUT/PATCH/POST override) ----
+async function _updateUserCore(req, res, next){
   try {
-    // If body is empty (e.g., multipart handled later), delegate to original userRoutes
+    // If body is empty (e.g., multipart handled in downstream router), delegate
     if (!req.body || Object.keys(req.body).length === 0) return next();
 
     const id = req.params.id;
@@ -284,7 +284,7 @@ app.put('/api/users/:id', async (req, res, next) => {
     const nextData = req.body || {};
     try { if (typeof normalizeStateField === 'function') normalizeStateField(nextData); } catch(_){}
 
-    let updated = await User.findByIdAndUpdate(id, nextData, { new: true });
+    const updated = await User.findByIdAndUpdate(id, nextData, { new: true });
     if (!updated) return res.status(500).json({ message: 'Update failed' });
 
     const oldState = (prev.state || prev.State || '').toString().toUpperCase();
@@ -295,15 +295,36 @@ app.put('/api/users/:id', async (req, res, next) => {
 
     return res.json(updated);
   } catch (err) {
-    console.error('PUT /api/users/:id error:', err);
+    console.error('User update handler error:', err);
     return res.status(500).json({ message: 'Server error updating user' });
   }
+}
+
+// Override routes BEFORE userRoutes
+app.put('/api/users/:id', _updateUserCore);
+app.patch('/api/users/:id', _updateUserCore);
+
+// Accept POST with method override header or query (?method=PUT|PATCH)
+app.post('/api/users/:id', (req, res, next) => {
+  const m = (req.get('X-HTTP-Method-Override') || req.query.method || '').toString().toUpperCase();
+  if (m === 'PUT' || m === 'PATCH' || !m) {
+    // If override matches or client didn't specify but is clearly updating an id path, try core
+    return _updateUserCore(req, res, next);
+  }
+  // Not an override for update: pass through to userRoutes (e.g., create)
+  return next();
 });
 
+app.use('/api/users', userRoutes);
 
-app.patch('/api/users/:id', async (req, res, next) => {
+
+
+
+
+// ---- Unified update handler for users (supports PUT/PATCH/POST override) ----
+async function _updateUserCore(req, res, next){
   try {
-    // If body is empty (e.g., multipart handled later), delegate to original userRoutes
+    // If body is empty (e.g., multipart handled in downstream router), delegate
     if (!req.body || Object.keys(req.body).length === 0) return next();
 
     const id = req.params.id;
@@ -313,7 +334,7 @@ app.patch('/api/users/:id', async (req, res, next) => {
     const nextData = req.body || {};
     try { if (typeof normalizeStateField === 'function') normalizeStateField(nextData); } catch(_){}
 
-    let updated = await User.findByIdAndUpdate(id, nextData, { new: true });
+    const updated = await User.findByIdAndUpdate(id, nextData, { new: true });
     if (!updated) return res.status(500).json({ message: 'Update failed' });
 
     const oldState = (prev.state || prev.State || '').toString().toUpperCase();
@@ -324,9 +345,24 @@ app.patch('/api/users/:id', async (req, res, next) => {
 
     return res.json(updated);
   } catch (err) {
-    console.error('PATCH /api/users/:id error:', err);
+    console.error('User update handler error:', err);
     return res.status(500).json({ message: 'Server error updating user' });
   }
+}
+
+// Override routes BEFORE userRoutes
+app.put('/api/users/:id', _updateUserCore);
+app.patch('/api/users/:id', _updateUserCore);
+
+// Accept POST with method override header or query (?method=PUT|PATCH)
+app.post('/api/users/:id', (req, res, next) => {
+  const m = (req.get('X-HTTP-Method-Override') || req.query.method || '').toString().toUpperCase();
+  if (m === 'PUT' || m === 'PATCH' || !m) {
+    // If override matches or client didn't specify but is clearly updating an id path, try core
+    return _updateUserCore(req, res, next);
+  }
+  // Not an override for update: pass through to userRoutes (e.g., create)
+  return next();
 });
 
 app.use('/api/users', userRoutes);
