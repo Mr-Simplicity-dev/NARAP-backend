@@ -137,6 +137,214 @@ app.use('/api/users', (req, res, next) => {
   next();
 });
 
+
+// --- State normalization for members (ensure backend reflects changes) ---
+const STATE_LIST = [
+  "ABIA","ADAMAWA","AKWA IBOM","ANAMBRA","BAUCHI","BAYELSA","BENUE","BORNO",
+  "CROSS RIVER","DELTA","EBONYI","EDO","EKITI","ENUGU","FCT","GOMBE","IMO",
+  "JIGAWA","KADUNA","KANO","KATSINA","KEBBI","KOGI","KWARA","LAGOS",
+  "NASARAWA","NIGER","OGUN","ONDO","OSUN","OYO","PLATEAU","RIVERS",
+  "SOKOTO","TARABA","YOBE","ZAMFARA"
+];
+
+const STATE_ALIASES = {
+  "ABUJA":"FCT",
+  "F.C.T":"FCT",
+  "FCT-ABUJA":"FCT",
+  "ABJ":"FCT",
+  "CROSSRIVER":"CROSS RIVER",
+  "AKWAIBOM":"AKWA IBOM"
+};
+
+function normalizeStateField(obj){
+  if (!obj) return;
+  // support both `state` and `State`
+  const key = Object.prototype.hasOwnProperty.call(obj, 'state') ? 'state'
+            : (Object.prototype.hasOwnProperty.call(obj, 'State') ? 'State' : null);
+  if (!key) return;
+
+  let value = String(obj[key] ?? '').trim();
+  if (!value) return;
+
+  let up = value.toUpperCase();
+  // remove dots/spaces for alias lookup
+  const compact = up.replace(/\./g,'').replace(/\s+/g,'');
+
+  if (STATE_ALIASES[up]) up = STATE_ALIASES[up];
+  else if (STATE_ALIASES[compact]) up = STATE_ALIASES[compact];
+
+  // If not an exact match, try forgiving match by collapsing spaces
+  if (!STATE_LIST.includes(up)){
+    const found = STATE_LIST.find(s => s.replace(/\s+/g,'') === compact);
+    if (found) up = found;
+  }
+
+  // Final fallback: keep uppercase string even if it's not in list
+  obj[key] = up;
+}
+
+// Normalize state on all /api/users requests (create/update)
+app.use('/api/users', (req, res, next) => {
+  try {
+    if (req.body) {
+      normalizeStateField(req.body);
+      // also normalize in nested structures we commonly see
+      if (req.body.address && typeof req.body.address === 'object') normalizeStateField(req.body.address);
+      if (req.body.profile && typeof req.body.profile === 'object') normalizeStateField(req.body.profile);
+    }
+  } catch(_){}
+  next();
+});
+
+
+// --- Certificate code sync when member state changes (ABIA->KADUNA etc.) ---
+const STATE_CODES = {
+  "ABIA": "ABI","ADAMAWA": "ADA","AKWA IBOM": "AKW","ANAMBRA": "ANA","BAUCHI": "BAU",
+  "BAYELSA": "BAY","BENUE": "BEN","BORNO": "BOR","CROSS RIVER": "CRS","DELTA": "DEL",
+  "EBONYI": "EBO","EDO": "EDO","EKITI": "EKI","ENUGU": "ENU","FCT": "FCT","GOMBE": "GOM",
+  "IMO": "IMO","JIGAWA": "JIG","KADUNA": "KAD","KANO": "KAN","KATSINA": "KAT","KEBBI": "KEB",
+  "KOGI": "KOG","KWARA": "KWA","LAGOS": "LAG","NASARAWA": "NAS","NIGER": "NIG","OGUN": "OGU",
+  "ONDO": "OND","OSUN": "OSU","OYO": "OYO","PLATEAU": "PLA","RIVERS": "RIV","SOKOTO": "SOK",
+  "TARABA": "TAR","YOBE": "YOB","ZAMFARA": "ZAM"
+};
+
+/**
+ * Replace the middle segment /OLD/ with /NEW/ in codes like N/012/OLD/002.
+ * Works for fields: number, certificateNumber (if present).
+ */
+async function syncCertificatesForStateChange(userId, oldState, newState) {
+  try {
+    const oldCode = STATE_CODES[String(oldState).toUpperCase()] || String(oldState).substring(0,3).toUpperCase();
+    const newCode = STATE_CODES[String(newState).toUpperCase()] || String(newState).substring(0,3).toUpperCase();
+    if (!oldCode || !newCode || oldCode === newCode) return;
+
+    // Prefer pipeline updates if supported
+    try {
+      const pipeline = [
+        {
+          $set: {
+            number: {
+              $cond: [
+                { $and: [ { $ifNull: ["$number", false] }, { $regexMatch: { input: "$number", regex: new RegExp(`/` + oldCode + `/`) } } ] },
+                { $replaceAll: { input: "$number", find: "/" + oldCode + "/", replacement: "/" + newCode + "/" } },
+                "$number"
+              ]
+            },
+            certificateNumber: {
+              $cond: [
+                { $and: [ { $ifNull: ["$certificateNumber", false] }, { $regexMatch: { input: "$certificateNumber", regex: new RegExp(`/` + oldCode + `/`) } } ] },
+                { $replaceAll: { input: "$certificateNumber", find: "/" + oldCode + "/", replacement: "/" + newCode + "/" } },
+                "$certificateNumber"
+              ]
+            }
+          }
+        }
+      ];
+      if (typeof Certificate?.updateMany === 'function') {
+        await Certificate.updateMany({ userId }, pipeline);
+        return;
+      }
+    } catch (e) {
+      // fall through to manual update if pipeline not supported
+    }
+
+    // Fallback: manual JS loop
+    if (typeof Certificate?.find === 'function') {
+      const certs = await Certificate.find({ userId });
+      for (const c of certs) {
+        let dirty = false;
+        if (typeof c.number === 'string' && c.number.includes("/"+oldCode+"/")) {
+          c.number = c.number.replace("/"+oldCode+"/", "/"+newCode+"/");
+          dirty = true;
+        }
+        if (typeof c.certificateNumber === 'string' && c.certificateNumber.includes("/"+oldCode+"/")) {
+          c.certificateNumber = c.certificateNumber.replace("/"+oldCode+"/", "/"+newCode+"/");
+          dirty = true;
+        }
+        if (dirty && typeof c.save === 'function') await c.save();
+      }
+    }
+  } catch (err) {
+    console.error("Certificate sync error:", err);
+  }
+}
+
+// Override PUT/PATCH user update to apply certificate sync when state changes.
+// IMPORTANT: place BEFORE app.use('/api/users', userRoutes);
+app.put('/api/users/:id', async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    if (typeof User?.findById !== 'function') return next(); // delegate if model not present
+
+    const prev = await User.findById(id);
+    if (!prev) return res.status(404).json({ message: 'User not found' });
+
+    const nextData = req.body || {};
+    // Apply state normalization again here defensively (in case route is hit directly)
+    try { normalizeStateField(nextData); } catch(_){}
+
+    // Perform update
+    let updated = null;
+    if (typeof User.findByIdAndUpdate === 'function') {
+      updated = await User.findByIdAndUpdate(id, nextData, { new: true });
+    } else {
+      // minimal fallback
+      Object.assign(prev, nextData);
+      if (typeof prev.save === 'function') updated = await prev.save();
+      else updated = prev;
+    }
+
+    if (!updated) return res.status(500).json({ message: 'Update failed' });
+
+    // If state changed, sync certificates
+    const oldState = (prev.state || prev.State || '').toString().toUpperCase();
+    const newState = (updated.state || updated.State || '').toString().toUpperCase();
+    if (oldState && newState && oldState !== newState) {
+      await syncCertificatesForStateChange(id, oldState, newState);
+    }
+
+    return res.json(updated);
+  } catch (err) {
+    console.error('PUT /api/users/:id error:', err);
+    return res.status(500).json({ message: 'Server error updating user' });
+  }
+});
+
+app.patch('/api/users/:id', async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    if (typeof User?.findById !== 'function') return next();
+
+    const prev = await User.findById(id);
+    if (!prev) return res.status(404).json({ message: 'User not found' });
+
+    const nextData = req.body || {};
+    try { normalizeStateField(nextData); } catch(_){}
+
+    let updated = null;
+    if (typeof User.findByIdAndUpdate === 'function') {
+      updated = await User.findByIdAndUpdate(id, nextData, { new: true });
+    } else {
+      Object.assign(prev, nextData);
+      if (typeof prev.save === 'function') updated = await prev.save();
+      else updated = prev;
+    }
+
+    if (!updated) return res.status(500).json({ message: 'Update failed' });
+
+    const oldState = (prev.state || prev.State || '').toString().toUpperCase();
+    const newState = (updated.state || updated.State || '').toString().toUpperCase();
+    if (oldState && newState && oldState !== newState) {
+      await syncCertificatesForStateChange(id, oldState, newState);
+    }
+
+    return res.json(updated);
+  } catch (err) {
+    console.error('PATCH /api/users/:id error:', err);
+    return res.status(500).json({ message: 'Server error updating user' });
+  }
+});
+
 app.use('/api/users', userRoutes);
 app.use('/api/certificates', certificateRoutes);
 app.use('/api/analytics', analyticsRoutes);
