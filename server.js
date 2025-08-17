@@ -62,7 +62,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control', 'X-File-Name'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control', 'X-File-Name', 'X-HTTP-Method-Override'],
   exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
   preflightContinue: false,
   optionsSuccessStatus: 204,
@@ -320,9 +320,6 @@ app.post('/api/users/:id', _updateUserCore);        // accept plain POST for upd
 app.post('/api/users/update', _updateUserCore);     // accept POST with body.id for updates
 
 
-app.options('/api/users/:id', cors(corsOptions));
-app.options('/api/users/update', cors(corsOptions));
-
 app.use('/api/users', userRoutes);
 
 app.put('/api/users/:id', async (req, res, next) => {
@@ -383,17 +380,7 @@ app.patch('/api/users/:id', async (req, res, next) => {
 });
 
 
-// --- Update endpoints BEFORE userRoutes to ensure they catch updates ---
-app.put('/api/users/:id', _updateUserCore);
-app.patch('/api/users/:id', _updateUserCore);
-app.post('/api/users/:id', _updateUserCore);        // accept plain POST for updates
-app.post('/api/users/update', _updateUserCore);     // accept POST with body.id for updates
 
-
-app.options('/api/users/:id', cors(corsOptions));
-app.options('/api/users/update', cors(corsOptions));
-
-app.use('/api/users', userRoutes);
 app.use('/api/certificates', certificateRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/uploads', uploadRoutes);
@@ -419,42 +406,27 @@ app.get('/', (req, res) => {
 
 // ===== Activity endpoints (MongoDB-backed, persistent) =====
 // ===== Activity live stream (SSE) =====
-const __activityClients = new Set(); // of {res, ents:Set, acts:Set}
+const __activityClients = new Set();
 function __broadcastActivity(act){
   try {
-    const payload = `data: ${JSON.stringify(act)}
-
-`;
-    for (const client of __activityClients) {
-      try {
-        const { res, ents, acts } = client;
-        const e = String(act.entity || '').toLowerCase();
-        const a = String(act.action || '').toLowerCase();
-        const passEnt = !ents || !ents.size || ents.has(e);
-        const passAct = !acts || !acts.size || acts.has(a);
-        if (passEnt && passAct) res.write(payload);
-      } catch(_){}
+    const payload = `data: ${JSON.stringify(act)}\n\n`;
+    for (const res of __activityClients) {
+      try { res.write(payload); } catch(_){}
     }
-    try { global.__broadcastActivity = __broadcastActivity; } catch(_){}
   } catch(_){}
 }
 app.get('/api/activity/stream', (req, res) => {
   try {
     res.set({
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
+      'X-Accel-Buffering': 'no', 'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
       'Access-Control-Allow-Origin': '*',
     });
     res.flushHeaders && res.flushHeaders();
     res.write('retry: 5000\n\n');
-
-    const ents = new Set(String(req.query.entities||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean));
-    const acts = new Set(String(req.query.actions||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean));
-
-    const client = { res, ents, acts };
-    __activityClients.add(client);
-    req.on('close', () => { __activityClients.delete(client); });
+    __activityClients.add(res);
+    req.on('close', () => { __activityClients.delete(res); });
   } catch (err) {
     console.error('SSE error:', err);
     try { res.end(); } catch(_){}
@@ -518,112 +490,6 @@ app.get('/api/activity/stream', (req, res) => {
   });
 })();
 // ===== End Activity endpoints =====
-// ===== Activity Hooks: auto-log on DB changes =====
-(function(){
-  if (global.__activityHooksAttached) return;
-  global.__activityHooksAttached = true;
-
-  const mongoose = require('mongoose');
-
-  // Get Activity model consistently (reuse schema if already defined)
-  function getActivityModel(){
-    if (mongoose.models.Activity) return mongoose.models.Activity;
-    const ActivitySchema = new mongoose.Schema({
-      ts: { type: Date, default: Date.now, index: true },
-      date: { type: String },
-      time: { type: String },
-      entity: { type: String, default: 'system', index: true },
-      action: { type: String, default: 'unknown', index: true },
-      data: { type: mongoose.Schema.Types.Mixed, default: {} },
-    }, { timestamps: false, strict: false });
-    return mongoose.model('Activity', ActivitySchema);
-  }
-
-  const Activity = getActivityModel();
-
-  // Import your domain models
-  let User, Certificate;
-  try { User = require('./models/User'); } catch(_){}
-  try { Certificate = require('./models/Certificate'); } catch(_){}
-
-  async function createAct(entity, action, data){
-    try {
-      const now = new Date();
-      const doc = await Activity.create({
-        entity, action,
-        data: data || {},
-        ts: now,
-        date: now.toLocaleDateString(),
-        time: now.toLocaleTimeString(),
-      });
-      try { global.__broadcastActivity && global.__broadcastActivity(doc); } catch(_){}
-      return doc;
-    } catch(err){
-      console.error('Activity hook create error:', err?.message || err);
-    }
-  }
-
-  // ---- Members (User) hooks ----
-  if (User && User.schema && !User.schema.__activityHooked) {
-    User.schema.pre('save', function(next){ this.__wasNew = this.isNew; next(); });
-    User.schema.post('save', function(doc){
-      const action = doc.__wasNew ? 'added' : 'updated';
-      createAct('member', action, {
-        id: doc._id, name: doc.name || doc.fullName,
-        code: doc.code, state: doc.state, email: doc.email
-      });
-    });
-    User.schema.post('findOneAndUpdate', async function(res){
-      try {
-        const doc = res || await this.model.findOne(this.getQuery()).lean();
-        if (doc) createAct('member','updated', {
-          id: doc._id, name: doc.name || doc.fullName,
-          code: doc.code, state: doc.state, email: doc.email
-        });
-      } catch(_){}
-    });
-    User.schema.post('findOneAndDelete', function(res){
-      if (res) createAct('member','deleted', {
-        id: res._id, name: res.name || res.fullName,
-        code: res.code, state: res.state
-      });
-    });
-    User.schema.__activityHooked = true;
-  }
-
-  // ---- Certificates hooks ----
-  if (Certificate && Certificate.schema && !Certificate.schema.__activityHooked) {
-    Certificate.schema.pre('save', function(next){ this.__wasNew = this.isNew; next(); });
-    Certificate.schema.post('save', function(doc){
-      const action = doc.__wasNew ? 'added' : 'updated';
-      createAct('certificate', action, {
-        id: doc._id,
-        number: doc.certificateNumber || doc.number,
-        member: doc.recipient || doc.memberName || doc.name
-      });
-    });
-    Certificate.schema.post('findOneAndUpdate', async function(res){
-      try {
-        const doc = res || await this.model.findOne(this.getQuery()).lean();
-        if (doc) createAct('certificate','updated', {
-          id: doc._id,
-          number: doc.certificateNumber || doc.number,
-          member: doc.recipient || doc.memberName || doc.name
-        });
-      } catch(_){}
-    });
-    Certificate.schema.post('findOneAndDelete', function(res){
-      if (res) createAct('certificate','deleted', {
-        id: res._id,
-        number: res.certificateNumber || res.number,
-        member: res.recipient || res.memberName || res.name
-      });
-    });
-    Certificate.schema.__activityHooked = true;
-  }
-})();
-// ===== End Activity Hooks =====
-
 // 404 handler
 
 // Lightweight lookup: check if a user exists by code or email (no multipart parsing needed)
@@ -652,14 +518,7 @@ app.use('*', (req, res) => {
   res.status(404).json({
     error: 'Endpoint not found',
     message: `The requested endpoint ${req.originalUrl} does not exist`,
-    availableEndpoints: [
-      '/api/auth',
-      '/api/users', 
-      '/api/certificates',
-      '/api/analytics',
-      '/api/uploads',
-      '/api/health'
-    ]
+    availableEndpoints: ['/api/auth','/api/users','/api/certificates','/api/analytics','/api/uploads','/api/health','/api/activity','/api/activity/stream']
   });
 });
 
