@@ -417,17 +417,34 @@ app.get('/', (req, res) => {
   });
 });
 
-// ===== Activity endpoints (backend-first Recent Activity support) =====
-{
-  // In-memory activity store; swap to Mongo later if needed.
-  let __activities = [];
+// ===== Activity endpoints (MongoDB-backed, persistent) =====
+(() => {
+  // Use existing mongoose connection if available
+  const mongoose = require('mongoose');
+
+  // Define Activity schema/model once
+  const ActivitySchema = new mongoose.Schema({
+    ts: { type: Date, default: Date.now, index: true },
+    date: { type: String },
+    time: { type: String },
+    entity: { type: String, default: 'system', index: true },
+    action: { type: String, default: 'unknown', index: true },
+    data: { type: mongoose.Schema.Types.Mixed, default: {} },
+  }, { timestamps: false, strict: false });
+
+  // Avoid OverwriteModelError if reloaded
+  const Activity = mongoose.models.Activity || mongoose.model('Activity', ActivitySchema);
 
   // GET /api/activity?limit=50
-  app.get('/api/activity', (req, res) => {
+  app.get('/api/activity', async (req, res) => {
     try {
       const limit = parseInt(req.query.limit, 10) || 50;
-      const sorted = __activities.slice().sort((a,b)=> new Date(b.ts) - new Date(a.ts));
-      return res.json(sorted.slice(0, limit));
+      const items = await Activity.find({})
+        .sort({ ts: -1, _id: -1 })
+        .limit(Math.max(1, Math.min(limit, 200)))
+        .lean()
+        .exec();
+      return res.json(items);
     } catch (err) {
       console.error('Activity GET error:', err);
       res.status(500).json({ success:false, message:'Failed to fetch activity log' });
@@ -435,27 +452,26 @@ app.get('/', (req, res) => {
   });
 
   // POST /api/activity
-  app.post('/api/activity', (req, res) => {
+  app.post('/api/activity', async (req, res) => {
     try {
       const entry = req.body || {};
       const now = new Date();
       const activity = {
-        ts: entry.ts || now.toISOString(),
+        ts: entry.ts ? new Date(entry.ts) : now,
         date: entry.date || now.toLocaleDateString(),
         time: entry.time || now.toLocaleTimeString(),
         entity: entry.entity || 'system',
         action: entry.action || 'unknown',
         data: entry.data || {},
       };
-      __activities.push(activity);
-      if (__activities.length > 5000) __activities = __activities.slice(-5000);
-      return res.json({ success:true, data: activity });
+      const saved = await Activity.create(activity);
+      return res.json({ success:true, data: saved });
     } catch (err) {
       console.error('Activity POST error:', err);
       res.status(500).json({ success:false, message:'Failed to log activity' });
     }
   });
-}
+})();
 // ===== End Activity endpoints =====
 // 404 handler
 
