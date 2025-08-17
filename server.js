@@ -417,6 +417,46 @@ app.get('/', (req, res) => {
   });
 });
 
+// ===== Activity endpoints (backend-first Recent Activity support) =====
+{
+  // In-memory activity store; swap to Mongo later if needed.
+  let __activities = [];
+
+  // GET /api/activity?limit=50
+  app.get('/api/activity', (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit, 10) || 50;
+      const sorted = __activities.slice().sort((a,b)=> new Date(b.ts) - new Date(a.ts));
+      return res.json(sorted.slice(0, limit));
+    } catch (err) {
+      console.error('Activity GET error:', err);
+      res.status(500).json({ success:false, message:'Failed to fetch activity log' });
+    }
+  });
+
+  // POST /api/activity
+  app.post('/api/activity', (req, res) => {
+    try {
+      const entry = req.body || {};
+      const now = new Date();
+      const activity = {
+        ts: entry.ts || now.toISOString(),
+        date: entry.date || now.toLocaleDateString(),
+        time: entry.time || now.toLocaleTimeString(),
+        entity: entry.entity || 'system',
+        action: entry.action || 'unknown',
+        data: entry.data || {},
+      };
+      __activities.push(activity);
+      if (__activities.length > 5000) __activities = __activities.slice(-5000);
+      return res.json({ success:true, data: activity });
+    } catch (err) {
+      console.error('Activity POST error:', err);
+      res.status(500).json({ success:false, message:'Failed to log activity' });
+    }
+  });
+}
+// ===== End Activity endpoints =====
 // 404 handler
 
 // Lightweight lookup: check if a user exists by code or email (no multipart parsing needed)
