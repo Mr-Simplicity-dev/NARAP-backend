@@ -418,6 +418,35 @@ app.get('/', (req, res) => {
 });
 
 // ===== Activity endpoints (MongoDB-backed, persistent) =====
+// ===== Activity live stream (SSE) =====
+const __activityClients = new Set();
+function __broadcastActivity(act){
+  try {
+    const payload = `data: ${JSON.stringify(act)}\n\n`;
+    for (const res of __activityClients) {
+      try { res.write(payload); } catch(_){}
+    }
+  } catch(_){}
+}
+app.get('/api/activity/stream', (req, res) => {
+  try {
+    res.set({
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.flushHeaders && res.flushHeaders();
+    res.write('retry: 5000\n\n');
+    __activityClients.add(res);
+    req.on('close', () => { __activityClients.delete(res); });
+  } catch (err) {
+    console.error('SSE error:', err);
+    try { res.end(); } catch(_){}
+  }
+});
+// ===== End Activity live stream =====
+
 (() => {
   // Use existing mongoose connection if available
   const mongoose = require('mongoose');
@@ -465,6 +494,7 @@ app.get('/', (req, res) => {
         data: entry.data || {},
       };
       const saved = await Activity.create(activity);
+      __broadcastActivity(saved);
       return res.json({ success:true, data: saved });
     } catch (err) {
       console.error('Activity POST error:', err);
