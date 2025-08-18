@@ -314,15 +314,15 @@ async function _updateUserCore(req, res, next){
 
 
 // --- Update endpoints BEFORE userRoutes to ensure they catch updates ---
-app.put('/api/users/:id', _updateUserCore);
-app.patch('/api/users/:id', _updateUserCore);
-app.post('/api/users/:id', _updateUserCore);        // accept plain POST for updates
+app.put('/api/users/updateUser/:id', _updateUserCore);
+app.patch('/api/users/updateUser/:id', _updateUserCore);
+app.post('/api/users/updateUser/:id', _updateUserCore);        // accept plain POST for updates
 app.post('/api/users/update', _updateUserCore);     // accept POST with body.id for updates
 
 
 app.use('/api/users', userRoutes);
 
-app.put('/api/users/:id', async (req, res, next) => {
+app.put('/api/users/updateUser/:id', async (req, res, next) => {
   try {
     // If body is empty (e.g., multipart handled later), delegate to original userRoutes
     if (!req.body || Object.keys(req.body).length === 0) return next();
@@ -351,7 +351,7 @@ app.put('/api/users/:id', async (req, res, next) => {
 });
 
 
-app.patch('/api/users/:id', async (req, res, next) => {
+app.patch('/api/users/updateUser/:id', async (req, res, next) => {
   try {
     // If body is empty (e.g., multipart handled later), delegate to original userRoutes
     if (!req.body || Object.keys(req.body).length === 0) return next();
