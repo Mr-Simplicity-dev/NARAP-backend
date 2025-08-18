@@ -3,9 +3,9 @@ const path = require('path');
 
 // Cloud storage configuration
 const STORAGE_TYPE = process.env.STORAGE_TYPE || 'local'; // 'local', 'cloudinary', 'aws-s3'
-const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || 'dh5wjtvlf';
-const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '219556848713984';
-const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || '243__4G0WJVVPXmUULxAcZdjPJg';
+const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
 
 // Initialize Cloudinary if credentials are available
 let cloudinary = null;
@@ -18,9 +18,17 @@ if (CLOUDINARY_CLOUD_NAME && CLOUDINARY_API_KEY && CLOUDINARY_API_SECRET) {
       api_secret: CLOUDINARY_API_SECRET
     });
     console.log('✅ Cloudinary initialized successfully');
+    console.log(`☁️ Cloud name: ${CLOUDINARY_CLOUD_NAME}`);
   } catch (error) {
     console.error('❌ Cloudinary initialization failed:', error.message);
+    cloudinary = null;
   }
+} else {
+  console.log('⚠️ Cloudinary credentials not found, using fallback storage');
+  console.log('📋 Required environment variables:');
+  console.log('   - CLOUDINARY_CLOUD_NAME');
+  console.log('   - CLOUDINARY_API_KEY');
+  console.log('   - CLOUDINARY_API_SECRET');
 }
 
 // Base64 storage for cloud deployments (fallback)
@@ -42,9 +50,12 @@ class CloudStorage {
     // Force Cloudinary usage if credentials are available and we're in production
     this.useCloudinary = cloudinary !== null && (this.isCloudDeployment || process.env.NODE_ENV === 'production');
     
-    // If Cloudinary is available, prefer it over local storage
-    if (cloudinary !== null && this.storageType === 'local') {
+    // If Cloudinary is available and explicitly configured, prefer it over local storage
+    if (cloudinary !== null && process.env.STORAGE_TYPE === 'cloudinary') {
       this.storageType = 'cloudinary';
+    } else if (cloudinary === null && process.env.STORAGE_TYPE === 'cloudinary') {
+      console.log('⚠️ STORAGE_TYPE=cloudinary but Cloudinary credentials missing, falling back to cloud storage');
+      this.storageType = 'cloud';
     }
     
     console.log(`🔧 Storage initialized: ${this.storageType} (Cloud: ${this.isCloudDeployment}, Cloudinary: ${this.useCloudinary})`);
@@ -189,7 +200,14 @@ class CloudStorage {
             clearTimeout(timeout);
             if (error) {
               console.error('❌ Cloudinary upload error:', error);
-              reject(error);
+              // Provide more specific error messages
+              if (error.http_code === 401) {
+                reject(new Error(`Cloudinary authentication failed. Please check your API credentials and cloud name. Error: ${error.message}`));
+              } else if (error.http_code === 400) {
+                reject(new Error(`Cloudinary request invalid. Please check your configuration. Error: ${error.message}`));
+              } else {
+                reject(new Error(`Cloudinary upload failed (${error.http_code || 'unknown'}): ${error.message}`));
+              }
             } else {
               console.log(`✅ File uploaded to Cloudinary: ${result.secure_url}`);
               resolve(result);
