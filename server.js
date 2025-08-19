@@ -13,9 +13,6 @@ require('dotenv').config();
 
 const app = express();
 
-// Multer for multipart form-data (passport/signature uploads)
-const upload = multer({ storage: multer.memoryStorage() });
-
 // Security middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
@@ -278,208 +275,48 @@ async function syncCertificatesForStateChange(userId, oldState, newState) {
 // Override PUT/PATCH user update to apply certificate sync when state changes.
 // IMPORTANT: place BEFORE 
 // ---- Unified update handler for users (PUT/PATCH/POST) ----
-
 async function _updateUserCore(req, res, next){
   try {
-    // Accept id from params OR body (for /api/users/update)
+    // parse multipart if body is empty
+    if (!req.body || Object.keys(req.body).length === 0) {
+      try {
+        const uploadNone = multer();
+        await new Promise((resolve,reject)=>uploadNone.none()(req,res,(e)=>e?reject(e):resolve()));
+      } catch(_){}
+    }
+    if (!req.body || Object.keys(req.body).length === 0) return next();
+
     const id = (req.params && req.params.id) || (req.body && (req.body.id || req.body._id));
-    if (!id) {
-      return res.status(400).json({ message: 'Missing user id' });
+    if (!id) return res.status(400).json({ message: 'Missing user id' });
+
+    const prev = await User.findById(id);
+    if (!prev) return res.status(404).json({ message: 'User not found' });
+
+    const nextData = req.body || {};
+    try { if (typeof normalizeStateField === 'function') normalizeStateField(nextData); } catch(_){}
+
+    const updated = await User.findByIdAndUpdate(id, nextData, { new: true });
+    if (!updated) return res.status(500).json({ message: 'Update failed' });
+
+    const oldState = (prev.state || prev.State || '').toString().toUpperCase();
+    const newState = (updated.state || updated.State || '').toString().toUpperCase();
+    if (oldState && newState && oldState !== newState) {
+      await syncCertificatesForStateChange(id, oldState, newState);
     }
 
-    // Ensure body object exists
-    const updateData = { ...(req.body || {}) };
-
-    console.log('🔄 Update user request:', { id, fields: Object.keys(updateData) });
-    console.log('📁 Files received:', !!req.files, Object.keys(req.files || {}));
-
-    const existingUser = await User.findById(id);
-    if (!existingUser) return res.status(404).json({ message: 'User not found' });
-
-    // Remove sensitive/uneditable fields
-    delete updateData.password;
-    delete updateData._id;
-    delete updateData.createdAt;
-    delete updateData.updatedAt;
-
-    // Normalize state if helper exists
-    try { if (typeof normalizeStateField === 'function') normalizeStateField(updateData); } catch(_){}
-
-    // Enforce code format & uniqueness if changed
-    if (updateData.code) {
-      updateData.code = String(updateData.code).toUpperCase().trim();
-      const exists = await User.findOne({ code: updateData.code, _id: { $ne: id } });
-      if (exists) return res.status(400).json({ message: 'Code already exists' });
-    }
-
-    // Handle passport photo file
-    if (req.files?.passportPhoto?.[0]) {
-      try {
-        if (existingUser.passportPhoto) {
-          await cloudStorage.deleteFile(existingUser.passportPhoto, 'passportPhoto');
-          console.log('🗑️ Deleted old passport photo:', existingUser.passportPhoto);
-        }
-        const passportFile = req.files.passportPhoto[0];
-        const saved = await cloudStorage.saveFile(passportFile, 'passportPhoto');
-        updateData.passportPhoto = saved.filename;
-        // backward-compat field name
-        updateData.passport = saved.filename;
-        console.log('✅ New passport photo saved:', saved.filename);
-      } catch (e) {
-        console.error('❌ Error updating passport photo:', e);
-        return res.status(500).json({ message: 'Failed to update passport photo' });
-      }
-    }
-
-    // Handle signature file
-    if (req.files?.signature?.[0]) {
-      try {
-        if (existingUser.signature) {
-          await cloudStorage.deleteFile(existingUser.signature, 'signature');
-          console.log('🗑️ Deleted old signature:', existingUser.signature);
-        }
-        const signFile = req.files.signature[0];
-        const saved2 = await cloudStorage.saveFile(signFile, 'signature');
-        updateData.signature = saved2.filename;
-        console.log('✅ New signature saved:', saved2.filename);
-      } catch (e) {
-        console.error('❌ Error updating signature:', e);
-        return res.status(500).json({ message: 'Failed to update signature' });
-      }
-    }
-
-    // If both images will exist post-update, mark cardGenerated = true
-    const willHavePassport = updateData.passportPhoto || existingUser.passportPhoto;
-    const willHaveSignature = updateData.signature || existingUser.signature;
-    if (willHavePassport && willHaveSignature) {
-      updateData.cardGenerated = true;
-    }
-
-    // Do the update
-    const updated = await User.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    ).select('-password');
-
-    if (!updated) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // Side-effect: sync certificates if state changed
-    try {
-      const oldState = (existingUser.state || existingUser.State || '').toString().toUpperCase();
-      const newState = (updated.state || updated.State || '').toString().toUpperCase();
-      if (oldState && newState && oldState !== newState) {
-        await syncCertificatesForStateChange(id, oldState, newState);
-      }
-    } catch (e) {
-      console.warn('state-change sync warning:', e?.message || e);
-    }
-
-    console.log('✅ User updated:', { id: updated._id, name: updated.name, code: updated.code });
-    // Return raw updated user object for frontend compatibility
     return res.json(updated);
-
   } catch (err) {
     console.error('User update handler error:', err);
-    if (err?.code === 11000) {
-      return res.status(400).json({ message: 'Duplicate entry found' });
-    }
-    if (err?.name === 'ValidationError') {
-      const msgs = Object.values(err.errors || {}).map(e => e.message);
-      return res.status(400).json({ message: msgs.join(', ') || 'Validation error' });
-    }
     return res.status(500).json({ message: 'Server error updating user' });
   }
 }
 
 
-
-
-
 // --- Update endpoints BEFORE userRoutes to ensure they catch updates ---
-// Primary update route (accepts files)
-app.put('/api/users/updateUser/:id',
-  upload.fields([{ name:'passportPhoto', maxCount:1 }, { name:'signature', maxCount:1 }]),
-  _updateUserCore
-);
-app.patch('/api/users/updateUser/:id',
-  upload.fields([{ name:'passportPhoto', maxCount:1 }, { name:'signature', maxCount:1 }]),
-  _updateUserCore
-);
-app.post('/api/users/updateUser/:id',
-  upload.fields([{ name:'passportPhoto', maxCount:1 }, { name:'signature', maxCount:1 }]),
-  _updateUserCore
-);
-
-// Body-style update: expects id in body
-app.put('/api/users/update',
-  upload.fields([{ name:'passportPhoto', maxCount:1 }, { name:'signature', maxCount:1 }]),
-  (req,res,next)=>{ if(!req.params) req.params={}; if(!req.params.id) req.params.id = req.body?.id || req.body?._id; next(); },
-  _updateUserCore
-);
-app.patch('/api/users/update',
-  upload.fields([{ name:'passportPhoto', maxCount:1 }, { name:'signature', maxCount:1 }]),
-  (req,res,next)=>{ if(!req.params) req.params={}; if(!req.params.id) req.params.id = req.body?.id || req.body?._id; next(); },
-  _updateUserCore
-);
-app.post('/api/users/update',
-  upload.fields([{ name:'passportPhoto', maxCount:1 }, { name:'signature', maxCount:1 }]),
-  (req,res,next)=>{ if(!req.params) req.params={}; if(!req.params.id) req.params.id = req.body?.id || req.body?._id; next(); },
-  _updateUserCore
-);
-
-// Compatibility routes for older clients (/api/users/:id and non-API variants)
-app.post('/api/users/:id',
-  upload.fields([{ name:'passportPhoto', maxCount:1 }, { name:'signature', maxCount:1 }]),
-  _updateUserCore
-);
-app.put('/api/users/:id',
-  upload.fields([{ name:'passportPhoto', maxCount:1 }, { name:'signature', maxCount:1 }]),
-  _updateUserCore
-);
-app.patch('/api/users/:id',
-  upload.fields([{ name:'passportPhoto', maxCount:1 }, { name:'signature', maxCount:1 }]),
-  _updateUserCore
-);
-
-app.post('/users/:id',
-  upload.fields([{ name:'passportPhoto', maxCount:1 }, { name:'signature', maxCount:1 }]),
-  _updateUserCore
-);
-app.put('/users/:id',
-  upload.fields([{ name:'passportPhoto', maxCount:1 }, { name:'signature', maxCount:1 }]),
-  _updateUserCore
-);
-app.patch('/users/:id',
-  upload.fields([{ name:'passportPhoto', maxCount:1 }, { name:'signature', maxCount:1 }]),
-  _updateUserCore
-);
-
-app.post('/users/update',
-  upload.fields([{ name:'passportPhoto', maxCount:1 }, { name:'signature', maxCount:1 }]),
-  (req,res,next)=>{ if(!req.params) req.params={}; if(!req.params.id) req.params.id = req.body?.id || req.body?._id; next(); },
-  _updateUserCore
-);
-app.put('/users/update',
-  upload.fields([{ name:'passportPhoto', maxCount:1 }, { name:'signature', maxCount:1 }]),
-  (req,res,next)=>{ if(!req.params) req.params={}; if(!req.params.id) req.params.id = req.body?.id || req.body?._id; next(); },
-  _updateUserCore
-);
-app.patch('/users/update',
-  upload.fields([{ name:'passportPhoto', maxCount:1 }, { name:'signature', maxCount:1 }]),
-  (req,res,next)=>{ if(!req.params) req.params={}; if(!req.params.id) req.params.id = req.body?.id || req.body?._id; next(); },
-  _updateUserCore
-);
-
-// CORS preflight for these endpoints
-app.options('/api/users/updateUser/:id', (req,res)=>res.sendStatus(204));
-app.options('/api/users/update', (req,res)=>res.sendStatus(204));
-app.options('/api/users/:id', (req,res)=>res.sendStatus(204));
-app.options('/users/:id', (req,res)=>res.sendStatus(204));
-app.options('/users/update', (req,res)=>res.sendStatus(204));
-// accept POST with body.id for updates
+app.put('/api/users/updateUser/:id', _updateUserCore);
+app.patch('/api/users/updateUser/:id', _updateUserCore);
+app.post('/api/users/updateUser/:id', _updateUserCore);        // accept plain POST for updates
+app.post('/api/users/update', _updateUserCore);     // accept POST with body.id for updates
 
 
 app.use('/api/users', userRoutes);
