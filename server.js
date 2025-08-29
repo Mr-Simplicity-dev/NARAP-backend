@@ -385,6 +385,31 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/health', healthRoutes);
 
+// Catch-all route for debugging unmatched requests
+app.use('*', (req, res) => {
+  console.log('🔍 Unmatched request:', {
+    method: req.method,
+    url: req.url,
+    path: req.path,
+    originalUrl: req.originalUrl,
+    headers: req.headers
+  });
+  
+  res.status(404).json({
+    message: 'Route not found',
+    method: req.method,
+    url: req.url,
+    availableEndpoints: [
+      '/api/users/updateUser/:id',
+      '/api/users',
+      '/api/certificates',
+      '/api/analytics',
+      '/api/uploads',
+      '/api/health'
+    ]
+  });
+});
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({

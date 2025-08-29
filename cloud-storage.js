@@ -58,6 +58,14 @@ class CloudStorage {
       this.storageType = 'cloud';
     }
     
+    // Rate limit recovery system
+    this.rateLimitRecovery = {
+      active: false,
+      activatedAt: null,
+      recoveryDuration: 60 * 60 * 1000, // 1 hour in milliseconds
+      lastRateLimitError: null
+    };
+    
     console.log(`🔧 Storage initialized: ${this.storageType} (Cloud: ${this.isCloudDeployment}, Cloudinary: ${this.useCloudinary})`);
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🌐 Platform: ${process.env.RENDER ? 'Render' : process.env.VERCEL ? 'Vercel' : process.env.HEROKU ? 'Heroku' : 'Local'}`);
@@ -246,33 +254,59 @@ class CloudStorage {
     }
   }
 
-  // Get file from storage
+  // Get file from appropriate storage with enhanced fallback
   async getFile(filename, fieldName) {
     try {
-      // Prioritize Cloudinary if available
-      if (this.useCloudinary && cloudinary !== null) {
-        console.log('🔍 Looking for file in Cloudinary');
-        return await this.getFromCloudinary(filename, fieldName);
-      } else if (this.isCloudDeployment) {
-        console.log('🔍 Looking for file in cloud storage (base64)');
-        return await this.getFromCloud(filename, fieldName);
-      } else {
-        console.log('🔍 Looking for file in local storage');
+      console.log(`🔍 Looking for file: ${filename} (${fieldName})`);
+      
+      // Check if we're in rate limit recovery mode
+      if (this.isRateLimitRecoveryMode()) {
+        console.log('⚠️ Rate limit recovery mode - using local fallback only');
         return await this.getFromLocal(filename, fieldName);
       }
-    } catch (error) {
-      console.error('❌ File get error:', error);
-      
-      // If Cloudinary fails, try fallback to cloud storage
-      if (this.useCloudinary && this.isCloudDeployment) {
-        console.log('🔄 Cloudinary get failed, trying cloud storage fallback...');
+
+      // Try Cloudinary first if available
+      if (this.useCloudinary && cloudinary !== null) {
         try {
-          return await this.getFromCloud(filename, fieldName);
-        } catch (fallbackError) {
-          console.error('❌ Cloud storage fallback also failed:', fallbackError);
+          console.log('☁️ Attempting to get file from Cloudinary...');
+          return await this.getFromCloudinary(filename, fieldName);
+        } catch (cloudinaryError) {
+          console.log('❌ Cloudinary get failed:', cloudinaryError);
+          
+          // Check if it's a rate limit error
+          if (this.isRateLimitError(cloudinaryError)) {
+            console.log('🚫 Rate limit detected, switching to fallback mode');
+            this.activateRateLimitRecovery();
+            return await this.getFromLocal(filename, fieldName);
+          }
+          
+          // Other Cloudinary errors, try fallback
+          console.log('🔄 Cloudinary get failed, trying cloud storage fallback...');
         }
       }
       
+      // Try cloud storage fallback
+      if (this.isCloudDeployment) {
+        try {
+          return await this.getFromCloud(filename, fieldName);
+        } catch (cloudError) {
+          console.log('❌ Cloud storage fallback also failed:', cloudError);
+        }
+      }
+      
+      // Try local storage as final fallback
+      try {
+        console.log('🔄 Trying local storage fallback...');
+        return await this.getFromLocal(filename, fieldName);
+      } catch (localError) {
+        console.log('❌ Local storage fallback also failed:', localError);
+      }
+      
+      // All methods failed
+      throw new Error(`File not found: ${filename}. All storage methods failed.`);
+      
+    } catch (error) {
+      console.error('❌ File get error:', error);
       throw error;
     }
   }
@@ -553,9 +587,62 @@ class CloudStorage {
       useCloudinary: this.useCloudinary
     };
   }
+
+  // Check if error is a rate limit error
+  isRateLimitError(error) {
+    if (error.error && error.error.http_code === 420) {
+      return true;
+    }
+    if (error.message && error.message.includes('Rate Limit Exceeded')) {
+      return true;
+    }
+    if (error.http_code === 420) {
+      return true;
+    }
+    return false;
+  }
+
+  // Activate rate limit recovery mode
+  activateRateLimitRecovery() {
+    this.rateLimitRecovery.active = true;
+    this.rateLimitRecovery.activatedAt = Date.now();
+    this.rateLimitRecovery.lastRateLimitError = new Date();
+    console.log('🚫 Rate limit recovery mode activated');
+  }
+
+  // Check if we're in rate limit recovery mode
+  isRateLimitRecoveryMode() {
+    if (!this.rateLimitRecovery.active) {
+      return false;
+    }
+    
+    const timeSinceActivation = Date.now() - this.rateLimitRecovery.activatedAt;
+    
+    // If recovery duration has passed, deactivate
+    if (timeSinceActivation > this.rateLimitRecovery.recoveryDuration) {
+      this.rateLimitRecovery.active = false;
+      this.rateLimitRecovery.activatedAt = null;
+      console.log('✅ Rate limit recovery mode deactivated');
+      return false;
+    }
+    
+    return true;
+  }
+
+  // Get rate limit status
+  getRateLimitStatus() {
+    return {
+      active: this.rateLimitRecovery.active,
+      activatedAt: this.rateLimitRecovery.activatedAt,
+      timeRemaining: this.rateLimitRecovery.active ? 
+        Math.max(0, this.rateLimitRecovery.recoveryDuration - (Date.now() - this.rateLimitRecovery.activatedAt)) : 0,
+      lastError: this.rateLimitRecovery.lastRateLimitError
+    };
+  }
 }
 
 // Create singleton instance
 const cloudStorage = new CloudStorage();
 
+module.exports = cloudStorage; 
 module.exports = cloudStorage; 

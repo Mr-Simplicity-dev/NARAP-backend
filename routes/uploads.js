@@ -131,4 +131,60 @@ router.get('/debug/files', async (req, res) => {
     }
 });
 
+// Debug endpoint to check storage status and rate limits
+router.get('/debug/status', async (req, res) => {
+  try {
+    const storageInfo = await cloudStorage.getStorageInfo();
+    const rateLimitStatus = cloudStorage.getRateLimitStatus();
+    
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      storage: {
+        ...storageInfo,
+        rateLimit: rateLimitStatus
+      },
+      recommendations: getStorageRecommendations(storageInfo, rateLimitStatus)
+    });
+  } catch (error) {
+    console.error('❌ Debug status error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Helper function to provide storage recommendations
+function getStorageRecommendations(storageInfo, rateLimitStatus) {
+  const recommendations = [];
+  
+  if (rateLimitStatus.active) {
+    recommendations.push({
+      type: 'warning',
+      message: `Rate limit recovery mode active. Time remaining: ${Math.round(rateLimitStatus.timeRemaining / 60000)} minutes`,
+      action: 'System will automatically return to normal operation when rate limit resets'
+    });
+  }
+  
+  if (storageInfo.type === 'cloudinary' && storageInfo.isCloudDeployment) {
+    recommendations.push({
+      type: 'info',
+      message: 'Cloudinary is configured but may hit rate limits on free tier',
+      action: 'Consider upgrading Cloudinary plan or implementing local storage fallback'
+    });
+  }
+  
+  if (storageInfo.total === 0 || storageInfo.total === undefined) {
+    recommendations.push({
+      type: 'warning',
+      message: 'No files found in storage',
+      action: 'Check if files are being uploaded correctly and storage is configured properly'
+    });
+  }
+  
+  return recommendations;
+}
+
 module.exports = router; 
