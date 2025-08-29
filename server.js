@@ -321,62 +321,10 @@ app.post('/api/users/update', _updateUserCore);     // accept POST with body.id 
 
 app.use('/api/users', userRoutes);
 
-app.put('/api/users/updateUser/:id', async (req, res, next) => {
-  try {
-    // If body is empty (e.g., multipart handled later), delegate to original userRoutes
-    if (!req.body || Object.keys(req.body).length === 0) return next();
-
-    const id = req.params.id;
-    const prev = await User.findById(id);
-    if (!prev) return res.status(404).json({ message: 'User not found' });
-
-    const nextData = req.body || {};
-    try { if (typeof normalizeStateField === 'function') normalizeStateField(nextData); } catch(_){}
-
-    let updated = await User.findByIdAndUpdate(id, nextData, { new: true });
-    if (!updated) return res.status(500).json({ message: 'Update failed' });
-
-    const oldState = (prev.state || prev.State || '').toString().toUpperCase();
-    const newState = (updated.state || updated.State || '').toString().toUpperCase();
-    if (oldState && newState && oldState !== newState) {
-      await syncCertificatesForStateChange(id, oldState, newState);
-    }
-
-    return res.json(updated);
-  } catch (err) {
-    console.error('PUT /api/users/:id error:', err);
-    return res.status(500).json({ message: 'Server error updating user' });
-  }
-});
 
 
-app.patch('/api/users/updateUser/:id', async (req, res, next) => {
-  try {
-    // If body is empty (e.g., multipart handled later), delegate to original userRoutes
-    if (!req.body || Object.keys(req.body).length === 0) return next();
 
-    const id = req.params.id;
-    const prev = await User.findById(id);
-    if (!prev) return res.status(404).json({ message: 'User not found' });
 
-    const nextData = req.body || {};
-    try { if (typeof normalizeStateField === 'function') normalizeStateField(nextData); } catch(_){}
-
-    let updated = await User.findByIdAndUpdate(id, nextData, { new: true });
-    if (!updated) return res.status(500).json({ message: 'Update failed' });
-
-    const oldState = (prev.state || prev.State || '').toString().toUpperCase();
-    const newState = (updated.state || updated.State || '').toString().toUpperCase();
-    if (oldState && newState && oldState !== newState) {
-      await syncCertificatesForStateChange(id, oldState, newState);
-    }
-
-    return res.json(updated);
-  } catch (err) {
-    console.error('PATCH /api/users/:id error:', err);
-    return res.status(500).json({ message: 'Server error updating user' });
-  }
-});
 
 
 
