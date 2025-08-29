@@ -450,6 +450,11 @@ app.get('/api/activity/stream', (req, res) => {
     res.flushHeaders && res.flushHeaders();
     res.write('retry: 5000\n\n');
     __activityClients.add(res);
+    // Heartbeat every 20s to avoid QUIC idle timeout
+    const __hb = setInterval(() => { try { res.write(':ka\n\n'); } catch(_) {} }, 20000);
+    const __cleanup = () => { try { clearInterval(__hb); } catch(_) {} try { __activityClients.delete(res); } catch(_) {} };
+    req.on('close', __cleanup);
+    req.on('end', __cleanup);
     req.on('close', () => { __activityClients.delete(res); });
   } catch (err) {
     console.error('SSE error:', err);

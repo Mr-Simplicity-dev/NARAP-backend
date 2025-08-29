@@ -245,28 +245,69 @@ const deleteCertificate = async (req, res) => {
   }
 };
 
-// Bulk delete certificates
+// Bulk delete certificates (accepts ids and/or numbers; supports multiple payload shapes)
 const bulkDeleteCertificates = async (req, res) => {
   try {
-    const { certificateIds } = req.body;
+    // Normalize payload from various frontends:
+    //  - ids / certificateIds / _ids
+    //  - numbers / certificateNumbers / codes / number / certificateNumber
+    const toArray = (v) => (Array.isArray(v) ? v : (v != null ? [v] : []));
+    const uniq = (arr) => Array.from(new Set(arr));
+    const isObjectId = (s) => typeof s === 'string' && mongoose.Types.ObjectId.isValid(s);
 
-    if (!Array.isArray(certificateIds) || certificateIds.length === 0) {
-      return res.status(400).json({ message: 'Certificate IDs array is required' });
+    const rawIds = [
+      ...toArray(req.body?.ids),
+      ...toArray(req.body?.certificateIds),
+      ...toArray(req.body?._ids),
+    ];
+
+    const rawNumbers = [
+      ...toArray(req.body?.numbers),
+      ...toArray(req.body?.certificateNumbers),
+      ...toArray(req.body?.codes),
+      ...toArray(req.body?.number),
+      ...toArray(req.body?.certificateNumber),
+    ];
+
+    const ids = uniq(rawIds.filter(isObjectId).map(String));
+    const numbers = uniq(
+      rawNumbers
+        .map((x) => (x == null ? '' : String(x)))
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((s) => s.toUpperCase()) // keep numbers case-insensitive
+    );
+
+    if (!ids.length && !numbers.length) {
+      return res.status(400).json({
+        message: 'Provide ids[] and/or numbers[]',
+        receivedKeys: Object.keys(req.body || {}),
+      });
     }
 
-    const result = await Certificate.deleteMany({
-      _id: { $in: certificateIds }
-    });
+    // Build the query; OR by _id and number
+    const or = [];
+    if (ids.length) or.push({ _id: { $in: ids } });
+    if (numbers.length) or.push({ number: { $in: numbers } });
 
-    res.json({
-      message: `Successfully deleted ${result.deletedCount} certificates`,
-      deletedCount: result.deletedCount
+    const query = or.length === 1 ? or[0] : { $or: or };
+
+    const result = await Certificate.deleteMany(query);
+
+    return res.json({
+      message: `Successfully deleted ${result.deletedCount || 0} certificate(s)`,
+      deletedCount: result.deletedCount || 0,
+      matchedBy: { ids, numbers },
     });
   } catch (error) {
     console.error('Bulk delete certificates error:', error);
-    res.status(500).json({ message: 'Server error while deleting certificates' });
+    return res.status(500).json({
+      message: 'Server error while deleting certificates',
+      error: String(error?.message || error),
+    });
   }
 };
+
 
 // Search certificates
 const searchCertificates = async (req, res) => {
