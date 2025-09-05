@@ -26,6 +26,12 @@ require('dotenv').config();
 
 const app = express();
 
+// Health endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, ts: Date.now(), routes: ['GET /api/health','GET /api/activity','GET /api/activity/stream','PUT /api/users/updateUser/:id','POST /api/users/updateUser/:id','POST /api/users/update'] });
+});
+
+
 // Security middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
@@ -325,6 +331,7 @@ function __requireUserModel(){
 
 // Allowed fields for updates
 const __ALLOWED_FIELDS = [
+  'name','code',
   'firstName','lastName','otherNames','gender','dob',
   'phone','email','address','lga','city','country',
   'memberCode','memberNumber','registrationDate','expiryDate','status','type',
