@@ -6,12 +6,31 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
+const methodOverride = require('method-override');
 const rateLimit = require('express-rate-limit');
 const cloudStorage = require('./cloud-storage');
+// Multer config: memory storage, 5MB, images/PDF only
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    try {
+      if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') return cb(null, true);
+      return cb(new Error('Only image and PDF files are allowed'), false);
+    } catch(e){ return cb(e, false); }
+  }
+});
 const path = require('path');
 require('dotenv').config();
 
 const app = express();
+
+// Health endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, ts: Date.now(), routes: ['GET /api/health','GET /api/activity','GET /api/activity/stream','PUT /api/users/updateUser/:id','POST /api/users/updateUser/:id','POST /api/users/update'] });
+});
+
 
 // Security middleware
 app.use(helmet({
@@ -86,6 +105,18 @@ app.use('/api/', limiter);
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Method override: allow ?_method=PUT and header X-HTTP-Method-Override
+app.use(methodOverride('_method'));
+app.use((req, _res, next) => {
+  try {
+    const q = (req.query && (req.query.method || req.query._method)) ? String(req.query.method || req.query._method).toUpperCase() : null;
+    const h = req.headers['x-http-method-override'] ? String(req.headers['x-http-method-override']).toUpperCase() : null;
+    if (q && ['PUT','PATCH','DELETE'].includes(q)) req.method = q;
+    else if (h && ['PUT','PATCH','DELETE'].includes(h)) req.method = h;
+  } catch(_) {}
+  next();
+});
 
 // Static file serving for uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -272,56 +303,114 @@ async function syncCertificatesForStateChange(userId, oldState, newState) {
   }
 }
 
-// This is the updated _updateUserCore function which will now only be called by PUT requests
-async function _updateUserCore(req, res, next) {
-  try {
-    // Parse multipart if body is empty
-    if (!req.body || Object.keys(req.body).length === 0) {
-      try {
-        const uploadNone = multer();
-        await new Promise((resolve, reject) => uploadNone.none()(req, res, (e) => e ? reject(e) : resolve()));
-      } catch (_) { }
-    }
-    
-    if (!req.body || Object.keys(req.body).length === 0) return next();
+// Override PUT/PATCH user update to apply certificate sync when state changes.
+// IMPORTANT: place BEFORE 
+// ---- Unified update handler for users (PUT/PATCH/POST) ----
 
-    // Extract the user ID (either from URL params or from the request body)
-    const id = (req.params && req.params.id) || (req.body && (req.body.id || req.body._id));
+
+
+// --- Update endpoints BEFORE userRoutes to ensure they catch updates ---
+// accept plain POST for updates
+// accept POST with body.id for updates
+
+
+// === Unified member update core (JSON + multipart) ===
+let __UserModelRef = null;
+function __requireUserModel(){
+  if (__UserModelRef) return __UserModelRef;
+  try {
+    __UserModelRef = require('./models/User');
+  } catch(_){
+    try {
+      const mongoose = require('mongoose');
+      __UserModelRef = mongoose.models.User;
+    } catch(__){}
+  }
+  return __UserModelRef;
+}
+
+// Allowed fields for updates
+const __ALLOWED_FIELDS = [
+  'name','code',
+  'firstName','lastName','otherNames','gender','dob',
+  'phone','email','address','lga','city','country',
+  'memberCode','memberNumber','registrationDate','expiryDate','status','type',
+  'state','zone','position','branch','chapter',
+  'passportPhoto','signature',
+  'notes'
+];
+
+async function _updateUserCore(req, res){
+  try {
+    const User = __requireUserModel();
+    if (!User) return res.status(500).json({ message: 'User model not loaded' });
+
+    const id = (req.params && (req.params.id || req.params._id)) || (req.body && (req.body.id || req.body._id));
     if (!id) return res.status(400).json({ message: 'Missing user id' });
 
-    // Find the existing user by ID
-    const prev = await User.findById(id);
-    if (!prev) return res.status(404).json({ message: 'User not found' });
+    const existing = await User.findById(id);
+    if (!existing) return res.status(404).json({ message: 'User not found' });
 
-    // The new data to update
-    const nextData = req.body || {};
-    try {
-      // Normalize state field if the function exists
-      if (typeof normalizeStateField === 'function') normalizeStateField(nextData);
-    } catch (_) { }
+    // normalize email/state if helpers exist
+    try { if (req.body) normalizeEmailField(req.body); } catch(_){}
+    try { if (req.body) normalizeStateField(req.body); } catch(_){}
 
-    // Update the user in the database and return the updated user
-    const updated = await User.findByIdAndUpdate(id, nextData, { new: true });
-    if (!updated) return res.status(500).json({ message: 'Update failed' });
+    // Build update payload
+    const updateData = { ...(req.body || {}) };
+    delete updateData._id; delete updateData.password; delete updateData.createdAt; delete updateData.updatedAt;
 
-    // If the state field has changed, sync the certificates
-    const oldState = (prev.state || prev.State || '').toString().toUpperCase();
-    const newState = (updated.state || updated.State || '').toString().toUpperCase();
-    if (oldState && newState && oldState !== newState) {
-      await syncCertificatesForStateChange(id, oldState, newState);
+    // Handle files if present (multer memoryStorage)
+    if (req.files) {
+      if (req.files.passportPhoto && req.files.passportPhoto[0]) {
+        try { updateData.passportPhoto = await cloudStorage.uploadFile(req.files.passportPhoto[0], 'passports'); }
+        catch(e){ return res.status(500).json({ message:'Failed to upload passport photo' }); }
+      }
+      if (req.files.signature && req.files.signature[0]) {
+        try { updateData.signature = await cloudStorage.uploadFile(req.files.signature[0], 'signatures'); }
+        catch(e){ return res.status(500).json({ message:'Failed to upload signature' }); }
+      }
     }
 
-    // Return the updated user data as a response
-    return res.json(updated);
+    // Whitelist
+    const $set = {};
+    for (const k of __ALLOWED_FIELDS) if (Object.prototype.hasOwnProperty.call(updateData, k)) $set[k] = updateData[k];
+    if (!Object.keys($set).length) return res.status(400).json({ message: 'No valid fields to update' });
+
+    const prevState = (existing.state || existing.State || '').toString().toUpperCase();
+    const updated = await User.findByIdAndUpdate(id, { $set }, { new: true });
+
+    // certificate state-code sync if state changed
+    try {
+      const newState = (updated.state || updated.State || '').toString().toUpperCase();
+      if (prevState && newState && prevState != newState && typeof syncCertificatesForStateChange === 'function') {
+        await syncCertificatesForStateChange(id, prevState, newState);
+      }
+    } catch(_){}
+
+    // Broadcast SSE activity if available
+    try {
+      if (typeof __broadcastActivity === 'function') {
+        __broadcastActivity({ type:'member.updated', id: updated._id, name:[updated.firstName, updated.lastName].filter(Boolean).join(' '), state: updated.state, zone: updated.zone, position: updated.position, ts: Date.now() });
+      }
+    } catch(_){}
+
+    return res.json({ message: 'Member updated', user: updated });
   } catch (err) {
     console.error('User update handler error:', err);
     return res.status(500).json({ message: 'Server error updating user' });
   }
 }
 
-// --- Only use PUT for updates ---
-app.put('/api/users/updateUser/:id', _updateUserCore); // This will be the only route used for updating users
-
+// Update endpoints (JSON or multipart) - attach multer fields
+const __updateUploads = upload.fields([
+  { name: 'passportPhoto', maxCount: 1 },
+  { name: 'signature', maxCount: 1 }
+]);
+app.put('/api/users/updateUser/:id', __updateUploads, _updateUserCore);
+app.post('/api/users/updateUser/:id', __updateUploads, _updateUserCore);
+app.post('/api/users/update', __updateUploads, _updateUserCore);
+// Legacy fallback (optional)
+app.post('/api/users', __updateUploads, _updateUserCore);
 
 app.use('/api/users', userRoutes);
 
