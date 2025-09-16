@@ -272,38 +272,46 @@ async function syncCertificatesForStateChange(userId, oldState, newState) {
   }
 }
 
-// Override PUT/PATCH user update to apply certificate sync when state changes.
-// IMPORTANT: place BEFORE 
-// ---- Unified update handler for users (PUT/PATCH/POST) ----
-async function _updateUserCore(req, res, next){
+// This is the updated _updateUserCore function which will now only be called by PUT requests
+async function _updateUserCore(req, res, next) {
   try {
-    // parse multipart if body is empty
+    // Parse multipart if body is empty
     if (!req.body || Object.keys(req.body).length === 0) {
       try {
         const uploadNone = multer();
-        await new Promise((resolve,reject)=>uploadNone.none()(req,res,(e)=>e?reject(e):resolve()));
-      } catch(_){}
+        await new Promise((resolve, reject) => uploadNone.none()(req, res, (e) => e ? reject(e) : resolve()));
+      } catch (_) { }
     }
+    
     if (!req.body || Object.keys(req.body).length === 0) return next();
 
+    // Extract the user ID (either from URL params or from the request body)
     const id = (req.params && req.params.id) || (req.body && (req.body.id || req.body._id));
     if (!id) return res.status(400).json({ message: 'Missing user id' });
 
+    // Find the existing user by ID
     const prev = await User.findById(id);
     if (!prev) return res.status(404).json({ message: 'User not found' });
 
+    // The new data to update
     const nextData = req.body || {};
-    try { if (typeof normalizeStateField === 'function') normalizeStateField(nextData); } catch(_){}
+    try {
+      // Normalize state field if the function exists
+      if (typeof normalizeStateField === 'function') normalizeStateField(nextData);
+    } catch (_) { }
 
+    // Update the user in the database and return the updated user
     const updated = await User.findByIdAndUpdate(id, nextData, { new: true });
     if (!updated) return res.status(500).json({ message: 'Update failed' });
 
+    // If the state field has changed, sync the certificates
     const oldState = (prev.state || prev.State || '').toString().toUpperCase();
     const newState = (updated.state || updated.State || '').toString().toUpperCase();
     if (oldState && newState && oldState !== newState) {
       await syncCertificatesForStateChange(id, oldState, newState);
     }
 
+    // Return the updated user data as a response
     return res.json(updated);
   } catch (err) {
     console.error('User update handler error:', err);
@@ -311,12 +319,8 @@ async function _updateUserCore(req, res, next){
   }
 }
 
-
-// --- Update endpoints BEFORE userRoutes to ensure they catch updates ---
-app.put('/api/users/updateUser/:id', _updateUserCore);
-app.patch('/api/users/updateUser/:id', _updateUserCore);
-app.post('/api/users/updateUser/:id', _updateUserCore);        // accept plain POST for updates
-app.post('/api/users/update', _updateUserCore);     // accept POST with body.id for updates
+// --- Only use PUT for updates ---
+app.put('/api/users/updateUser/:id', _updateUserCore); // This will be the only route used for updating users
 
 
 app.use('/api/users', userRoutes);
