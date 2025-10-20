@@ -42,7 +42,7 @@ const canAddMember = async () => {
     if (currentCount >= limits.memberLimit) {
       return {
         allowed: false,
-        message: `❌ Member additions frozen! Current: ${currentCount}, Limit: ${limits.memberLimit}. Contact admin to increase limit.`,
+        message: `❌ Member Slot Exhausted Purchase More slot: ${currentCount}, Limit: ${limits.memberLimit}. Contact admin to increase limit.`,
         currentCount,
         limit: limits.memberLimit
       };
