@@ -75,7 +75,7 @@ const canAddCertificate = async () => {
     if (currentCount >= limits.certificateLimit) {
       return {
         allowed: false,
-        message: `❌ Certificate additions frozen! Current: ${currentCount}, Limit: ${limits.certificateLimit}. Contact admin to increase limit.`,
+        message: `❌ Certificate Slot Exhausted Purchase More slot Current: ${currentCount}, Limit: ${limits.certificateLimit}. Contact admin to increase limit.`,
         currentCount,
         limit: limits.certificateLimit
       };
