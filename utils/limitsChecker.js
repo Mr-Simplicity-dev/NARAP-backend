@@ -42,7 +42,7 @@ const canAddMember = async () => {
     if (currentCount >= limits.memberLimit) {
       return {
         allowed: false,
-        message: `❌ "Your member capacity is full. Please buy additional slots to continue adding new members.;: ${currentCount}, Limit: ${limits.memberLimit}. Contact admin to increase limit.`,
+        message: `Member capacity is full. Please buy additional slots to continue adding new members.`,
         currentCount,
         limit: limits.memberLimit
       };
@@ -75,7 +75,7 @@ const canAddCertificate = async () => {
     if (currentCount >= limits.certificateLimit) {
       return {
         allowed: false,
-        message: `❌ Your certificate capacity is full. Please buy additional slots to continue adding new members.; Current: ${currentCount}, Limit: ${limits.certificateLimit}. Contact admin to increase limit.`,
+        message: `Certificate capacity is full. Please buy additional slots to continue adding new certificates.`,
         currentCount,
         limit: limits.certificateLimit
       };
