@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Certificate = require('../models/Certificate');
 const User = require('../models/User'); 
+const { canAddCertificate } = require('../utils/limitsChecker');
 
 const multer = require('multer');
 // const {
@@ -52,16 +53,16 @@ const createCertificate = async (req, res) => {
       recipient,
       email,
       title,
-      position,                 // optional; can be used as fallback for title
+      position,
       type = 'membership',
       description,
-      issueDate,                // ✅ required
-      validUntil,               // optional
-      expiryDate,               // optional alias for validUntil
+      issueDate,
+      validUntil,
+      expiryDate,
       userId
     } = req.body;
 
-    // ✅ Validation: require number, recipient, issueDate (NOT title)
+    // ✅ Validation: require number, recipient, issueDate
     if (!number || !recipient || !issueDate) {
       return res.status(400).json({
         message: 'Certificate number, recipient, and issueDate are required'
@@ -72,6 +73,26 @@ const createCertificate = async (req, res) => {
 
     // Look up existing certificate
     const existingCert = await Certificate.findOne({ number: normalizedNumber });
+
+    // 🛡️ Only check limits if creating a new certificate (not updating)
+    if (!existingCert) {
+      const limitCheck = await canAddCertificate();
+      if (!limitCheck.allowed) {
+        console.log('❌ Certificate limit reached:', limitCheck.message);
+        return res.status(429).json({
+          success: false,
+          message: limitCheck.message,
+          error: 'CERTIFICATE_LIMIT_REACHED',
+          details: {
+            currentCount: limitCheck.currentCount,
+            limit: limitCheck.limit
+          }
+        });
+      }
+      console.log('✅ Certificate limit check passed:', limitCheck.message);
+    }
+
+    
 
     // Prepare fields (title optional; fallback to position or 'Membership')
     const titleFinal =

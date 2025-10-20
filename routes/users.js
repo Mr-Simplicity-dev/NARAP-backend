@@ -6,6 +6,7 @@ const fs = require('fs');
 const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const cloudStorage = require('../cloud-storage');
+const { canAddMember } = require('../utils/limitsChecker');
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -171,9 +172,26 @@ const getMemberById = async (req, res) => {
   }
 };
 
-// Add user
+/// Add user
 const addUser = async (req, res) => {
   try {
+    // 🛡️ CHECK MEMBER LIMIT FIRST
+    const limitCheck = await canAddMember();
+    if (!limitCheck.allowed) {
+      console.log('❌ Member limit reached:', limitCheck.message);
+      return res.status(429).json({
+        success: false,
+        message: limitCheck.message,
+        error: 'MEMBER_LIMIT_REACHED',
+        details: {
+          currentCount: limitCheck.currentCount,
+          limit: limitCheck.limit
+        }
+      });
+    }
+
+    console.log('✅ Member limit check passed:', limitCheck.message);
+
     const {
       name,
       email,

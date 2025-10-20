@@ -851,5 +851,43 @@ process.on('SIGINT', async () => {
   }
 });
 
+// Simple endpoint to update limits - add this before your catch-all route
+app.post('/api/update-limits', async (req, res) => {
+  try {
+    const SystemLimits = require('./models/SystemLimits');
+    const { memberLimit, certificateLimit, isActive } = req.body;
+    
+    let limits = await SystemLimits.findOne();
+    if (!limits) {
+      limits = new SystemLimits();
+    }
+    
+    if (memberLimit !== undefined) limits.memberLimit = memberLimit;
+    if (certificateLimit !== undefined) limits.certificateLimit = certificateLimit;
+    if (isActive !== undefined) limits.isActive = isActive;
+    
+    await limits.save();
+    
+    console.log('✅ Limits updated:', {
+      memberLimit: limits.memberLimit,
+      certificateLimit: limits.certificateLimit,
+      isActive: limits.isActive
+    });
+    
+    res.json({
+      success: true,
+      message: 'Limits updated successfully',
+      limits: {
+        memberLimit: limits.memberLimit,
+        certificateLimit: limits.certificateLimit,
+        isActive: limits.isActive
+      }
+    });
+  } catch (error) {
+    console.error('Update limits error:', error);
+    res.status(500).json({ success: false, message: 'Error updating limits' });
+  }
+});
+
 // Start the server
 startServer(); 
