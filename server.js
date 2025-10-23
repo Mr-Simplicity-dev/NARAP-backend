@@ -1031,6 +1031,54 @@ app.get('/api/limits-status', async (req, res) => {
 });
 
 
+// Payment processing endpoint
+app.post('/api/process-payment', async (req, res) => {
+  try {
+    const Payment = require('./models/Payment');
+    const { type, amount, paymentMethod } = req.body;
+    
+    // Create payment record
+    const payment = new Payment({
+      type,
+      amount,
+      paymentMethod,
+      transactionId: `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    });
+    
+    await payment.save();
+    
+    // Process payment (integrate with actual payment gateway here)
+    // For now, we'll mark as completed
+    payment.status = 'completed';
+    await payment.save();
+    
+    // Update system limits
+    const { increaseLimits } = require('./utils/limitsChecker');
+    const updateData = {};
+    if (type === 'idcard') {
+      updateData.memberLimit = amount;
+    } else if (type === 'certificate') {
+      updateData.certificateLimit = amount;
+    }
+    
+    await increaseLimits(updateData.memberLimit, updateData.certificateLimit);
+    
+    res.json({
+      success: true,
+      message: 'Payment processed successfully',
+      transactionId: payment.transactionId,
+      amount: amount
+    });
+    
+  } catch (error) {
+    console.error('Payment processing error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Payment processing failed'
+    });
+  }
+});
+
 
 // Start the server
 startServer(); 
