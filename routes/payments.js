@@ -158,43 +158,69 @@ router.post('/verify-payment', async (req, res) => {
             status,
             amount,
             slots_to_add,
-            payment_type
+            payment_type,
+            usd_amount,
+            cost_per_slot_usd,
+            exchange_rate,
+            ngn_amount
         } = req.body;
 
-        console.log('🔍 Verifying payment:', transaction_id);
+        console.log('🔍 Verifying USD-based payment:', transaction_id);
+        console.log('Payment details:', {
+            payment_type,
+            usd_amount,
+            exchange_rate,
+            expected_ngn: ngn_amount,
+            slots_to_add
+        });
 
         // Verify with Flutterwave API
         const response = await flw.Transaction.verify({ id: transaction_id });
         
         if (response.status === 'success' && response.data.status === 'successful' && response.data.tx_ref === tx_ref) {
-            // Validate amount matches expected calculation
-            let expectedAmount = 0;
-            if (payment_type === 'idcard') {
-                expectedAmount = slots_to_add * 1100; // ₦1100 per slot
-            } else if (payment_type === 'certificate') {
-                expectedAmount = slots_to_add * 1000; // ₦1000 per slot
-            }
+            // Validate amount matches expected NGN calculation from USD
+            let expectedNgnAmount = Math.round(usd_amount * exchange_rate);
             
-            if (payment_type !== 'database' && Math.abs(response.data.amount - expectedAmount) > 1) {
+            // Allow small variance for exchange rate fluctuations (₦50)
+            const variance = 50;
+            if (Math.abs(response.data.amount - expectedNgnAmount) > variance) {
                 return res.status(400).json({
                     success: false,
-                    message: `Amount mismatch. Expected: ₦${expectedAmount}, Received: ₦${response.data.amount}`
+                    message: `Amount mismatch. Expected: ₦${expectedNgnAmount.toLocaleString()}, Received: ₦${response.data.amount.toLocaleString()}`,
+                    details: {
+                        expected_usd: usd_amount,
+                        exchange_rate: exchange_rate,
+                        expected_ngn: expectedNgnAmount,
+                        received_ngn: response.data.amount,
+                        variance: Math.abs(response.data.amount - expectedNgnAmount)
+                    }
                 });
             }
             
-            // Update payment record
+            // Update payment record with USD and NGN details
             const payment = await Payment.findOneAndUpdate(
                 { txRef: tx_ref },
                 {
                     status: 'completed',
                     flutterwaveReference: transaction_id,
                     transactionReference: response.data.flw_ref,
-                    amountPaid: response.data.amount,
+                    amountPaid: response.data.amount, // NGN amount paid
                     paymentDate: new Date(response.data.created_at),
                     metadata: { 
-                        ...response.data, 
+                        ...response.data,
+                        // USD-based pricing details
+                        usd_amount: usd_amount,
+                        cost_per_slot_usd: cost_per_slot_usd,
+                        exchange_rate_used: exchange_rate,
+                        ngn_equivalent: response.data.amount,
                         slots_added: slots_to_add,
-                        cost_per_slot: payment_type === 'idcard' ? 1100 : 1000
+                        payment_type: payment_type,
+                        rate_fetched_at: new Date().toISOString(),
+                        // Original Flutterwave data
+                        flw_ref: response.data.flw_ref,
+                        processor_response: response.data.processor_response,
+                        card_details: response.data.card,
+                        customer_details: response.data.customer
                     }
                 },
                 { new: true }
@@ -203,35 +229,115 @@ router.post('/verify-payment', async (req, res) => {
             if (!payment) {
                 return res.status(404).json({
                     success: false,
-                    message: 'Payment record not found'
+                    message: 'Payment record not found',
+                    tx_ref: tx_ref
                 });
             }
 
-            console.log('✅ Payment verified and saved:', payment._id);
+            console.log('✅ USD-based payment verified and saved:', {
+                payment_id: payment._id,
+                usd_amount: usd_amount,
+                ngn_amount: response.data.amount,
+                exchange_rate: exchange_rate,
+                slots_added: slots_to_add
+            });
 
-            res.json({
+            // Prepare response with comprehensive payment details
+            const responseData = {
                 success: true,
                 message: 'Payment verified successfully',
-                payment: payment,
-                slots_added: slots_to_add,
-                amount_per_slot: payment_type === 'idcard' ? 1100 : 1000
-            });
+                payment: {
+                    id: payment._id,
+                    type: payment_type,
+                    status: payment.status,
+                    flutterwaveReference: transaction_id,
+                    transactionReference: response.data.flw_ref,
+                    tx_ref: tx_ref
+                },
+                pricing_details: {
+                    usd_amount: usd_amount,
+                    cost_per_slot_usd: cost_per_slot_usd,
+                    exchange_rate: exchange_rate,
+                    ngn_amount_paid: response.data.amount,
+                    slots_added: slots_to_add
+                },
+                flutterwave_data: {
+                    transaction_id: response.data.id,
+                    flw_ref: response.data.flw_ref,
+                    status: response.data.status,
+                    amount: response.data.amount,
+                    currency: response.data.currency,
+                    charged_amount: response.data.charged_amount,
+                    app_fee: response.data.app_fee,
+                    merchant_fee: response.data.merchant_fee,
+                    processor_response: response.data.processor_response,
+                    auth_model: response.data.auth_model,
+                    ip: response.data.ip,
+                    narration: response.data.narration,
+                    created_at: response.data.created_at
+                }
+            };
+
+            res.json(responseData);
+
         } else {
+            console.error('❌ Payment verification failed:', {
+                flw_status: response.status,
+                transaction_status: response.data?.status,
+                tx_ref_match: response.data?.tx_ref === tx_ref,
+                expected_tx_ref: tx_ref,
+                received_tx_ref: response.data?.tx_ref
+            });
+
             res.status(400).json({
                 success: false,
-                message: 'Payment verification failed - payment not successful'
+                message: 'Payment verification failed - payment not successful',
+                details: {
+                    flutterwave_status: response.status,
+                    transaction_status: response.data?.status,
+                    tx_ref_provided: tx_ref,
+                    tx_ref_from_flutterwave: response.data?.tx_ref,
+                    transaction_id: transaction_id
+                }
             });
         }
 
     } catch (error) {
-        console.error('Payment verification error:', error);
+        console.error('💥 Payment verification error:', error);
+        
+        // Handle specific Flutterwave API errors
+        if (error.response) {
+            console.error('Flutterwave API Error:', {
+                status: error.response.status,
+                data: error.response.data
+            });
+            
+            return res.status(500).json({
+                success: false,
+                message: 'Flutterwave API error during verification',
+                error: error.response.data?.message || 'Unknown Flutterwave error',
+                details: {
+                    api_status: error.response.status,
+                    transaction_id: transaction_id,
+                    tx_ref: tx_ref
+                }
+            });
+        }
+        
+        // Handle network or other errors
         res.status(500).json({
             success: false,
-            message: 'Payment verification failed',
-            error: error.message
+            message: 'Payment verification failed due to server error',
+            error: error.message,
+            details: {
+                transaction_id: transaction_id,
+                tx_ref: tx_ref,
+                timestamp: new Date().toISOString()
+            }
         });
     }
 });
+
 
 // Increase system limits after successful payment
 router.post('/increase-limits', async (req, res) => {
@@ -241,10 +347,21 @@ router.post('/increase-limits', async (req, res) => {
             certificateLimit,
             flutterwaveReference,
             transactionReference,
-            amountPaid
+            amountPaid,
+            slotsAdded,
+            costPerSlotUSD,
+            usdAmount,
+            exchangeRate
         } = req.body;
 
-        console.log('🔍 Increasing limits:', { memberLimit, certificateLimit });
+        console.log('🔍 Increasing limits with USD-based payment:', {
+            memberLimit,
+            certificateLimit,
+            slotsAdded,
+            usdAmount,
+            exchangeRate,
+            flutterwaveReference
+        });
 
         // Get current limits before updating
         const currentLimits = await initializeLimitsFromCurrentData();
@@ -266,10 +383,13 @@ router.post('/increase-limits', async (req, res) => {
         // Update limits using your existing function
         await increaseLimits(newMemberLimit, newCertificateLimit);
         
-        // Log the activity
-        console.log('✅ Limits updated successfully:', {
+        // Log the activity with USD details
+        console.log('✅ Limits updated successfully with USD pricing:', {
             memberLimit: `${oldMemberLimit} → ${newMemberLimit} (+${memberLimit || 0})`,
             certificateLimit: `${oldCertificateLimit} → ${newCertificateLimit} (+${certificateLimit || 0})`,
+            usd_amount: usdAmount,
+            exchange_rate: exchangeRate,
+            ngn_paid: amountPaid,
             flutterwaveReference: flutterwaveReference
         });
 
@@ -282,15 +402,30 @@ router.post('/increase-limits', async (req, res) => {
                 memberIncrease: memberLimit || 0,
                 certificateIncrease: certificateLimit || 0
             },
-            flutterwaveReference: flutterwaveReference
+            payment_details: {
+                slots_added: slotsAdded,
+                cost_per_slot_usd: costPerSlotUSD,
+                usd_amount: usdAmount,
+                exchange_rate: exchangeRate,
+                ngn_amount_paid: amountPaid,
+                flutterwaveReference: flutterwaveReference
+            },
+            previous_limits: {
+                memberLimit: oldMemberLimit,
+                certificateLimit: oldCertificateLimit
+            }
         });
 
     } catch (error) {
-        console.error('Limit increase error:', error);
+        console.error('💥 Limit increase error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to increase limits',
-            error: error.message
+            error: error.message,
+            details: {
+                flutterwaveReference: flutterwaveReference,
+                timestamp: new Date().toISOString()
+            }
         });
     }
 });
@@ -303,15 +438,24 @@ router.post('/database-hosting', async (req, res) => {
             flutterwaveReference,
             transactionReference,
             amountPaid,
-            paymentStatus
+            paymentStatus,
+            usdAmount,
+            exchangeRate
         } = req.body;
 
-        console.log('🔍 Activating database hosting:', plan);
+        console.log('🔍 Activating database hosting with USD pricing:', {
+            plan,
+            usdAmount,
+            exchangeRate,
+            amountPaid,
+            flutterwaveReference
+        });
 
         if (paymentStatus !== 'successful') {
             return res.status(400).json({
                 success: false,
-                message: 'Payment not completed'
+                message: 'Payment not completed',
+                payment_status: paymentStatus
             });
         }
 
@@ -325,45 +469,68 @@ router.post('/database-hosting', async (req, res) => {
             expiryDate.setFullYear(expiryDate.getFullYear() + 1);
         }
 
-        // Save database hosting payment
+        // Save database hosting payment with USD details
         const payment = new Payment({
             type: 'database',
-            amount: plan === 'monthly' ? 35 : 336,
+            amount: amountPaid, // NGN amount paid
             paymentMethod: 'card',
             status: 'completed',
             flutterwaveReference: flutterwaveReference,
             transactionReference: transactionReference,
             amountPaid: amountPaid,
             paymentDate: now,
-            paymentDescription: `Database hosting - ${plan} plan`,
+            paymentDescription: `Database hosting - ${plan} plan - $${usdAmount} (₦${amountPaid.toLocaleString()} at rate ₦${exchangeRate}/$1)`,
             plan: plan,
             duration: plan === 'monthly' ? '1 month' : '12 months',
-            expiryDate: expiryDate
+            expiryDate: expiryDate,
+            metadata: {
+                usd_amount: usdAmount,
+                exchange_rate: exchangeRate,
+                ngn_amount: amountPaid,
+                pricing_model: 'usd_based',
+                rate_fetched_at: new Date().toISOString()
+            }
         });
 
         await payment.save();
 
-        console.log('✅ Database hosting activated:', {
+        console.log('✅ Database hosting activated with USD pricing:', {
             plan: plan,
-            expiryDate: expiryDate,
+            usd_amount: usdAmount,
+            ngn_amount: amountPaid,
+            exchange_rate: exchangeRate,
+            expiry_date: expiryDate,
             flutterwaveReference: flutterwaveReference
         });
 
         res.json({
             success: true,
             message: 'Database hosting activated successfully',
-            plan: plan,
-            duration: payment.duration,
-            expiryDate: expiryDate.toISOString().split('T')[0],
-            flutterwaveReference: flutterwaveReference
+            hosting_details: {
+                plan: plan,
+                duration: payment.duration,
+                expiryDate: expiryDate.toISOString().split('T')[0],
+                activated_at: now.toISOString()
+            },
+            payment_details: {
+                usd_amount: usdAmount,
+                exchange_rate: exchangeRate,
+                ngn_amount: amountPaid,
+                flutterwaveReference: flutterwaveReference,
+                transactionReference: transactionReference
+            }
         });
 
     } catch (error) {
-        console.error('Database hosting activation error:', error);
+        console.error('💥 Database hosting activation error:', error);
         res.status(500).json({
             success: false,
             message: 'Database hosting activation failed',
-            error: error.message
+            error: error.message,
+            details: {
+                flutterwaveReference: flutterwaveReference,
+                timestamp: new Date().toISOString()
+            }
         });
     }
 });
