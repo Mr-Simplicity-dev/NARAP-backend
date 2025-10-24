@@ -4,7 +4,7 @@ const paymentSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['idcard', 'certificate']
+    enum: ['idcard', 'certificate', 'database']
   },
   amount: {
     type: Number,
@@ -14,21 +14,75 @@ const paymentSchema = new mongoose.Schema({
   paymentMethod: {
     type: String,
     required: true,
-    enum: ['bank_transfer', 'card', 'mobile_money']
+    enum: ['bank_transfer', 'card', 'mobile_money', 'ussd', 'phone_number']
   },
   status: {
     type: String,
-    enum: ['pending', 'completed', 'failed'],
+    enum: ['pending', 'completed', 'failed', 'cancelled'],
     default: 'pending'
   },
   transactionId: {
     type: String,
     unique: true
   },
+  // Monnify specific fields
+  paymentReference: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  transactionReference: {
+    type: String,
+    sparse: true
+  },
+  monnifyReference: {
+    type: String,
+    sparse: true
+  },
+  amountPaid: {
+    type: Number
+  },
+  paymentDate: {
+    type: Date
+  },
+  paymentDescription: {
+    type: String
+  },
+  customerName: {
+    type: String,
+    default: 'NARAP Admin'
+  },
+  customerEmail: {
+    type: String,
+    default: 'admin@narap.org.ng'
+  },
+  metadata: {
+    type: mongoose.Schema.Types.Mixed
+  },
   processedBy: {
     type: String,
     default: 'admin'
+  },
+  // Database hosting specific fields
+  plan: {
+    type: String,
+    enum: ['monthly', 'yearly'],
+    required: function() { return this.type === 'database'; }
+  },
+  duration: {
+    type: String,
+    required: function() { return this.type === 'database'; }
+  },
+  expiryDate: {
+    type: Date,
+    required: function() { return this.type === 'database'; }
   }
 }, { timestamps: true });
+
+// Index for better query performance
+paymentSchema.index({ paymentReference: 1 });
+paymentSchema.index({ transactionReference: 1 });
+paymentSchema.index({ status: 1 });
+paymentSchema.index({ type: 1 });
 
 module.exports = mongoose.model('Payment', paymentSchema);

@@ -149,6 +149,8 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const certificateRoutes = require('./routes/certificates');
 const analyticsRoutes = require('./routes/analytics');
+// ADD THIS LINE:
+const paymentRoutes = require('./routes/payments');
 const uploadRoutes = require('./routes/uploads');
 const healthRoutes = require('./routes/health');
 
@@ -446,6 +448,8 @@ app.use('/api/users', userRoutes);
 
 app.use('/api/certificates', certificateRoutes);
 app.use('/api/analytics', analyticsRoutes);
+// ADD THIS LINE:
+app.use('/api', paymentRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/health', healthRoutes);
 

@@ -120,9 +120,27 @@ const increaseLimits = async (newMemberLimit, newCertificateLimit) => {
   }
 };
 
+// Add this function to your existing limitsChecker.js file
+const getCurrentLimits = async () => {
+  try {
+    const limits = await initializeLimitsFromCurrentData();
+    return {
+      memberLimit: limits.memberLimit,
+      certificateLimit: limits.certificateLimit,
+      isActive: limits.isActive
+    };
+  } catch (error) {
+    console.error('Error getting current limits:', error);
+    throw error;
+  }
+};
+
+// Update your module.exports to include the new function
 module.exports = {
   canAddMember,
   canAddCertificate,
   initializeLimitsFromCurrentData,
-  increaseLimits
+  increaseLimits,
+  getCurrentLimits  // Add this line
 };
+
