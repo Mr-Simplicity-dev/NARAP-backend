@@ -25,8 +25,8 @@ const paymentSchema = new mongoose.Schema({
     type: String,
     unique: true
   },
-  // Monnify specific fields
-  paymentReference: {
+  // Flutterwave specific fields (replace Monnify fields)
+  flutterwaveReference: {
     type: String,
     unique: true,
     sparse: true
@@ -35,7 +35,7 @@ const paymentSchema = new mongoose.Schema({
     type: String,
     sparse: true
   },
-  monnifyReference: {
+  txRef: {
     type: String,
     sparse: true
   },
@@ -79,8 +79,9 @@ const paymentSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-// Index for better query performance
-paymentSchema.index({ paymentReference: 1 });
+// Update indexes for Flutterwave
+paymentSchema.index({ flutterwaveReference: 1 });
+paymentSchema.index({ txRef: 1 });
 paymentSchema.index({ transactionReference: 1 });
 paymentSchema.index({ status: 1 });
 paymentSchema.index({ type: 1 });

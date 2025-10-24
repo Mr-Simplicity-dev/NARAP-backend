@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Payment = require('../models/Payment');
-const axios = require('axios');
+const Flutterwave = require('flutterwave-node-v3');
 
 // Import your existing utilities
 const { 
@@ -11,22 +11,107 @@ const {
     increaseLimits 
 } = require('../utils/limitsChecker');
 
-// Monnify configuration
-const MONNIFY_CONFIG = {
-    apiKey: process.env.MONNIFY_API_KEY,
-    secretKey: process.env.MONNIFY_SECRET_KEY,
-    contractCode: process.env.MONNIFY_CONTRACT_CODE,
-    baseUrl: process.env.MONNIFY_BASE_URL || 'https://sandbox.monnify.com',
-    mode: process.env.MONNIFY_MODE || 'LIVE'
+// Flutterwave configuration
+const flw = new Flutterwave(
+    process.env.FLUTTERWAVE_PUBLIC_KEY,
+    process.env.FLUTTERWAVE_SECRET_KEY
+);
+
+const FLUTTERWAVE_CONFIG = {
+    publicKey: process.env.FLUTTERWAVE_PUBLIC_KEY,
+    secretKey: process.env.FLUTTERWAVE_SECRET_KEY,
+    encryptionKey: process.env.FLUTTERWAVE_ENCRYPTION_KEY,
+    baseUrl: process.env.FLUTTERWAVE_BASE_URL || 'https://api.flutterwave.com/v3'
 };
 
 // Get payment configuration (public keys only)
 router.get('/payment-config', (req, res) => {
     res.json({
-        apiKey: MONNIFY_CONFIG.apiKey,
-        contractCode: MONNIFY_CONFIG.contractCode,
-        mode: MONNIFY_CONFIG.mode
+        publicKey: FLUTTERWAVE_CONFIG.publicKey,
+        baseUrl: FLUTTERWAVE_CONFIG.baseUrl
     });
+});
+
+// Initialize payment
+router.post('/initialize-payment', async (req, res) => {
+    try {
+        const { 
+            amount, 
+            type, 
+            customerEmail = 'admin@narap.org.ng', 
+            customerName = 'NARAP Admin',
+            metadata = {}
+        } = req.body;
+        
+        const txRef = `NARAP_${type}_${Date.now()}`;
+        
+        let description = '';
+        if (type === 'idcard') {
+            description = `ID Card Payment - Increase Member Capacity by ${metadata.capacityIncrease || amount}`;
+        } else if (type === 'certificate') {
+            description = `Certificate Payment - Increase Certificate Capacity by ${metadata.capacityIncrease || amount}`;
+        } else if (type === 'database') {
+            description = `Database Hosting Payment - ${metadata.plan || 'monthly'} plan`;
+        }
+
+        const payload = {
+            tx_ref: txRef,
+            amount: amount,
+            currency: 'NGN',
+            redirect_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment-callback`,
+            customer: {
+                email: customerEmail,
+                name: customerName
+            },
+            customizations: {
+                title: 'NARAP Payment',
+                description: description,
+                logo: 'https://your-logo-url.com/logo.png'
+            },
+            meta: {
+                payment_type: type,
+                ...metadata
+            }
+        };
+
+        const response = await flw.StandardSubaccount.create(payload);
+        
+        if (response.status === 'success') {
+            // Save payment record as pending
+            const payment = new Payment({
+                type: type,
+                amount: amount,
+                paymentMethod: 'card',
+                status: 'pending',
+                txRef: txRef,
+                customerName: customerName,
+                customerEmail: customerEmail,
+                paymentDescription: description,
+                metadata: metadata
+            });
+            
+            await payment.save();
+            
+            res.json({
+                success: true,
+                data: response.data,
+                payment_link: response.data.link,
+                tx_ref: txRef
+            });
+        } else {
+            res.status(400).json({
+                success: false,
+                message: 'Failed to initialize payment'
+            });
+        }
+    } catch (error) {
+        console.error('Payment initialization error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Payment initialization failed',
+            error: error.message
+        });
+    }
 });
 
 // Get current limits status
@@ -64,50 +149,55 @@ router.get('/limits-status', async (req, res) => {
     }
 });
 
-// Verify payment with Monnify
+// Verify payment with Flutterwave
 router.post('/verify-payment', async (req, res) => {
     try {
         const {
-            paymentReference,
-            transactionReference,
-            paymentStatus,
-            amountPaid,
-            paymentType,
-            metadata
+            transaction_id,
+            tx_ref,
+            status
         } = req.body;
 
-        console.log('🔍 Verifying payment:', paymentReference);
+        console.log('🔍 Verifying payment:', transaction_id);
 
-        // For testing purposes, we'll accept the payment if status is PAID
-        // In production, you should verify with Monnify API
-        if (paymentStatus === 'PAID') {
-            // Save payment record
-            const payment = new Payment({
-                type: paymentType,
-                amount: metadata?.capacityIncrease || 0,
-                paymentMethod: 'card',
-                status: 'completed',
-                paymentReference: paymentReference,
-                transactionReference: transactionReference,
-                amountPaid: amountPaid,
-                paymentDate: new Date(),
-                paymentDescription: `${paymentType} capacity increase`,
-                metadata: metadata
-            });
+        // Verify with Flutterwave API
+        const response = await flw.Transaction.verify({ id: transaction_id });
+        
+        if (response.status === 'success' && response.data.status === 'successful' && response.data.tx_ref === tx_ref) {
+            // Update payment record
+            const payment = await Payment.findOneAndUpdate(
+                { txRef: tx_ref },
+                {
+                    status: 'completed',
+                    flutterwaveReference: transaction_id,
+                    transactionReference: response.data.flw_ref,
+                    amountPaid: response.data.amount,
+                    paymentDate: new Date(response.data.created_at),
+                    metadata: { ...response.data, originalMetadata: response.data.meta }
+                },
+                { new: true }
+            );
 
-            await payment.save();
+            if (!payment) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Payment record not found'
+                });
+            }
 
             console.log('✅ Payment verified and saved:', payment._id);
 
             res.json({
                 success: true,
                 message: 'Payment verified successfully',
-                payment: payment
+                payment: payment,
+                paymentType: response.data.meta?.payment_type,
+                metadata: response.data.meta
             });
         } else {
             res.status(400).json({
                 success: false,
-                message: 'Payment verification failed - payment not completed'
+                message: 'Payment verification failed - payment not successful'
             });
         }
 
@@ -127,7 +217,7 @@ router.post('/increase-limits', async (req, res) => {
         const {
             memberLimit,
             certificateLimit,
-            paymentReference,
+            flutterwaveReference,
             transactionReference,
             amountPaid
         } = req.body;
@@ -158,7 +248,7 @@ router.post('/increase-limits', async (req, res) => {
         console.log('✅ Limits updated successfully:', {
             memberLimit: `${oldMemberLimit} → ${newMemberLimit} (+${memberLimit || 0})`,
             certificateLimit: `${oldCertificateLimit} → ${newCertificateLimit} (+${certificateLimit || 0})`,
-            paymentReference: paymentReference
+            flutterwaveReference: flutterwaveReference
         });
 
         res.json({
@@ -170,7 +260,7 @@ router.post('/increase-limits', async (req, res) => {
                 memberIncrease: memberLimit || 0,
                 certificateIncrease: certificateLimit || 0
             },
-            paymentReference: paymentReference
+            flutterwaveReference: flutterwaveReference
         });
 
     } catch (error) {
@@ -188,7 +278,7 @@ router.post('/database-hosting', async (req, res) => {
     try {
         const {
             plan,
-            paymentReference,
+            flutterwaveReference,
             transactionReference,
             amountPaid,
             paymentStatus
@@ -196,7 +286,7 @@ router.post('/database-hosting', async (req, res) => {
 
         console.log('🔍 Activating database hosting:', plan);
 
-        if (paymentStatus !== 'PAID') {
+        if (paymentStatus !== 'successful') {
             return res.status(400).json({
                 success: false,
                 message: 'Payment not completed'
@@ -219,7 +309,7 @@ router.post('/database-hosting', async (req, res) => {
             amount: plan === 'monthly' ? 35 : 336,
             paymentMethod: 'card',
             status: 'completed',
-            paymentReference: paymentReference,
+            flutterwaveReference: flutterwaveReference,
             transactionReference: transactionReference,
             amountPaid: amountPaid,
             paymentDate: now,
@@ -234,7 +324,7 @@ router.post('/database-hosting', async (req, res) => {
         console.log('✅ Database hosting activated:', {
             plan: plan,
             expiryDate: expiryDate,
-            paymentReference: paymentReference
+            flutterwaveReference: flutterwaveReference
         });
 
         res.json({
@@ -243,7 +333,7 @@ router.post('/database-hosting', async (req, res) => {
             plan: plan,
             duration: payment.duration,
             expiryDate: expiryDate.toISOString().split('T')[0],
-            paymentReference: paymentReference
+            flutterwaveReference: flutterwaveReference
         });
 
     } catch (error) {
@@ -333,30 +423,40 @@ router.get('/payment-history', async (req, res) => {
     }
 });
 
-// Helper function to get Monnify access token (for production use)
-async function getMonnifyAccessToken() {
+// Webhook endpoint for Flutterwave (optional but recommended)
+router.post('/webhook', async (req, res) => {
     try {
-        const auth = Buffer.from(`${MONNIFY_CONFIG.apiKey}:${MONNIFY_CONFIG.secretKey}`).toString('base64');
+        const secretHash = process.env.FLUTTERWAVE_SECRET_HASH;
+        const signature = req.headers["verif-hash"];
         
-        const response = await axios.post(
-            `${MONNIFY_CONFIG.baseUrl}/api/v1/auth/login`,
-            {},
-            {
-                headers: {
-                    'Authorization': `Basic ${auth}`,
-                    'Content-Type': 'application/json'
+        if (!signature || (signature !== secretHash)) {
+            // This request isn't from Flutterwave; discard
+            return res.status(401).end();
+        }
+        
+        const payload = req.body;
+        
+        if (payload.event === "charge.completed") {
+            // Update payment status in your database
+            await Payment.findOneAndUpdate(
+                { txRef: payload.data.tx_ref },
+                {
+                    status: 'completed',
+                    flutterwaveReference: payload.data.id,
+                    transactionReference: payload.data.flw_ref,
+                    amountPaid: payload.data.amount,
+                    paymentDate: new Date(payload.data.created_at)
                 }
-            }
-        );
-
-        return response.data.responseBody.accessToken;
+            );
+            
+            console.log('✅ Webhook: Payment updated via webhook');
+        }
+        
+        res.status(200).end();
     } catch (error) {
-        console.error('Failed to get Monnify access token:', error);
-        throw error;
+        console.error('Webhook error:', error);
+        res.status(500).end();
     }
-}
+});
 
 module.exports = router;
-
-
-
