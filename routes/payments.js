@@ -155,7 +155,10 @@ router.post('/verify-payment', async (req, res) => {
         const {
             transaction_id,
             tx_ref,
-            status
+            status,
+            amount,
+            slots_to_add,
+            payment_type
         } = req.body;
 
         console.log('🔍 Verifying payment:', transaction_id);
@@ -164,6 +167,21 @@ router.post('/verify-payment', async (req, res) => {
         const response = await flw.Transaction.verify({ id: transaction_id });
         
         if (response.status === 'success' && response.data.status === 'successful' && response.data.tx_ref === tx_ref) {
+            // Validate amount matches expected calculation
+            let expectedAmount = 0;
+            if (payment_type === 'idcard') {
+                expectedAmount = slots_to_add * 1100; // ₦1100 per slot
+            } else if (payment_type === 'certificate') {
+                expectedAmount = slots_to_add * 1000; // ₦1000 per slot
+            }
+            
+            if (payment_type !== 'database' && Math.abs(response.data.amount - expectedAmount) > 1) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Amount mismatch. Expected: ₦${expectedAmount}, Received: ₦${response.data.amount}`
+                });
+            }
+            
             // Update payment record
             const payment = await Payment.findOneAndUpdate(
                 { txRef: tx_ref },
@@ -173,7 +191,11 @@ router.post('/verify-payment', async (req, res) => {
                     transactionReference: response.data.flw_ref,
                     amountPaid: response.data.amount,
                     paymentDate: new Date(response.data.created_at),
-                    metadata: { ...response.data, originalMetadata: response.data.meta }
+                    metadata: { 
+                        ...response.data, 
+                        slots_added: slots_to_add,
+                        cost_per_slot: payment_type === 'idcard' ? 1100 : 1000
+                    }
                 },
                 { new: true }
             );
@@ -191,8 +213,8 @@ router.post('/verify-payment', async (req, res) => {
                 success: true,
                 message: 'Payment verified successfully',
                 payment: payment,
-                paymentType: response.data.meta?.payment_type,
-                metadata: response.data.meta
+                slots_added: slots_to_add,
+                amount_per_slot: payment_type === 'idcard' ? 1100 : 1000
             });
         } else {
             res.status(400).json({
