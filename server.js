@@ -589,49 +589,6 @@ app.get('/api/activity/stream', (req, res) => {
 // ===== End Activity endpoints =====
 // 404 handler
 
-// Lightweight lookup: check if a user exists by code or email (no multipart parsing needed)
-app.get('/api/users/exists', async (req, res) => {
-  try {
-    const User = require('./models/User');
-    const { code, email } = req.query;
-    if (!code && !email) {
-      return res.status(400).json({ success: false, message: 'Provide code or email' });
-    }
-    const query = [];
-    if (code) query.push({ code: String(code).trim() });
-    if (email) query.push({ email: String(email).trim() });
-    const user = await User.findOne({ $or: query }).select('_id code email');
-    if (user) {
-      return res.json({ success: true, exists: true, id: String(user._id), code: user.code, email: user.email });
-    }
-    return res.json({ success: true, exists: false });
-  } catch (err) {
-    console.error('exists lookup error:', err);
-    return res.status(500).json({ success: false, message: 'Lookup failed' });
-  }
-});
-
-app.use('*', (req, res) => {
-  res.status(404).json({
-    error: 'Endpoint not found',
-    message: `The requested endpoint ${req.originalUrl} does not exist`,
-    availableEndpoints: ['/api/auth','/api/users','/api/certificates','/api/analytics','/api/uploads','/api/health','/api/activity','/api/activity/stream']
-  });
-});
-
-// Global error handler
-app.use((error, req, res, next) => {
-  console.error('❌ Server Error:', error);
-  
-  res.status(error.status || 500).json({
-    error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'production' 
-      ? 'Something went wrong on the server' 
-      : error.message,
-    timestamp: new Date().toISOString()
-  });
-});
-
 // Add this AFTER the existing /api/limits-status endpoint
 app.post('/api/update-limits', async (req, res) => {
   try {
@@ -745,6 +702,151 @@ app.post('/api/increase-limits', async (req, res) => {
   }
 });
 
+// Clear all database data endpoint
+app.post('/api/clear-database', async (req, res) => {
+  try {
+    const result = await clearAllDatabaseData();
+    res.json({
+      success: true,
+      message: `Successfully cleared database. Deleted ${result.totalDeleted} records (${result.usersDeleted} users, ${result.certificatesDeleted} certificates)`,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to clear database',
+      error: error.message
+    });
+  }
+});
+
+// Clear all certificates endpoint
+app.post('/api/clear-certificates', async (req, res) => {
+  try {
+    const result = await clearAllCertificates();
+    res.json({
+      success: true,
+      message: `Successfully cleared certificates. Deleted ${result.certificatesDeleted} certificates`,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to clear certificates',
+      error: error.message
+    });
+  }
+});
+
+// Cleanup certificates endpoint
+app.post('/api/cleanup-certificates', async (req, res) => {
+  try {
+    const count = await cleanupDatabaseCertificates();
+    res.json({
+      success: true,
+      message: `Successfully cleaned up ${count} certificates`,
+      count: count
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to cleanup certificates',
+      error: error.message
+    });
+  }
+});
+
+// Payment processing endpoint
+app.post('/api/process-payment', async (req, res) => {
+  try {
+    const Payment = require('./models/Payment');
+    const { type, amount, paymentMethod } = req.body;
+    
+    // Create payment record
+    const payment = new Payment({
+      type,
+      amount,
+      paymentMethod,
+      transactionId: `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    });
+    
+    await payment.save();
+    
+    // Process payment (integrate with actual payment gateway here)
+    // For now, we'll mark as completed
+    payment.status = 'completed';
+    await payment.save();
+    
+    // Update system limits
+    const { increaseLimits } = require('./utils/limitsChecker');
+    const updateData = {};
+    if (type === 'idcard') {
+      updateData.memberLimit = amount;
+    } else if (type === 'certificate') {
+      updateData.certificateLimit = amount;
+    }
+    
+    await increaseLimits(updateData.memberLimit, updateData.certificateLimit);
+    
+    res.json({
+      success: true,
+      message: 'Payment processed successfully',
+      transactionId: payment.transactionId,
+      amount: amount
+    });
+    
+  } catch (error) {
+    console.error('Payment processing error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Payment processing failed'
+    });
+  }
+});
+
+// Lightweight lookup: check if a user exists by code or email (no multipart parsing needed)
+app.get('/api/users/exists', async (req, res) => {
+  try {
+    const User = require('./models/User');
+    const { code, email } = req.query;
+    if (!code && !email) {
+      return res.status(400).json({ success: false, message: 'Provide code or email' });
+    }
+    const query = [];
+    if (code) query.push({ code: String(code).trim() });
+    if (email) query.push({ email: String(email).trim() });
+    const user = await User.findOne({ $or: query }).select('_id code email');
+    if (user) {
+      return res.json({ success: true, exists: true, id: String(user._id), code: user.code, email: user.email });
+    }
+    return res.json({ success: true, exists: false });
+  } catch (err) {
+    console.error('exists lookup error:', err);
+    return res.status(500).json({ success: false, message: 'Lookup failed' });
+  }
+});
+
+app.use('*', (req, res) => {
+  res.status(404).json({
+    error: 'Endpoint not found',
+    message: `The requested endpoint ${req.originalUrl} does not exist`,
+    availableEndpoints: ['/api/auth','/api/users','/api/certificates','/api/analytics','/api/uploads','/api/health','/api/activity','/api/activity/stream']
+  });
+});
+
+// Global error handler
+app.use((error, req, res, next) => {
+  console.error('❌ Server Error:', error);
+  
+  res.status(error.status || 500).json({
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'production' 
+      ? 'Something went wrong on the server' 
+      : error.message,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Clear all database data function
 async function clearAllDatabaseData() {
   try {
@@ -836,62 +938,6 @@ async function cleanupDatabaseCertificates() {
 }
 
 
-
-
-// Clear all database data endpoint
-app.post('/api/clear-database', async (req, res) => {
-  try {
-    const result = await clearAllDatabaseData();
-    res.json({
-      success: true,
-      message: `Successfully cleared database. Deleted ${result.totalDeleted} records (${result.usersDeleted} users, ${result.certificatesDeleted} certificates)`,
-      data: result
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to clear database',
-      error: error.message
-    });
-  }
-});
-
-// Clear all certificates endpoint
-app.post('/api/clear-certificates', async (req, res) => {
-  try {
-    const result = await clearAllCertificates();
-    res.json({
-      success: true,
-      message: `Successfully cleared certificates. Deleted ${result.certificatesDeleted} certificates`,
-      data: result
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to clear certificates',
-      error: error.message
-    });
-  }
-});
-
-// Cleanup certificates endpoint
-app.post('/api/cleanup-certificates', async (req, res) => {
-  try {
-    const count = await cleanupDatabaseCertificates();
-    res.json({
-      success: true,
-      message: `Successfully cleaned up ${count} certificates`,
-      count: count
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to cleanup certificates',
-      error: error.message
-    });
-  }
-});
-
 // Start server
 const PORT = process.env.PORT || 5000;
 
@@ -968,56 +1014,6 @@ process.on('SIGINT', async () => {
   } catch (error) {
     console.error('❌ Error closing MongoDB connection:', error);
     process.exit(1);
-  }
-});
-
-
-
-// Payment processing endpoint
-app.post('/api/process-payment', async (req, res) => {
-  try {
-    const Payment = require('./models/Payment');
-    const { type, amount, paymentMethod } = req.body;
-    
-    // Create payment record
-    const payment = new Payment({
-      type,
-      amount,
-      paymentMethod,
-      transactionId: `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    });
-    
-    await payment.save();
-    
-    // Process payment (integrate with actual payment gateway here)
-    // For now, we'll mark as completed
-    payment.status = 'completed';
-    await payment.save();
-    
-    // Update system limits
-    const { increaseLimits } = require('./utils/limitsChecker');
-    const updateData = {};
-    if (type === 'idcard') {
-      updateData.memberLimit = amount;
-    } else if (type === 'certificate') {
-      updateData.certificateLimit = amount;
-    }
-    
-    await increaseLimits(updateData.memberLimit, updateData.certificateLimit);
-    
-    res.json({
-      success: true,
-      message: 'Payment processed successfully',
-      transactionId: payment.transactionId,
-      amount: amount
-    });
-    
-  } catch (error) {
-    console.error('Payment processing error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Payment processing failed'
-    });
   }
 });
 
