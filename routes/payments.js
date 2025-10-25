@@ -66,7 +66,7 @@ router.post('/initialize-payment', async (req, res) => {
             customizations: {
                 title: 'NARAP Payment',
                 description: description,
-                logo: 'https://your-logo-url.com/logo.png'
+                logo: 'images/narap-logo.jpg'
             },
             meta: {
                 payment_type: type,
