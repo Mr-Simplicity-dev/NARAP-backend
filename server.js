@@ -26,6 +26,9 @@ require('dotenv').config();
 
 const app = express();
 
+// Add this line to trust Render.com proxy
+app.set('trust proxy', 1);
+
 // Health endpoint
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, ts: Date.now(), routes: ['GET /api/health','GET /api/activity','GET /api/activity/stream','PUT /api/users/updateUser/:id','POST /api/users/updateUser/:id','POST /api/users/update'] });
