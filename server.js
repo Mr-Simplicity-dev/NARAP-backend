@@ -453,142 +453,6 @@ app.use('/api', paymentRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/health', healthRoutes);
 
-// Catch-all route for debugging unmatched requests
-app.use('*', (req, res) => {
-  console.log('🔍 Unmatched request:', {
-    method: req.method,
-    url: req.url,
-    path: req.path,
-    originalUrl: req.originalUrl,
-    headers: req.headers
-  });
-  
-  res.status(404).json({
-    message: 'Route not found',
-    method: req.method,
-    url: req.url,
-    availableEndpoints: [
-      '/api/users/updateUser/:id',
-      '/api/users',
-      '/api/certificates',
-      '/api/analytics',
-      '/api/uploads',
-      '/api/health'
-    ]
-  });
-});
-
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    message: 'NARAP Backend API Server',
-    version: '1.0.0',
-    status: 'running',
-    timestamp: new Date().toISOString(),
-    endpoints: {
-      auth: '/api/auth',
-      users: '/api/users',
-      certificates: '/api/certificates',
-      analytics: '/api/analytics',
-      uploads: '/api/uploads',
-      health: '/api/health'
-    }
-  });
-});
-
-// ===== Activity endpoints (MongoDB-backed, persistent) =====
-// ===== Activity live stream (SSE) =====
-const __activityClients = new Set();
-function __broadcastActivity(act){
-  try {
-    const payload = `data: ${JSON.stringify(act)}\n\n`;
-    for (const res of __activityClients) {
-      try { res.write(payload); } catch(_){}
-    }
-  } catch(_){}
-}
-app.get('/api/activity/stream', (req, res) => {
-  try {
-    res.set({
-      'X-Accel-Buffering': 'no', 'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-    });
-    res.flushHeaders && res.flushHeaders();
-    res.write('retry: 5000\n\n');
-    __activityClients.add(res);
-    // Heartbeat every 20s to avoid QUIC idle timeout
-    const __hb = setInterval(() => { try { res.write(':ka\n\n'); } catch(_) {} }, 20000);
-    const __cleanup = () => { try { clearInterval(__hb); } catch(_) {} try { __activityClients.delete(res); } catch(_) {} };
-    req.on('close', __cleanup);
-    req.on('end', __cleanup);
-    req.on('close', () => { __activityClients.delete(res); });
-  } catch (err) {
-    console.error('SSE error:', err);
-    try { res.end(); } catch(_){}
-  }
-});
-// ===== End Activity live stream =====
-
-(() => {
-  // Use existing mongoose connection if available
-  const mongoose = require('mongoose');
-
-  // Define Activity schema/model once
-  const ActivitySchema = new mongoose.Schema({
-    ts: { type: Date, default: Date.now, index: true },
-    date: { type: String },
-    time: { type: String },
-    entity: { type: String, default: 'system', index: true },
-    action: { type: String, default: 'unknown', index: true },
-    data: { type: mongoose.Schema.Types.Mixed, default: {} },
-  }, { timestamps: false, strict: false });
-
-  // Avoid OverwriteModelError if reloaded
-  const Activity = mongoose.models.Activity || mongoose.model('Activity', ActivitySchema);
-
-  // GET /api/activity?limit=50
-  app.get('/api/activity', async (req, res) => {
-    try {
-      const limit = parseInt(req.query.limit, 10) || 50;
-      const items = await Activity.find({})
-        .sort({ ts: -1, _id: -1 })
-        .limit(Math.max(1, Math.min(limit, 200)))
-        .lean()
-        .exec();
-      return res.json(items);
-    } catch (err) {
-      console.error('Activity GET error:', err);
-      res.status(500).json({ success:false, message:'Failed to fetch activity log' });
-    }
-  });
-
-  // POST /api/activity
-  app.post('/api/activity', async (req, res) => {
-    try {
-      const entry = req.body || {};
-      const now = new Date();
-      const activity = {
-        ts: entry.ts ? new Date(entry.ts) : now,
-        date: entry.date || now.toLocaleDateString(),
-        time: entry.time || now.toLocaleTimeString(),
-        entity: entry.entity || 'system',
-        action: entry.action || 'unknown',
-        data: entry.data || {},
-      };
-      const saved = await Activity.create(activity);
-      __broadcastActivity(saved);
-      return res.json({ success:true, data: saved });
-    } catch (err) {
-      console.error('Activity POST error:', err);
-      res.status(500).json({ success:false, message:'Failed to log activity' });
-    }
-  });
-})();
-// ===== End Activity endpoints =====
-// 404 handler
-
 // Add this AFTER the existing /api/limits-status endpoint
 app.post('/api/update-limits', async (req, res) => {
   try {
@@ -803,6 +667,143 @@ app.post('/api/process-payment', async (req, res) => {
     });
   }
 });
+
+// Catch-all route for debugging unmatched requests
+app.use('*', (req, res) => {
+  console.log('🔍 Unmatched request:', {
+    method: req.method,
+    url: req.url,
+    path: req.path,
+    originalUrl: req.originalUrl,
+    headers: req.headers
+  });
+  
+  res.status(404).json({
+    message: 'Route not found',
+    method: req.method,
+    url: req.url,
+    availableEndpoints: [
+      '/api/users/updateUser/:id',
+      '/api/users',
+      '/api/certificates',
+      '/api/analytics',
+      '/api/uploads',
+      '/api/health'
+    ]
+  });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: 'NARAP Backend API Server',
+    version: '1.0.0',
+    status: 'running',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      auth: '/api/auth',
+      users: '/api/users',
+      certificates: '/api/certificates',
+      analytics: '/api/analytics',
+      uploads: '/api/uploads',
+      health: '/api/health'
+    }
+  });
+});
+
+// ===== Activity endpoints (MongoDB-backed, persistent) =====
+// ===== Activity live stream (SSE) =====
+const __activityClients = new Set();
+function __broadcastActivity(act){
+  try {
+    const payload = `data: ${JSON.stringify(act)}\n\n`;
+    for (const res of __activityClients) {
+      try { res.write(payload); } catch(_){}
+    }
+  } catch(_){}
+}
+app.get('/api/activity/stream', (req, res) => {
+  try {
+    res.set({
+      'X-Accel-Buffering': 'no', 'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.flushHeaders && res.flushHeaders();
+    res.write('retry: 5000\n\n');
+    __activityClients.add(res);
+    // Heartbeat every 20s to avoid QUIC idle timeout
+    const __hb = setInterval(() => { try { res.write(':ka\n\n'); } catch(_) {} }, 20000);
+    const __cleanup = () => { try { clearInterval(__hb); } catch(_) {} try { __activityClients.delete(res); } catch(_) {} };
+    req.on('close', __cleanup);
+    req.on('end', __cleanup);
+    req.on('close', () => { __activityClients.delete(res); });
+  } catch (err) {
+    console.error('SSE error:', err);
+    try { res.end(); } catch(_){}
+  }
+});
+// ===== End Activity live stream =====
+
+(() => {
+  // Use existing mongoose connection if available
+  const mongoose = require('mongoose');
+
+  // Define Activity schema/model once
+  const ActivitySchema = new mongoose.Schema({
+    ts: { type: Date, default: Date.now, index: true },
+    date: { type: String },
+    time: { type: String },
+    entity: { type: String, default: 'system', index: true },
+    action: { type: String, default: 'unknown', index: true },
+    data: { type: mongoose.Schema.Types.Mixed, default: {} },
+  }, { timestamps: false, strict: false });
+
+  // Avoid OverwriteModelError if reloaded
+  const Activity = mongoose.models.Activity || mongoose.model('Activity', ActivitySchema);
+
+  // GET /api/activity?limit=50
+  app.get('/api/activity', async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit, 10) || 50;
+      const items = await Activity.find({})
+        .sort({ ts: -1, _id: -1 })
+        .limit(Math.max(1, Math.min(limit, 200)))
+        .lean()
+        .exec();
+      return res.json(items);
+    } catch (err) {
+      console.error('Activity GET error:', err);
+      res.status(500).json({ success:false, message:'Failed to fetch activity log' });
+    }
+  });
+
+  // POST /api/activity
+  app.post('/api/activity', async (req, res) => {
+    try {
+      const entry = req.body || {};
+      const now = new Date();
+      const activity = {
+        ts: entry.ts ? new Date(entry.ts) : now,
+        date: entry.date || now.toLocaleDateString(),
+        time: entry.time || now.toLocaleTimeString(),
+        entity: entry.entity || 'system',
+        action: entry.action || 'unknown',
+        data: entry.data || {},
+      };
+      const saved = await Activity.create(activity);
+      __broadcastActivity(saved);
+      return res.json({ success:true, data: saved });
+    } catch (err) {
+      console.error('Activity POST error:', err);
+      res.status(500).json({ success:false, message:'Failed to log activity' });
+    }
+  });
+})();
+// ===== End Activity endpoints =====
+// 404 handler
+
 
 // Lightweight lookup: check if a user exists by code or email (no multipart parsing needed)
 app.get('/api/users/exists', async (req, res) => {
