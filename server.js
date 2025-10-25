@@ -722,75 +722,7 @@ async function cleanupDatabaseCertificates() {
   }
 }
 
-// Add limits status endpoint - ADD THIS TO YOUR SERVER.JS
-app.get('/api/limits-status', async (req, res) => {
-  try {
-    const { initializeLimitsFromCurrentData } = require('./utils/limitsChecker');
-    const User = require('./models/User');
-    const Certificate = require('./models/Certificate');
-    
-    const limits = await initializeLimitsFromCurrentData();
-    const currentMemberCount = await User.countDocuments({ isActive: { $ne: false } });
-    const currentCertificateCount = await Certificate.countDocuments({ status: { $ne: 'revoked' } });
-    
-    res.json({
-      success: true,
-      status: {
-        members: {
-          current: currentMemberCount,
-          limit: limits.memberLimit,
-          canAdd: currentMemberCount < limits.memberLimit,
-          remaining: Math.max(0, limits.memberLimit - currentMemberCount)
-        },
-        certificates: {
-          current: currentCertificateCount,
-          limit: limits.certificateLimit,
-          canAdd: currentCertificateCount < limits.certificateLimit,
-          remaining: Math.max(0, limits.certificateLimit - currentCertificateCount)
-        },
-        limitsActive: limits.isActive
-      }
-    });
-  } catch (error) {
-    console.error('Status check error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error checking status' 
-    });
-  }
-});
 
-// Add increase limits endpoint - ADD THIS TOO
-app.post('/api/increase-limits', async (req, res) => {
-  try {
-    const { increaseLimits } = require('./utils/limitsChecker');
-    const { memberLimit, certificateLimit } = req.body;
-    
-    if (!memberLimit && !certificateLimit) {
-      return res.status(400).json({
-        success: false,
-        message: 'Provide memberLimit and/or certificateLimit to increase'
-      });
-    }
-    
-    const updatedLimits = await increaseLimits(memberLimit, certificateLimit);
-    
-    res.json({
-      success: true,
-      message: 'Limits increased successfully! New additions are now allowed.',
-      limits: {
-        memberLimit: updatedLimits.memberLimit,
-        certificateLimit: updatedLimits.certificateLimit
-      }
-    });
-  } catch (error) {
-    console.error('Increase limits error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error increasing limits' 
-    });
-  }
-});
 
 
 // Clear all database data endpoint
