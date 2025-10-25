@@ -632,6 +632,119 @@ app.use((error, req, res, next) => {
   });
 });
 
+// Add this AFTER the existing /api/limits-status endpoint
+app.post('/api/update-limits', async (req, res) => {
+  try {
+    const SystemLimits = require('./models/SystemLimits');
+    const { memberLimit, certificateLimit, isActive } = req.body;
+    
+    let limits = await SystemLimits.findOne();
+    if (!limits) {
+      limits = new SystemLimits({
+        memberLimit: 1415,
+        certificateLimit: 1415,
+        isActive: true
+      });
+    }
+    
+    if (memberLimit !== undefined) limits.memberLimit = memberLimit;
+    if (certificateLimit !== undefined) limits.certificateLimit = certificateLimit;
+    if (isActive !== undefined) limits.isActive = isActive;
+    
+    await limits.save();
+    
+    console.log('✅ Limits updated:', {
+      memberLimit: limits.memberLimit,
+      certificateLimit: limits.certificateLimit,
+      isActive: limits.isActive
+    });
+    
+    res.json({
+      success: true,
+      message: 'Limits updated successfully',
+      limits: {
+        memberLimit: limits.memberLimit,
+        certificateLimit: limits.certificateLimit,
+        isActive: limits.isActive
+      }
+    });
+  } catch (error) {
+    console.error('Update limits error:', error);
+    res.status(500).json({ success: false, message: 'Error updating limits' });
+  }
+});
+
+
+// Add limits status endpoint
+app.get('/api/limits-status', async (req, res) => {
+  try {
+    const { initializeLimitsFromCurrentData } = require('./utils/limitsChecker');
+    const User = require('./models/User');
+    const Certificate = require('./models/Certificate');
+    
+    const limits = await initializeLimitsFromCurrentData();
+    const currentMemberCount = await User.countDocuments({ isActive: { $ne: false } });
+    const currentCertificateCount = await Certificate.countDocuments({ status: { $ne: 'revoked' } });
+    
+    res.json({
+      success: true,
+      status: {
+        members: {
+          current: currentMemberCount,
+          limit: limits.memberLimit,
+          canAdd: currentMemberCount < limits.memberLimit,
+          remaining: Math.max(0, limits.memberLimit - currentMemberCount)
+        },
+        certificates: {
+          current: currentCertificateCount,
+          limit: limits.certificateLimit,
+          canAdd: currentCertificateCount < limits.certificateLimit,
+          remaining: Math.max(0, limits.certificateLimit - currentCertificateCount)
+        },
+        limitsActive: limits.isActive
+      }
+    });
+  } catch (error) {
+    console.error('Status check error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error checking status' 
+    });
+  }
+});
+
+// Add increase limits endpoint
+app.post('/api/increase-limits', async (req, res) => {
+  try {
+    const { increaseLimits } = require('./utils/limitsChecker');
+    const { memberLimit, certificateLimit } = req.body;
+    
+    if (!memberLimit && !certificateLimit) {
+      return res.status(400).json({
+        success: false,
+        message: 'Provide memberLimit and/or certificateLimit to increase'
+      });
+    }
+    
+    const updatedLimits = await increaseLimits(memberLimit, certificateLimit);
+    
+    res.json({
+      success: true,
+      message: 'Limits increased successfully! New additions are now allowed.',
+      limits: {
+        memberLimit: updatedLimits.memberLimit,
+        certificateLimit: updatedLimits.certificateLimit
+      }
+    });
+  } catch (error) {
+    console.error('Increase limits error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error increasing limits' 
+    });
+  }
+});
+
 // Clear all database data function
 async function clearAllDatabaseData() {
   try {
@@ -855,119 +968,6 @@ process.on('SIGINT', async () => {
   } catch (error) {
     console.error('❌ Error closing MongoDB connection:', error);
     process.exit(1);
-  }
-});
-
-
-// Add limits status endpoint
-app.get('/api/limits-status', async (req, res) => {
-  try {
-    const { initializeLimitsFromCurrentData } = require('./utils/limitsChecker');
-    const User = require('./models/User');
-    const Certificate = require('./models/Certificate');
-    
-    const limits = await initializeLimitsFromCurrentData();
-    const currentMemberCount = await User.countDocuments({ isActive: { $ne: false } });
-    const currentCertificateCount = await Certificate.countDocuments({ status: { $ne: 'revoked' } });
-    
-    res.json({
-      success: true,
-      status: {
-        members: {
-          current: currentMemberCount,
-          limit: limits.memberLimit,
-          canAdd: currentMemberCount < limits.memberLimit,
-          remaining: Math.max(0, limits.memberLimit - currentMemberCount)
-        },
-        certificates: {
-          current: currentCertificateCount,
-          limit: limits.certificateLimit,
-          canAdd: currentCertificateCount < limits.certificateLimit,
-          remaining: Math.max(0, limits.certificateLimit - currentCertificateCount)
-        },
-        limitsActive: limits.isActive
-      }
-    });
-  } catch (error) {
-    console.error('Status check error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error checking status' 
-    });
-  }
-});
-
-// Add increase limits endpoint
-app.post('/api/increase-limits', async (req, res) => {
-  try {
-    const { increaseLimits } = require('./utils/limitsChecker');
-    const { memberLimit, certificateLimit } = req.body;
-    
-    if (!memberLimit && !certificateLimit) {
-      return res.status(400).json({
-        success: false,
-        message: 'Provide memberLimit and/or certificateLimit to increase'
-      });
-    }
-    
-    const updatedLimits = await increaseLimits(memberLimit, certificateLimit);
-    
-    res.json({
-      success: true,
-      message: 'Limits increased successfully! New additions are now allowed.',
-      limits: {
-        memberLimit: updatedLimits.memberLimit,
-        certificateLimit: updatedLimits.certificateLimit
-      }
-    });
-  } catch (error) {
-    console.error('Increase limits error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error increasing limits' 
-    });
-  }
-});
-
-// Add this AFTER the existing /api/limits-status endpoint
-app.post('/api/update-limits', async (req, res) => {
-  try {
-    const SystemLimits = require('./models/SystemLimits');
-    const { memberLimit, certificateLimit, isActive } = req.body;
-    
-    let limits = await SystemLimits.findOne();
-    if (!limits) {
-      limits = new SystemLimits({
-        memberLimit: 1415,
-        certificateLimit: 1415,
-        isActive: true
-      });
-    }
-    
-    if (memberLimit !== undefined) limits.memberLimit = memberLimit;
-    if (certificateLimit !== undefined) limits.certificateLimit = certificateLimit;
-    if (isActive !== undefined) limits.isActive = isActive;
-    
-    await limits.save();
-    
-    console.log('✅ Limits updated:', {
-      memberLimit: limits.memberLimit,
-      certificateLimit: limits.certificateLimit,
-      isActive: limits.isActive
-    });
-    
-    res.json({
-      success: true,
-      message: 'Limits updated successfully',
-      limits: {
-        memberLimit: limits.memberLimit,
-        certificateLimit: limits.certificateLimit,
-        isActive: limits.isActive
-      }
-    });
-  } catch (error) {
-    console.error('Update limits error:', error);
-    res.status(500).json({ success: false, message: 'Error updating limits' });
   }
 });
 
