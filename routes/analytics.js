@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const Certificate = require('../models/Certificate');
+const mongoose = require('mongoose');
 
 // Fixed list of all Nigerian states + FCT
 const allStatesList = [
@@ -17,6 +18,21 @@ const defaultPositionsList = [
   "President", "Vice President", "Secretary", "Assistant Secretary", "Treasurer",
   "Financial Secretary", "PRO", "Member"
 ];
+
+// Activity Schema - Define it here to avoid model compilation issues
+const ActivitySchema = new mongoose.Schema({
+  ts: { type: Date, default: Date.now, index: true },
+  date: { type: String },
+  time: { type: String },
+  entity: { type: String, default: 'system', index: true },
+  action: { type: String, default: 'unknown', index: true },
+  data: { type: mongoose.Schema.Types.Mixed, default: {} },
+  title: { type: String },
+  type: { type: String }
+}, { timestamps: false, strict: false });
+
+// Get or create Activity model
+const Activity = mongoose.models.Activity || mongoose.model('Activity', ActivitySchema);
 
 // Database wrapper function
 const withDB = (handler) => {
@@ -76,7 +92,55 @@ router.post('/', withDB(async (req, res) => {
     }
 }));
 
-// Get dashboard analytics (FINAL SORTED VERSION)
+// Helper function to generate activity title
+const generateActivityTitle = (activity) => {
+    if (activity.title) return activity.title;
+    
+    const entityMap = {
+        'member': 'Member',
+        'certificate': 'Certificate',
+        'system': 'System',
+        'user': 'User'
+    };
+    
+    const actionMap = {
+        'created': 'Created',
+        'updated': 'Updated',
+        'deleted': 'Deleted',
+        'login': 'Login',
+        'logout': 'Logout',
+        'pending': 'Pending Changes'
+    };
+    
+    const entity = entityMap[activity.entity] || activity.entity || 'Unknown';
+    const action = actionMap[activity.action] || activity.action || 'Unknown';
+    
+    if (activity.entity === 'member' && activity.data?.name) {
+        return `${entity} ${action}: ${activity.data.name}`;
+    } else if (activity.entity === 'certificate' && activity.data?.number) {
+        return `${entity} ${action}: ${activity.data.number}`;
+    } else if (activity.entity === 'system' && activity.action === 'pending' && activity.data?.totalPending) {
+        return `${activity.data.totalPending} pending changes`;
+    }
+    
+    return `${entity} ${action}`;
+};
+
+// Helper function to determine activity type for icons
+const getActivityType = (activity) => {
+    if (activity.type) return activity.type;
+    
+    const typeMap = {
+        'member': 'member',
+        'certificate': 'certificate',
+        'system': 'system',
+        'user': 'member'
+    };
+    
+    return typeMap[activity.entity] || 'system';
+};
+
+// Get dashboard analytics (FIXED VERSION WITH PROPER RECENT ACTIVITY)
 router.get('/dashboard', withDB(async (req, res) => {
   try {
     const startTime = Date.now();
@@ -90,7 +154,8 @@ router.get('/dashboard', withDB(async (req, res) => {
       stateAggregation,
       positionAggregation,
       distinctPositionsFromDB,
-      recentActivity
+      recentActivityData,
+      recentActivityRecords
     ] = await Promise.all([
       Promise.all([
         User.countDocuments(),
@@ -116,7 +181,17 @@ router.get('/dashboard', withDB(async (req, res) => {
       Promise.all([
         User.countDocuments({ dateAdded: { $gte: sevenDaysAgo } }),
         Certificate.countDocuments({ dateIssued: { $gte: sevenDaysAgo } })
-      ])
+      ]),
+      // ✅ FIX: Fetch actual activity records
+      Activity.find({})
+        .sort({ ts: -1 })
+        .limit(15)
+        .lean()
+        .exec()
+        .catch(err => {
+          console.warn('Activity collection not found or error:', err.message);
+          return []; // Return empty array if Activity collection doesn't exist yet
+        })
     ]);
 
     // Merge states with fixed list
@@ -138,6 +213,19 @@ router.get('/dashboard', withDB(async (req, res) => {
       }))
       .sort((a, b) => b.value - a.value); // Sort descending by value
 
+    // ✅ FIX: Format recent activity for frontend consumption
+    const formattedRecentActivity = recentActivityRecords.map(activity => ({
+      id: activity._id,
+      title: generateActivityTitle(activity),
+      timestamp: activity.ts || activity.createdAt || new Date(),
+      type: getActivityType(activity),
+      entity: activity.entity,
+      action: activity.action,
+      data: activity.data,
+      date: activity.date,
+      time: activity.time
+    }));
+
     const queryTime = Date.now() - startTime;
 
     res.json({
@@ -150,8 +238,10 @@ router.get('/dashboard', withDB(async (req, res) => {
         revokedCertificates: certificateStatus[1],
         usersByState,
         usersByPosition,
-        recentUsers: recentActivity[0],
-        recentCertificates: recentActivity[1],
+        recentUsers: recentActivityData[0],
+        recentCertificates: recentActivityData[1],
+        // ✅ FIX: Add properly formatted recent activity
+        recentActivity: formattedRecentActivity,
         systemHealth: {
           database: 'connected',
           uptime: process.uptime(),
