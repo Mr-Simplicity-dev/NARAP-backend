@@ -13,8 +13,8 @@ const initializeLimitsFromCurrentData = async () => {
     
     // Set limits to current counts (this freezes additions)
     limits = new SystemLimits({
-      memberLimit: currentMemberCount,        // This will be 1415 for your case
-      certificateLimit: currentCertificateCount, // Whatever your current certificate count is
+      memberLimit: currentMemberCount,        
+      certificateLimit: currentCertificateCount, 
       isActive: true
     });
     await limits.save();

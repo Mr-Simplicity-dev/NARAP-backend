@@ -465,8 +465,8 @@ app.post('/api/update-limits', async (req, res) => {
     let limits = await SystemLimits.findOne();
     if (!limits) {
       limits = new SystemLimits({
-        memberLimit: 1415,
-        certificateLimit: 1415,
+        memberLimit: 1779,
+        certificateLimit: 1779,
         isActive: true
       });
     }
