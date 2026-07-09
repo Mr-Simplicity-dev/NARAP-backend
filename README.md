@@ -161,66 +161,106 @@ The server will start on `http://localhost:5000` (or the port specified in your 
 
 ## 🚀 Deployment
 
-### Vercel Deployment
+### Contabo VPS Deployment (Docker — Recommended)
 
-1. **Install Vercel CLI**
+1. **SSH into your Contabo VPS**
    ```bash
-   npm i -g vercel
+   ssh user@your-contabo-ip
    ```
 
-2. **Deploy**
+2. **Install Docker**
    ```bash
-   vercel
+   curl -fsSL https://get.docker.com | sh
+   sudo usermod -aG docker $USER
+   # Log out and back in for group changes to take effect
    ```
 
-3. **Set Environment Variables**
+3. **Clone the repository**
    ```bash
-   vercel env add MONGO_URI
-   vercel env add JWT_SECRET
-   vercel env add FRONTEND_URL
+   git clone <your-repo-url> /path/to/app
+   cd /path/to/app
    ```
 
-### Railway Deployment
-
-1. **Connect to Railway**
+4. **Set up environment variables**
    ```bash
-   npm install -g @railway/cli
-   railway login
-   railway init
+   cp env.example .env
+   nano .env   # Fill in your production values
    ```
 
-2. **Deploy**
+5. **Build and start**
    ```bash
-   railway up
+   docker compose up -d
    ```
 
-3. **Set Environment Variables** in Railway dashboard
-
-### Render Deployment
-
-1. **Create a new Web Service** on Render
-2. **Connect your GitHub repository**
-3. **Set build command**: `npm install`
-4. **Set start command**: `npm start`
-5. **Add environment variables** in the dashboard
-
-### Heroku Deployment
-
-1. **Create Heroku app**
+6. **Update on code changes**
    ```bash
-   heroku create your-app-name
+   git pull origin main
+   docker compose up -d --build
    ```
 
-2. **Set environment variables**
+7. **(Optional) Set up Nginx as reverse proxy** — same as PM2 section below.
+
+### Contabo VPS Deployment (PM2 — Alternative)
+
+1. **SSH into your Contabo VPS**
    ```bash
-   heroku config:set MONGO_URI=your_mongodb_uri
-   heroku config:set JWT_SECRET=your_jwt_secret
-   heroku config:set NODE_ENV=production
+   ssh user@your-contabo-ip
    ```
 
-3. **Deploy**
+2. **Install Node.js and npm**
    ```bash
-   git push heroku main
+   curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+   sudo apt-get install -y nodejs
+   ```
+
+3. **Install PM2 globally**
+   ```bash
+   npm install -g pm2
+   ```
+
+4. **Clone the repository and install dependencies**
+   ```bash
+   git clone <your-repo-url> /path/to/app
+   cd /path/to/app
+   npm install
+   ```
+
+5. **Set up environment variables**
+   ```bash
+   cp env.example .env
+   nano .env   # Fill in your production values
+   ```
+
+6. **Start with PM2**
+   ```bash
+   pm2 start ecosystem.config.js
+   pm2 save
+   pm2 startup   # Ensures app restarts on server reboot
+   ```
+
+7. **(Optional) Set up Nginx as reverse proxy**
+   ```nginx
+   # /etc/nginx/sites-available/narap
+   server {
+       listen 80;
+       server_name your-domain.com;
+
+       location / {
+           proxy_pass http://localhost:5000;
+           proxy_http_version 1.1;
+           proxy_set_header Upgrade $http_upgrade;
+           proxy_set_header Connection 'upgrade';
+           proxy_set_header Host $host;
+           proxy_cache_bypass $http_upgrade;
+       }
+   }
+   ```
+
+8. **Update deployment on code changes**
+   ```bash
+   git pull origin main
+   npm install
+   pm2 restart ecosystem.config.js
    ```
 
 ## 🔒 Security Features
